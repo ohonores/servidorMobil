@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html xml:lang="en-gb" lang="en-gb" >
+  <head>
+    <meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge;text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <script type="text/javascript" src="/recursos/angular/angular.min.js"></script>
+    <link rel="icon" href="../../favicon.ico">
+
+    <title>SwisSEdi::Systema de Documento Electrónicos</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="edi-docElectronicos/vendor/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet">
+	 <link href="edi-docElectronicos/vendor/bootstrap-3.3.5/css/font-awesome.css" rel="stylesheet">
+    <!-- Custom styles for this template -->
+    <link href="edi-docElectronicos/vendor/bootstrap-3.3.5/css/offcanvas.css" rel="stylesheet">
+	<link rel="stylesheet" href="edi-docElectronicos/vendor/notificaciones/msgPop.css"/>
+	<link rel="stylesheet" href="edi-docElectronicos/css/codigoOcularMenus.css"/>
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+      <script src="edi-docElectronicos/vendor/bootstrap-3.3.5/js/html5shiv/3.7.2/html5shiv.min.js"></script>
+      <script src="edi-docElectronicos/vendor/bootstrap-3.3.5/js/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+  </head>
+  <body ng-app="uiRouterDocElectronicos" ng-cloak>
+	  <nav class="navbar navbar-fixed-top navbar-inverse" style="background-color:white;border-color:#E5DEDE;color:#551973">
+		  <div class="container">
+			<div class="navbar-header">
+			  <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+				<span class="sr-only">Toggle navigation</span>
+				<span class="icon-bar"></span>
+				<span class="icon-bar"></span>
+				<span class="icon-bar"></span>
+			  </button>
+			  <img  style="padding:20px"   src="/images/logo/logo_swiss_16x16.png" /><span class="titulo_16" >Documentos Electrónicos</span>
+			</div>
+			<div id="navbar" class="collapse navbar-collapse">
+			 <ul class="nav navbar-nav serifmenu mostrarlogos" >
+				 <li ><a href="#" ng-click="cerrarMenuPrincipal();formDatosVirtual.formularioD=true;formDatosVirtual.formularioA=false;formDatosVirtual.formularioB=false;formDatosVirtual.formularioC=false;getEstablecerComunicacion();"  >Asistente Virtual</a></li>
+					 <li><a href="#" ng-click="cerrarMenuPrincipal();formDatosVirtual.formularioA=true;formDatosVirtual.formularioAA=true;formDatosVirtual.formularioB=false;formDatosVirtual.formularioC=false;formDatosVirtual.formularioD=false">Login</a></li>
+			  </ul>
+			</div><!-- /.nav-collapse -->
+		  </div><!-- /.container -->
+	  </nav><!-- /.navbar -->
+
+	<div class="container">
+		<div class="row row-offcanvas row-offcanvas-right">
+      <div class="col-xs-12 col-sm-9">
+
+          <div   ng-controller="EmpresasCrtl"  class="jumbotron ocultarimagen" style="background:none !important;">
+              <!-- <img style="width:100%;height:auto;" src="cabecera/salud-farma.jpg"  >-->
+              </br></br>
+              <hr>
+              <center>
+                <ul class="sprocket-mosaic-container sprocket-mosaic-columns-4 ">
+                    <li ng-repeat="empresa in empresasCache">
+                          <div class="sprocket-mosaic-item" style="{{control.isSet('imagen',empresa.id) ? '-webkit-box-shadow:10px 25px 20px -2px rgba(0,0,0,0.59);-moz-box-shadow:10px 25px 20px  -2px rgba(0,0,0,0.59);box-shadow:10px 25px 20px  -2px rgba(0,0,0,0.59);':''}}">
+                              <div style="display: none;"></div>
+                              <div class="sprocket-padding">
+                                  <div class="sprocket-mosaic-image-container">
+                                      <a href="#" ng-click="control.setTab('imagen',empresa.id,empresa.descripcion );control.setEmisorComboBox(empresa)">
+                                          <img   ng-src="{{empresa.urllogo}}" alt="{{empresa.descripcion}}" class="sprocket-mosaic-image">
+                                          <span class="sprocket-mosaic-hover"></span>
+                                          <span class="sprocket-mosaic-hovercontent" data-content=""></span>
+                                      </a>
+                                  </div>
+                                  <div class="sprocket-mosaic-text"><!-- text --></div>
+                              </div>
+                          </div>
+                      </li>
+                </ul>
+              </center>
+              <hr>
+          </div>
+
+
+          <div ui-view="ayudaRecuperacionclave" class="row ocultarimagen" >
+
+          </div><!--/row-->
+          <div ui-view="ayudaAsistenteVirtual" class="row ocultarimagen" >
+
+          </div><!--/row-->
+
+
+      </div><!--/.col-xs-12.col-sm-9-->
+
+      <div class="col-sm-3 " id="sidebar">
+          <div class="cover-container">
+              <div class="row" >
+                    <div ui-view ></div>
+              </div>
+              </br>
+          </div><!--cover-container-->
+      </div><!--col-xs-6 col-sm-3-->
+
+    </div><!--/row-->
+		<hr>
+
+		<center class="mostrarlogos">
+
+
+		</center>
+
+      <footer style="background-color:#e7e7e7">
+        <center><span>Copyright © 2015  <img  style="padding:15px"  class="masthead-brand" src="/images/logo/logo_swiss_footer.png" /> - Todos los Derechos Reservados.</span></center>
+      </footer>
+
+    </div><!--/.container-->
+
+
+
+
+
+
+
+
+
+
+
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+
+    <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
+   <!-- <script src="bootstrap-3.3.5/js/js/ie10-viewport-bug-workaround.js"></script>-->
+
+<script src="/edi-docElectronicos/app/js/lib/librerias-core/jquery-1.11.1.min.js"></script>
+ <script src="edi-docElectronicos/vendor/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+ <script src="edi-docElectronicos/vendor/bootstrap-3.3.5/js/offcanvas.js"></script>
+<script type="text/javascript" src="/edi-docElectronicos/app/js/lib/librerias-core/handlebars.js"></script>
+<script type="text/javascript" src="/edi-docElectronicos/app/js/lib/librerias-core/typeahead.bundle.min.js"></script>
+
+<script type="text/javascript" src="/edi-docElectronicos/app/js/lib/librerias-core/angular-sanitize.min.js"></script>
+<script type="text/javascript" src="/recursos/angular-animate/angular-animate.min.js"></script>
+<script src="/edi-docElectronicos/app/js/lib/angular-states/angular-ui-router.min.js"></script>
+<script type="text/javascript" src="/edi-docElectronicos/vendor/notificaciones/jquery.msgPop.js"></script>
+<script type="text/javascript" src="/edi-docElectronicos/jsminificado/servicios.min.js"></script>
+<script type="text/javascript" src="/edi-docElectronicos/app/controlador.js"></script>
+<script type="text/javascript" src="/edi-docElectronicos/jsminificado/app.min.js"></script>
+
+<script>
+  function notificar(mensaje, tipo){
+    try{
+      MsgPop.closeAll();
+
+      MsgPop.displaySmall = true;
+      MsgPop.position="bottom-right";
+      MsgPop.open({
+      Type:tipo,
+      Content:mensaje,
+      ClickAnyClose: true,
+      HideCloseBtn: false,
+      ShowIcon:true
+      });
+      MsgPop.live();
+    }catch(error){
+      console.log(error);
+      alert(mensaje)
+    }
+  }
+</script>
+</body>
+</html>

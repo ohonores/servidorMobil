@@ -1,0 +1,27 @@
+{
+  "name": "servidorFacturacionElectronica",
+  "description": "",
+  "main": "",
+  "license": "MIT",
+  "moduleType": [],
+  "homepage": "",
+
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "angular": "^1.5.0",
+    "jquery": "^2.2.1",
+    "underscore": "^1.8.3",
+    "bootstrap": "^3.3.6",
+    "angular-sanitize": "^1.5.0",
+    "angular-animate": "^1.5.0",
+    "angular-ui-router": "^0.2.18",
+    "font-awesome": "^4.5.0",
+    "bootstrap-offcanvas": "^2.1.1"
+  }
+}
