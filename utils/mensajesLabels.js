@@ -7,6 +7,9 @@ var Labels = function() {
     this.errorServidorWS = {
         "noresponde":{tipo:"error",mensaje:"SERVIDOR WS NO ESTA DANDO RESPUESTA POR FAVOR VERIFIQUE Q ESTE ARRIBA"}
     }
+    this.errorIdentificacion = {
+        "identificacion":{tipo:"error",mensaje:"LA IDENTIFICACION INGRESDA NO ES ACEPTADA"}
+    }
 }
 
 module.exports = new Labels();

@@ -60,7 +60,7 @@ if(process.env.REDIS == 1){
     	CONFIGURACION DE REDIS, SI NO TIENE LA BASE DE REDIS POR FAVOR COMENTAR HASTA "FIN REDIS"
     *************/
 
-    client = require("redis").createClient(6379,process.env.NODE_ENV==="development"?"192.168.1.6":"localhost");
+    client = require("redis").createClient(6379,"localhost");
     redisStore = require('connect-redis')(session);
     client.on("error", function (err) {
         log.info("Error " + err);
@@ -68,7 +68,7 @@ if(process.env.REDIS == 1){
     /*********FIN REDIS**************/
     app.use(session({
         secret: 'alien200525',
-        store: new redisStore({ host: process.env.NODE_ENV==="development"?"192.168.1.6":"localhost", port: 6379,prefix:'edi', client: client,ttl :120}),
+        store: new redisStore({ host: "localhost", port: 6379,prefix:'edi', client: client,ttl :120}),
         saveUninitialized: true,
         resave: false
     }));
@@ -110,10 +110,6 @@ app.use(function(err, req, res, next) {
 
 // now `readFile` will return a promise rather than expecting a callback
 log.info("NODE_ENV: "+ process.env.NODE_ENV);
-
-
-
-
 /*
   ESPECIFICAMOS EL CERTIFICADO P12 PARA QUE PUEDA CONTARTSE CON EL WEBSERVICE
 */
@@ -138,10 +134,15 @@ var mongodb = require('./conexiones-basededatos/conexion-mongodb.js');
 var OracleMongo = require('./utils/OracleMongo.js');
 var oracleMongo =  new OracleMongo(oracledb, mongodb);
 
+//oracleMongo.crearPerfiles();
+//oracleMongo.crearEstablecimientos();
+//oracleMongo.crearDiccionarios();
+//oracleMongo.crearEstadoCuenta();
+//oracleMongo.crearItems();
 
 rutasPrivadas.log = log;
 rutasPrivadas.oracleMongo = oracleMongo;
-rutasPublicas.use('/ver', rutasPrivadas);
+rutasPublicas.use('/movil/sincronizacion', rutasPrivadas);
 app.use('/', rutasPublicas);
 
 //The 404 Route (ALWAYS Keep this as the last route)

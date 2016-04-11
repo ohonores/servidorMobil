@@ -1,5 +1,6 @@
 var EntidadesMongoOracle = require("./jsonEntity.js");
 var entidesMonogoDB = new EntidadesMongoOracle();
+
 var oracle,mongodb;
 //Selects para obtener los datos a Oracle
 var sqlBusquedaPerfilesNew = "SELECT * FROM  SWISSMOVI.EMOVTPERFIL WHERE ROWNUM <2";
@@ -185,6 +186,14 @@ function grabarRegistrosRecursivosDesdeUnArraySqls(index, listaSqls, i, callBack
         callBack(i);
     }
 }
+OracleMongo.prototype.autentificacion = function(parametros, callBack){
+        mongodb.getRegistroCustomColumnas("emcperfiles", {"registroMovil.identificacion":parametros.identificacion}, {registroMovil:1,}, function(resultado){
+            callBack(resultado);
+        /*    mongodb.modificar("emcperfiles", {_id:resultado._id}, {actualizar}, function(){
+
+        })*/
+        });
+}
 
 OracleMongo.prototype.crearPerfiles = function(){
     oracledb.getPoolClienteConexion(entidesMonogoDB.getJsonPerfiles().sqlOrigen, [], false, function(respuestaora){
@@ -260,8 +269,8 @@ OracleMongo.prototype.crearItems = function(){
 }
 
 OracleMongo.prototype.getTablasScript = function(){
-    var jsonItems = entidesMonogoDB.getTablasScript();
-    console.log(jsonItems);
+    return  entidesMonogoDB.getTablasScript();
+
 }
 
 OracleMongo.prototype.getDatosDinamicamente = function(coleccion, identificacion, index, callBack){
@@ -276,7 +285,7 @@ OracleMongo.prototype.getDatosDinamicamente = function(coleccion, identificacion
     });
 }
 OracleMongo.prototype.getCount = function(identificacion, urlPorPefil, urlDiccionario, callBack){
-    console.log("getCount OracleMongo");
+
     getTotalesParcialesPorPerifil(0, entidesMonogoDB.getColecciones(), identificacion, function(nuevaColeccion){
         nuevaColeccionA = nuevaColeccion.map(function(col){
             if(col.diccionario){

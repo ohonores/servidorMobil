@@ -1,6 +1,6 @@
 var email = require('../utils/email.js');
 
-
+var mensajes = require('../utils/mensajesLabels.js');
 // Part of https://github.com/chris-rock/node-crypto-examples
 // Nodejs encryption with CTR
 var crypto = require('crypto'),
@@ -121,6 +121,14 @@ SeguridadEDC.prototype.validarPerfil = function(req, res, next) {
     }else {
 
         res.send(false);
+    }
+}
+SeguridadEDC.prototype.validarIdentificacion = function(req, res, next) {
+
+    if(req.params && req.params.identificacion && isNaN(req.params.identificacion)){
+        res.send(mensajes.errorIdentificacion.identificacion);
+    }else {
+        next();
     }
 }
 module.exports = new SeguridadEDC();

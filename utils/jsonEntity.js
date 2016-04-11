@@ -28,7 +28,8 @@ EntidadesMongoOracle.prototype.getJsonPerfiles = function(){
                                     token:""
                                 },
                                 registroInterno:{
-                                    perfil:"ID"
+                                    perfil:"ID",
+                                    dispositivos:[]
                                 }
 
                         }
@@ -45,29 +46,29 @@ EntidadesMongoOracle.prototype.getJsonEstablecimientos = function(){
                     registroMongo:{
                         registroMovil:{
                             establecimiento_id:"ESTABLECIMIENTO_ID",
-                            establecimientoTipoPago:"MESTABLECIMIENTOTIPOPAGO_ID",
+                            establecimientoTipoPago_id:"MESTABLECIMIENTOTIPOPAGO_ID",
                             codigoEstablecimiento:"CODIGO",
-                            infoEstablecmiento:{
+                            infoEstablecimiento:{
                                 perfilEstablecimiento_id:"ID",
                                 nombre:"NOMBRE",
                                 tipo_establecimiento:"TIPO_IDENTIFICACION",
                                 identificacion:"IDENTIFICACION",
                                 direccion:"DIRECCION",
-                                telefeno:"TELEFONO",
+                                telefono:"TELEFONO",
                                 email:"EMAIL",
                                 emailrecaudacion:"EMAILRECAUDACION",
-                                emailrefacturacion:"EMAILFACTURACION",
+                                emailfacturacion:"EMAILFACTURACION",
                                 tiponegocio_id:"TIPONEGOCIO_ID",
                                 fechalicencia:"FECHALICENCIA",
                                 fechavisita:"FECHAVISITA",
                                 vencido:"VENCIDO"
                             },
-                            tiposPagos:"",
+                            tipoPago:"",
                             arrayJson:{
                                 sqlOrigen:"SELECT TPD.* FROM SWISSMOVI.EMOVTESTABLECIMIENTO_TIPO_PAGO JOIN EMOVVTIPO_PAGO_DETALLE TPD ON TPD.TIPOPAGODETALLE_ID = MTIPOPAGODETALLE_ID  WHERE MPERFILESTABLECIMIENTO_ID =:ID",
                                 parametrosBusqueda:["registroInterno.perfilEstablecimiento"],
                                 parametrosBusquedaValores:[],//Este array indica que se utilizaran paraemtros como el A que es id de donde empezara a leer y B que es la cantidad de registros a traer
-                                etiqueta:"tiposPagos",
+                                etiqueta:"tipoPago",
                                 registroMovil:{
                                     tipopagodetalle_id:"TIPOPAGODETALLE_ID",
                                     descripcion:"DESCRIPCION",
@@ -194,15 +195,15 @@ EntidadesMongoOracle.prototype.getJsonEstadoDeCuenta = function(){
                         registroMovil:{
                             perfilEstablecimiento_id:"MPERFILESTABLECIMIENTO_ID",
                             codigoTipoDocumento:"TIPODOCUMENTO",
-                            preimpres:"PREIMPRESO",
+                            preimpreso:"PREIMPRESO",
                             fechaCartera:"FECHACARTERA",
                             fechaVencimiento:"FECHAVENCIMIENTO",
+                            retencioniva:"RETENCIONIVA",
+                            retencionfuente:"RETENCIONFUENTE",
                             infoDetalleDebito:{
                                 valor:"VALOR",
                                 saldo:"SALDO",
-                                escartera:"ESCARTERA",
-                                retencioniva:"RETENCIONIVA",
-                                retencionfuente:"RETENCIONFUENTE"
+                                escartera:"ESCARTERA"
                             },
                         },
                         registroInterno:{
