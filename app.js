@@ -7,6 +7,7 @@ var bodyParser = require('body-parser');
 var rutasPrivadas = require('./routes/privadas/serviciosprivados');
 var rutasPublicas = require('./routes/publicas/serviciospublicos.js');
 
+
 var Promise = require('promise');
 var fs = require('fs');
 var StringDecoder = require('string_decoder').StringDecoder;
@@ -131,15 +132,15 @@ var mesnajeLabels = require('./utils/mensajesLabels.js');
 /****Cuando es local por favor se debe comentar*/
 var oracledb = require('./conexiones-basededatos/conexion-oracle.js');
 var mongodb = require('./conexiones-basededatos/conexion-mongodb.js');
+//var sqllite = require('./conexiones-basededatos/conexion-sqllite.js');
 var OracleMongo = require('./utils/OracleMongo.js');
 var oracleMongo =  new OracleMongo(oracledb, mongodb);
 
-//oracleMongo.crearPerfiles();
-//oracleMongo.crearEstablecimientos();
-//oracleMongo.crearDiccionarios();
-//oracleMongo.crearEstadoCuenta();
-//oracleMongo.crearItems();
+oracleMongo.crearTareas();
+setTimeout(function () {
 
+oracleMongo.crearColecciones();
+},1000);
 rutasPrivadas.log = log;
 rutasPrivadas.oracleMongo = oracleMongo;
 rutasPublicas.use('/movil/sincronizacion', rutasPrivadas);
@@ -149,5 +150,27 @@ app.use('/', rutasPublicas);
 app.get('/*', function(req, res, next){
    res.render("404/404.html");
 });
+
+
+var sqlite3 = require('sqlite3').verbose();
+var db = new sqlite3.Database(':memory:');
+
+db.serialize(function() {
+  db.run("CREATE TABLE lorem (info TEXT)");
+
+  var stmt = db.prepare("INSERT INTO lorem VALUES (?)");
+  for (var i = 0; i < 10; i++) {
+      stmt.run("Ipsum " + i);
+  }
+  stmt.finalize();
+
+  db.each("SELECT rowid AS id, info FROM lorem", function(err, row) {
+      console.log(row.id + ": " + row.info);
+  });
+});
+
+db.close();
+
+
 
 module.exports = app;

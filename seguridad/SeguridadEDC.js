@@ -1,8 +1,10 @@
 var email = require('../utils/email.js');
-
+var jwt    = require('jsonwebtoken'); // used to create, sign, and verify tokens
+var tokens = require('../seguridad/tokens.js'); // get our config file
 var mensajes = require('../utils/mensajesLabels.js');
 // Part of https://github.com/chris-rock/node-crypto-examples
 // Nodejs encryption with CTR
+
 var crypto = require('crypto'),
     algorithm = 'aes-256-ctr',
     password = '12999999393IEWKDUFDHJU434-.?';
@@ -80,6 +82,8 @@ SeguridadEDC.prototype.supportCrossOriginScript = function(req, res, next) {
 var datosInjections = ['select','1=1','delete','update','where','values','=','>','<','!=','drop table','drop database','drop ',' drop ',' drop',';'];
 SeguridadEDC.prototype.verficarInjections = function (req, res, next){
    var aceptar  = true;
+
+    console.log("verficarInjections")
    console.log(req.originalUrl)
    for(keyjson in req.params){
 		var dato = req.params[keyjson] + ''.toLowerCase().replace(/'/g, '').replace(/"/g, '')
@@ -103,6 +107,7 @@ SeguridadEDC.prototype.verficarInjections = function (req, res, next){
 			}
 		}
 	}
+    console.log(aceptar)
     if(aceptar){
         next();
     }else{
@@ -113,22 +118,55 @@ SeguridadEDC.prototype.verficarInjections = function (req, res, next){
 
 }
 
-SeguridadEDC.prototype.validarPerfil = function(req, res, next) {
-    log.info(req.user);
-    log.info(req.params.perfil);
-    if(req.user.perfil == req.params.perfil){
+
+
+
+SeguridadEDC.prototype.validarIdentificacion = function(req, res, next) {
+    if(req.params &&  !isNaN(req.params.identificacion) && !isNaN(req.params.empresa) && req.params.uidd && req.params.uidd.length>10){
         next();
     }else {
-
-        res.send(false);
+        res.send(mensajes.errorIdentificacion.identificacion);
     }
 }
-SeguridadEDC.prototype.validarIdentificacion = function(req, res, next) {
-
-    if(req.params && req.params.identificacion && isNaN(req.params.identificacion)){
-        res.send(mensajes.errorIdentificacion.identificacion);
-    }else {
+SeguridadEDC.prototype.validarIndex = function(req, res, next) {
+    if(req.params &&  !isNaN(req.params.index)){
         next();
+    }else {
+        res.send(mensajes.errorIdentificacion.perfil);
     }
+}
+
+SeguridadEDC.prototype.validarToken = function(req, res, next) {
+    //Extrae el token de la cabecera
+    console.log(req);
+ var token = req.body.token;
+
+ //Valida que exista el toen
+ console.log("validarToken");
+ console.log(token);
+ if (token) {
+
+   // Valida con la libreria jwt la experiacion y la decodificacion
+   jwt.verify(token, tokens.secret, function(err, decoded) {
+     if (err) {
+       return res.json({ estado: false, message: mensajes.errorToken.token });
+     } else {
+       // si todo esta bien envia el decoed al resto de la ruta
+       console.log(decoded);
+       console.log("listo decoded");
+       req.datosperfil = decoded;
+       next();
+     }
+   });
+  }else {
+
+    // if there is no token
+    // return an error
+    return res.status(403).send({
+        estado: false,
+        message: mensajes.errorToken.notoken
+    });
+
+  }
 }
 module.exports = new SeguridadEDC();

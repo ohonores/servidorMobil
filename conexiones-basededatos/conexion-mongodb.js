@@ -97,13 +97,8 @@ ClienteMongoDb.prototype.grabar = function (collection, parametros, resultado) {
 			resultado(docs);
         });
 }
-ClienteMongoDb.prototype.grabarArray = function (collection, parametros, resultado) {
-     var nuevosParametros = parametros.map(function(dato){
-        dato.fechaColeccion = new Date();
-        return dato;
-    });
-
-        db.collection(collection).insert(nuevosParametros, function(err, docs) {
+ClienteMongoDb.prototype.grabarArray = function (collection, arrayJson, resultado) {
+       db.collection(collection).insert(arrayJson, function(err, docs) {
 			if(err){
 				console.log(err);
 				resultado({error:true,mensaje:err});
@@ -120,5 +115,9 @@ ClienteMongoDb.prototype.modificar = function (collection, busqueda, actualizar,
              callback(results);
         });
 }
-
+ClienteMongoDb.prototype.dropCollection = function (collection, callback) {
+       db.collection(collection).drop(function(err, results) {
+           callback(results);
+        });
+}
 module.exports = new ClienteMongoDb();
