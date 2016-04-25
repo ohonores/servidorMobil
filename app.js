@@ -53,6 +53,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 //app.use(express.session({ secret: 'alien' }));
 app.use('/recursos',express.static(path.join(__dirname, 'bower_components')));
+app.use('/socket',express.static(path.join(__dirname, 'node_modules')));
 var client;
 var redisStore;
 if(process.env.REDIS == 1){
@@ -109,6 +110,20 @@ app.use(function(err, req, res, next) {
 });
 
 
+app.use(function(req, res, next) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,accept,x-requested-with,Authorization,x-access-token');
+    res.setHeader('Access-Control-Request-Headers', 'X-Requested-With,content-type, authorization, x-access-token');
+    if ('OPTIONS' == req.method) {
+      res.send(200);
+    }
+    else {
+      next();
+    }
+
+});
+
 // now `readFile` will return a promise rather than expecting a callback
 log.info("NODE_ENV: "+ process.env.NODE_ENV);
 /*
@@ -138,8 +153,60 @@ var oracleMongo =  new OracleMongo(oracledb, mongodb);
 
 oracleMongo.crearTareas();
 setTimeout(function () {
+    //oracleMongo.crearColecciones(false);
+    /*oracleMongo.getColumnasOracle("select * from SWISSMOVI.emovtafecta where rownum=1", function(d){
+        console.log(d);
 
-oracleMongo.crearColecciones();
+    });*/
+    /*oracleMongo.getTablasScript(function(script){
+            console.log(script);
+    });*/
+    /*var datos = {
+        ID:2,
+        MPERFILESTABLECIMIENTO_ID:14779,
+        PREIMPRESO:"001-001-000012345",
+        FECHACREACION:new Date(),
+        DISPOSITIVO:"03030303",
+        ESTADO:1,
+        REGISTROSASOCIADOS:[{tabla:"emovtcartera_detalle", registros:[
+            {MFORMAPAGO_ID:1,
+                MDOCUMENTO_ID:1,
+                VALOR:1,
+                SALDO:1,
+                REFERENCIA:1,
+                CUENTA:"TEST",
+                FECHACARTERA:new Date(),
+                FECHAVENCIMIENTO:new Date(),
+                FECHAFINANCIERA:new Date(),
+                FECHADOCUMENTO:new Date(),
+                MCUENTABANCARIA_ID:1,
+                MBANCO_ID:1,
+                IDENTIFICACION:"161616",
+                RAZONSOCIAL:"ORLANDO HOONRES",
+                REGISTROSASOCIADOS:[
+                                    {
+                                        tabla:"emovtafecta",
+                                        registros:[
+                                                    {
+                                                        MDETALLECREDITO_ID:1,
+                                                        MDETALLEDEBITO_ID:1,
+                                                        VALOR:1,
+                                                        FECHAAFECTA:new Date()
+                                                    }
+                                                ]
+                                    }
+                                    ]
+            }
+
+            ]}
+        ]
+
+
+    }*/
+    /*oracleMongo.setDatosDinamicamente("emovtcartera", datos, function(estado, resultado){
+            console.log(estado);
+            console.log(resultado);
+    });*/
 },1000);
 rutasPrivadas.log = log;
 rutasPrivadas.oracleMongo = oracleMongo;
@@ -156,6 +223,7 @@ var sqlite3 = require('sqlite3').verbose();
 var db = new sqlite3.Database(':memory:');
 
 db.serialize(function() {
+    db.run("CREATE TABLE IF NOT EXISTS emovtafecta (id integer primary key, mdetallecredito_id INTEGER,mdetalledebito_id TEXT,valor REAL,fechaafecta TEXT)");
   db.run("CREATE TABLE lorem (info TEXT)");
 
   var stmt = db.prepare("INSERT INTO lorem VALUES (?)");

@@ -1,19 +1,30 @@
-var scritpA = "CREATE TABLE IF NOT EXISTS #TABLA (id integer primary key, #COLUMNAS)";
+var scritpA = "CREATE TABLE #TABLA (id integer primary key, hash TEXT, #COLUMNAS)";
+var scritpEspejo = "CREATE TABLE IF NOT EXISTS #TABLA (id integer primary key, #COLUMNAS)";
+var scritpDropTables = "DROP TABLE #TABLA";
+var scritpUniqueKeys = "CREATE UNIQUE INDEX #NOMBRE ON #TABLA(hash)";
 var scritpB = "PRAGMA foreign_keys = ON;";
 var tipoDato = "TEXT"
 var EntidadesMongoOracle = function(){
 
+}
+EntidadesMongoOracle.prototype.getScriptA = function(){
+    return scritpA;
+}
+EntidadesMongoOracle.prototype.getScriptB = function(){
+    return scritpB;
 }
 EntidadesMongoOracle.prototype.getJsonPerfiles = function(){
     return {
                     coleccion:"emcperfiles",
                     sqlOrigen:"SELECT * FROM  SWISSMOVI.EMOVTPERFIL ORDER BY ID ASC",
                     movil:{tabla:"emovtperfil", crear:true},
+
                     registroMongo:{
                                 registroMovil:{
                                     identificacion:"IDENTIFICACION",
                                     infoEmpresa:{empresa_id:"EMPRESA_ID",empresa_descripcion:"EMPRESA_DESCRIPCION"},
-                                    infoPerfil:{vendedor_id:"VENDEDOR_ID",
+                                    infoPerfil:{
+                                                vendedor_id:"VENDEDOR_ID",
                                                 usuario_id:"USUARIO_ID",
                                                 nombres:"NOMBRES",
                                                 codigo:"CODIGO",
@@ -43,6 +54,10 @@ EntidadesMongoOracle.prototype.getJsonEstablecimientos = function(){
                     sqlOrigen:"SELECT * FROM (SELECT * FROM SWISSMOVI.EMOVTPERFIL_ESTABLECIMIENTO  WHERE MPERFIL_ID =:ID ORDER BY ID ASC) PE WHERE  PE.ID>:A AND ROWNUM<=:B",
                     parametrosBusqueda:["registroInterno.perfil"],
                     parametrosBusquedaValores:[], //Este array indica que se utilizaran paraemtros como el A que es id de donde empezara a leer y B que es la cantidad de registros a traer
+                    registroTipoCamposNumericos:{
+                        "ESTABLECIMIENTO_ID":"INTEGER",
+                        "ESTABLECIMIENTOTIPOPAGO_ID":"INTEGER"
+                    },
                     registroMongo:{
                         registroMovil:{
                             establecimiento_id:"ESTABLECIMIENTO_ID",
@@ -63,6 +78,7 @@ EntidadesMongoOracle.prototype.getJsonEstablecimientos = function(){
                                 fechavisita:"FECHAVISITA",
                                 vencido:"VENCIDO"
                             },
+
                             tipoPago:"",
                             arrayJson:{
                                 sqlOrigen:"SELECT TPD.* FROM SWISSMOVI.EMOVTESTABLECIMIENTO_TIPO_PAGO JOIN EMOVVTIPO_PAGO_DETALLE TPD ON TPD.TIPOPAGODETALLE_ID = MTIPOPAGODETALLE_ID  WHERE MPERFILESTABLECIMIENTO_ID =:ID",
@@ -95,6 +111,7 @@ EntidadesMongoOracle.prototype.getJsonDiccionarioBanco = function(){
                     movil:{tabla:"emovtdiccionarios", crear:true},
                     sqlOrigen:"SELECT * FROM (SELECT * FROM SWISSMOVI.EMOVVBANCO ORDER BY ID ASC) PE WHERE  PE.ID>:A AND ROWNUM<=:B",
                     parametrosBusquedaValores:[],//Este array indica que se utilizaran paraemtros como el A que es id de donde empezara a leer y B que es la cantidad de registros a traer
+
                     registroMongo:{
                         registroMovil:{
                             codigo:"*BAN",//El * significa que no sera buscado en el array origen y conservara su valor, pero se reemplazar el * por vacio
@@ -114,14 +131,16 @@ EntidadesMongoOracle.prototype.getJsonDiccionarioCuentaBancaria = function(){
                     movil:{tabla:"emovtdiccionarios", crear:true},
                     sqlOrigen:"SELECT * FROM (SELECT * FROM SWISSMOVI.EMOVVCUENTA_BANCARIA ORDER BY ID ASC) PE WHERE  PE.ID>:A AND ROWNUM<=:B",
                     parametrosBusquedaValores:[],//Este array indica que se utilizaran paraemtros como el A que es id de donde empezara a leer y B que es la cantidad de registros a traer
+
                     registroMongo:{
                         registroMovil:{
                             codigo:"*CBA",//El * significa que no sera buscado en el array origen y conservara su valor, pero se reemplazar el * por vacio
                             infoDiccionario:{
                                 id:"ID",
                                 empresa_id:"EMPRESA_ID",
-                                numero_cuenta:"NUMERO_CUENTA",
+                                numero_cuenta:"CODIGO",
                                 descripcion:"DESCRIPCION",
+                                tipocuenta:"TIPOCUENTA"
                             },
                         },
 
@@ -132,7 +151,7 @@ EntidadesMongoOracle.prototype.getJsonDiccionarioDocumento = function(){
     return {
                     coleccion:"emcdiccionarios",
                     movil:{tabla:"emovtdiccionarios", crear:true},
-                    sqlOrigen:"SELECT * FROM (SELECT * FROM SWISSMOVI.EMOVVDOCUMENTO ORDER BY ID ASC)  PE WHERE  PE.ID>:A AND ROWNUM<=:B",
+                    sqlOrigen:"SELECT * FROM (SELECT * FROM SWISSMOVI.EMOVVFORMA_PAGO ORDER BY ID ASC) PE WHERE  PE.ID>:A AND ROWNUM<=:B",
                     parametrosBusquedaValores:[],//Este array indica que se utilizaran paraemtros como el A que es id de donde empezara a leer y B que es la cantidad de registros a traer
                     registroMongo:{
                         registroMovil:{
@@ -141,21 +160,26 @@ EntidadesMongoOracle.prototype.getJsonDiccionarioDocumento = function(){
                                 id:"ID",
                                 codigo:"CODIGO",
                                 descripcion:"DESCRIPCION",
-                                retencion:"RETENCION",
+                                tipo:"TIPO",
                                 formaPago:"",
                                 arrayJson:{
-                                    sqlOrigen:"SELECT * FROM SWISSMOVI.EMOVVFORMA_PAGO",
+                                    sqlOrigen:"SELECT * FROM SWISSMOVI.EMOVVDOCUMENTO  WHERE  MFORMAPAGO_ID=:ID",
+                                    parametrosBusqueda:["registroInterno.mformapago_id"],
                                     parametrosBusquedaValores:[],//Este array indica que se utilizaran paraemtros como el A que es id de donde empezara a leer y B que es la cantidad de registros a traer
                                     etiqueta:"formaPago",
                                     registroMovil:{
                                         id:"ID",
                                         codigo:"CODIGO",
                                         descripcion:"DESCRIPCION",
-                                        tipo:"TIPO"
+                                        retencion:"RETENCION"
                                     }
 
                                 }
                             }
+                        },
+                        registroInterno:{
+                            mformapago_id:"ID"
+
                         }
 
                         }
@@ -188,9 +212,16 @@ EntidadesMongoOracle.prototype.getJsonEstadoDeCuenta = function(){
                     coleccion:"emcestadodecuenta",
                     diccionario:false,
                     movil:{tabla:"emovtestadoscuenta", crear:true},
-                    sqlOrigen:"SELECT * FROM (SELECT EC.* FROM SWISSMOVI.EMOVTESTADO_CUENTA EC JOIN SWISSMOVI.EMOVTPERFIL_ESTABLECIMIENTO PE  ON PE.ID=EC.MPERFILESTABLECIMIENTO_ID WHERE PE.MPERFIL_ID=:ID) PA WHERE  PA.ID>:A AND ROWNUM<=:B",
+                    sqlOrigen:"SELECT * FROM (SELECT EC.* FROM SWISSMOVI.EMOVTESTADO_CUENTA EC JOIN SWISSMOVI.EMOVTPERFIL_ESTABLECIMIENTO PE  ON PE.ID=EC.MPERFILESTABLECIMIENTO_ID WHERE PE.MPERFIL_ID=:ID ORDER BY EC.ID ASC) PA WHERE  PA.ID>:A AND ROWNUM<=:B",
                     parametrosBusqueda:["registroInterno.perfil"],
                     parametrosBusquedaValores:[],//Este array indica que se utilizaran paraemtros como el A que es id de donde empezara a leer y B que es la cantidad de registros a traer
+                    registroTipoCamposNumericos:{
+                        "PERFILESTABLECIMIENTO_ID":"INTEGER",
+                        "VALOR":"REAL",
+                        "SALDO":"REAL",
+                        "RETENCIONIVA":"REAL",
+                        "RETENCIONFUENTE":"REAL",
+                    },
                     registroMongo:{
                         registroMovil:{
                             perfilEstablecimiento_id:"MPERFILESTABLECIMIENTO_ID",
@@ -221,6 +252,15 @@ EntidadesMongoOracle.prototype.getJsonItems = function(){
                     movil:{tabla:"emovtitems", crear:true},
                     sqlOrigen:"SELECT * FROM (SELECT * FROM SWISSMOVI.EMOVTITEM ORDER BY ID ASC)  PE WHERE  PE.ID>:A AND ROWNUM<=:B",
                     parametrosBusquedaValores:[],//Este array indica que se utilizaran paraemtros como el A que es id de donde empezara a leer y B que es la cantidad de registros a traer
+                    registroTipoCamposNumericos:{
+                        "PRECIO":"REAL",
+                        "DESCUENTO":"INTEGER",
+                        "IMPUESTO1":"INTEGER",
+                        "IMPUESTO2":"INTEGER",
+                        "IMPUESTO3":"INTEGER",
+                        "EMPRESA_ID":"INTEGER",
+                        "LINEA_NEGOCIO_ID":"INTEGER"
+                    },
                     registroMongo:{
                         registroMovil:{
                             empresa_id:"EMPRESA_ID",
@@ -232,14 +272,14 @@ EntidadesMongoOracle.prototype.getJsonItems = function(){
                                 impuestos:{impuesto1:"IMPUESTO1",impuesto2:"IMPUESTO2",impuesto3:"IMPUESTO3"},
                                 permitecambioprecio:"PERMITECAMBIOPRECIO",
                                 controlado:"CONTRALADO",
-                                lineanegocio:"LINEA_NEGOCIO_ID"
+                                linea_negocio_id:"LINEA_NEGOCIO_ID"
                             },
-                            infStock:"",
+                            infoStock:"",
                             arrayJson:{
                                 sqlOrigen:"SELECT S.*, B.DESCRIPCION FROM SWISSMOVI.EMOVTSTOCK S JOIN SWISSMOVI.EMOVVBODEGA B ON S.MBODEGA_ID = B.ID WHERE MITEM_ID =:ID",
                                 parametrosBusqueda:["registroInterno.emovtitem"],
                                 parametrosBusquedaValores:[],//Este array indica que se utilizaran paraemtros como el A que es id de donde empezara a leer y B que es la cantidad de registros a traer
-                                etiqueta:"infStock",
+                                etiqueta:"infoStock",
                                 registroMovil:{
                                     id:"ID",
                                     cantidad:"CANTIDAD",
@@ -263,17 +303,17 @@ EntidadesMongoOracle.prototype.getJsonCartera = function(){
     return {
                     coleccion:"emccartera",
                     diccionario:true,
-                    movil:{tabla:"emovtcartera", crear:true},
-                    updateOrigen:"SELECT * FROM (SELECT * FROM SWISSMOVI.EMOVTITEM ORDER BY ID ASC)  PE WHERE  PE.ID>:A AND ROWNUM<=:B",
-                    parametrosBusquedaValores:[],//Este array indica que se utilizaran paraemtros como el A que es id de donde empezara a leer y B que es la cantidad de registros a traer
+                    movil:{tabla:"emovtcartera", crear:true, espejo:true, sql:"SELECT * FROM SWISSMOVI.EMOVTCARTERA where rownum = 1", secuencia:"SWISSMOVI.emovscartera"},
+                    referencias:{tabla:"emovtcartera_detalle",campofk:"MCARTERA_ID"},
+                    registroTipoCamposNumericos:{
+                        "MPERFILESTABLECIMIENTO_ID":"INTEGER",
+                        "PRECARTERA_ID":"INTEGER"
+
+                    },
                     registroMongo:{
+
                         registroMovil:{
-                            mperfilestablecimiento_id:"MPERFILESTABLECIMIENTO_ID",
-                            preimpreso:"PREIMPRESO",
-                            fechacreacion:"FECHACREACION",
-                            dispositivo:"DISPOSITIVO",
-                            estado:"ESTADO",
-                            token:"TOKEN"
+
                         }
                     }
                 }//FIN DEL JSON
@@ -282,26 +322,22 @@ EntidadesMongoOracle.prototype.getJsonCarteraDetalle = function(){
     return {
                     coleccion:"emccarteraDetalle",
                     diccionario:true,
-                    movil:{tabla:"emovtcartera_detalle", crear:true},
-                    updateOrigen:"SELECT * FROM (SELECT * FROM SWISSMOVI.EMOVTITEM ORDER BY ID ASC)  PE WHERE  PE.ID>:A AND ROWNUM<=:B",
-                    parametrosBusquedaValores:[],//Este array indica que se utilizaran paraemtros como el A que es id de donde empezara a leer y B que es la cantidad de registros a traer
+                    movil:{tabla:"emovtcartera_detalle", crear:true, espejo:true, sql:"SELECT * FROM SWISSMOVI.EMOVTCARTERA_DETALLE where rownum = 1", secuencia:"SWISSMOVI.emovscartera_detalle"},
+                    referencias:{tabla:"emovtafecta",campofk:"MDETALLECREDITO_ID"},
+                    registroTipoCamposNumericos:{
+                        "MFORMAPAGO_ID":"INTEGER",
+                        "MDOCUMENTO_ID":"INTEGER",
+                        "VALOR":"REAL",
+                        "SALDO":"REAL",
+                        "MCUENTABANCARIA_ID":"INTEGER",
+                        "MBANCO_ID":"INTEGER",
+                        "MCARTERA_ID":"INTEGER"
+
+                    },
+                    updateOrigen:"",
                     registroMongo:{
                         registroMovil:{
-                            mformapago_id:"MFORMAPAGO_ID",
-                            mdocumento_id:"MDOCUMENTO_ID",
-                            valor:"VALOR",
-                            saldo:"SALDO",
-                            referencia:"REFERENCIA",
-                            cuenta:"CUENTA",
-                            fechacartera:"FECHACARTERA",
-                            fechavencimiento:"FECHAVENCIMIENTO",
-                            fechafinanciera:"FECHAFINANCIERA",
-                            fechadocumento:"FECHADOCUMENTO",
-                            mcuentabancaria_id:"MCUENTABANCARIA_ID",
-                            mbanco_id:"MBANCO_ID",
-                            identificacion:"IDENTIFICACION",
-                            razonsocial:"RAZONSOCIAL",
-                            mcartera_id:"MCARTERA_ID"
+
                         }
                     }
                 }//FIN DEL JSON
@@ -310,37 +346,85 @@ EntidadesMongoOracle.prototype.getJsonAfecta = function(){
     return {
                     coleccion:"emcafecta",
                     diccionario:true,
-                    movil:{tabla:"emovtafecta", crear:true},
-                    updateOrigen:"SELECT * FROM (SELECT * FROM SWISSMOVI.EMOVTITEM ORDER BY ID ASC)  PE WHERE  PE.ID>:A AND ROWNUM<=:B",
-                    parametrosBusquedaValores:[],//Este array indica que se utilizaran paraemtros como el A que es id de donde empezara a leer y B que es la cantidad de registros a traer
+                    movil:{tabla:"emovtafecta", crear:true, espejo:true, sql:"SELECT * FROM SWISSMOVI.EMOVTAFECTA where rownum = 1",secuencia:"SWISSMOVI.emovsafecta"},
+                    registroTipoCamposNumericos:{
+                        "MDETALLECREDITO_ID":"INTEGER",
+                        "MDETALLEDEBITO_ID":"INTEGER",
+                        "VALOR":"REAL"
+                    },
+                    updateOrigen:"",
                     registroMongo:{
                         registroMovil:{
-                            mformapago_id:"MFORMAPAGO_ID",
-                            mdocumento_id:"MDOCUMENTO_ID",
-                            valor:"VALOR",
-                            saldo:"SALDO",
-                            referencia:"REFERENCIA",
-                            cuenta:"CUENTA",
+
                         }
                     }
                 }//Fin del json
 }
+
+EntidadesMongoOracle.prototype.getJsonOrden = function(){
+    return {
+                    coleccion:"emcorden",
+                    diccionario:true,
+                    movil:{tabla:"emovtorden", crear:true, espejo:true, sql:"SELECT * FROM SWISSMOVI.EMOVTORDEN where rownum = 1"},
+                    registroTipoCamposNumericos:{
+                        "MPERFILESTABLECIMIENTO_ID":"INTEGER",
+                        "MTIPOPAGODETALLE_ID":"INTEGER",
+                        "ORDEN_ID":"INTEGER",
+                        "MBODEGA_ID":"INTEGER"
+                    },
+                    updateOrigen:"",
+                    registroMongo:{
+                        registroMovil:{
+
+                        }
+                    }
+                }//Fin del json
+}
+EntidadesMongoOracle.prototype.getJsonOrdenDetalle = function(){
+    return {
+                    coleccion:"emcordenDetalle",
+                    diccionario:true,
+                    movil:{tabla:"emovtorden_detalle", crear:true, espejo:true, sql:"SELECT * FROM SWISSMOVI.EMOVTORDEN_DETALLE where rownum = 1"},
+                    registroTipoCamposNumericos:{
+                        "MORDEN_ID":"INTEGER",
+                        "MITEM_ID":"INTEGER",
+                        "MPROMOCIONVENTA_ID":"INTEGER",
+                        "PRECIO":"REAL",
+                        "IMPUESTO1":"REAL",
+                        "IMPUESTO2":"REAL",
+                        "IMPUESTO3":"REAL",
+                        "DESCUENTO":"REAL",
+                        "CANTIDAD":"INTEGER"
+                    },
+                    updateOrigen:"",
+                    registroMongo:{
+                        registroMovil:{
+
+                        }
+                    }
+                }//Fin del json
+}
+
 EntidadesMongoOracle.prototype.getTablasScript = function(){
-    obj = new EntidadesMongoOracle();
+    /*obj = new EntidadesMongoOracle();
     return Object.getOwnPropertyNames( EntidadesMongoOracle.prototype ).reduce(function(res, a){
                         if(a.indexOf("getJson")>=0 && obj[a]() && obj[a]().movil && obj[a]().movil.crear){
-                            res[obj[a]().coleccion]=getTablaMovil(obj[a]());
+
+                                res[obj[a]().coleccion]=getTablaMovil(obj[a](), null);
+
+
                             return res;
                         }else{
                             return res;
                         }
                     },{});
+                    */
 }
 EntidadesMongoOracle.prototype.getColecciones = function(){
     obj = new EntidadesMongoOracle();
     return Object.getOwnPropertyNames( EntidadesMongoOracle.prototype ).reduce(function(res, a){
                         if(a.indexOf("getJson")>=0 && obj[a]() &&  (obj[a]().diccionario==true ||obj[a]().diccionario==false)){
-                            res.push({coleccion:obj[a]().coleccion,diccionario:obj[a]().diccionario});
+                            res.push({coleccion:obj[a]().coleccion,diccionario:obj[a]().diccionario, tabla:obj[a]().movil.tabla});
                             return res;
                         }else{
                             return res;
@@ -348,7 +432,6 @@ EntidadesMongoOracle.prototype.getColecciones = function(){
                     },[]);
 
 }
-
 function getCamposParaCrearTablaMovil(json){
     var campos = [];
     for(key in json.registroMongo.registroMovil){
@@ -358,14 +441,59 @@ function getCamposParaCrearTablaMovil(json){
     }
     return campos
 }
-function getTablaMovil(json){
+EntidadesMongoOracle.prototype.getTablaMovil = function(json, utilizarEstosCampos, espejo){
     var campos = [];
-    for(key in json.registroMongo.registroMovil){
-        if(key != "arrayJson"){
-            campos.push(key +" TEXT");
-        }
+    if(Array.isArray(utilizarEstosCampos) &&  utilizarEstosCampos.length>0){
 
+        for(key in utilizarEstosCampos){
+                campos.push(utilizarEstosCampos[key] + (json.registroTipoCamposNumericos && json.registroTipoCamposNumericos[utilizarEstosCampos[key].toUpperCase()] ?" " + json.registroTipoCamposNumericos[utilizarEstosCampos[key].toUpperCase()]:" TEXT"));
+        }
+    }else{
+        for(key in json.registroMongo.registroMovil){
+            if(key != "arrayJson"){
+                campos.push(key + (json.registroTipoCamposNumericos && json.registroTipoCamposNumericos[key.toUpperCase()] ?" " + json.registroTipoCamposNumericos[key.toUpperCase()]:" TEXT"));
+            }
+        }
     }
-    return scritpA.replace("#TABLA", json.movil.tabla).replace("#COLUMNAS", campos.join(",") );
+    if(espejo){
+        return scritpEspejo.replace(/#TABLA/g, json.movil.tabla).replace("#COLUMNAS", campos.join(",") );
+    }else{
+        return scritpA.replace(/#TABLA/g, json.movil.tabla).replace("#COLUMNAS", campos.join(",") );
+    }
+
 }
+EntidadesMongoOracle.prototype.getScriptsDropTables = function(json){
+        return scritpDropTables.replace(/#TABLA/g, json.movil.tabla);
+}
+
+EntidadesMongoOracle.prototype.getScriptsUniqueKeys = function(json, index){
+        return scritpUniqueKeys.replace(/#TABLA/g, json.movil.tabla).replace("#NOMBRE", "UNIQUEHASH"+index);
+}
+
+
+EntidadesMongoOracle.prototype.getSecuenciaOracle = function(tabla){
+    entidesMonogoDB = new EntidadesMongoOracle();
+    return Object.getOwnPropertyNames( EntidadesMongoOracle.prototype ).reduce(function(res, a){
+                        if(a.indexOf("getJson")>=0 && entidesMonogoDB[a]() &&  (entidesMonogoDB[a]().diccionario==true ||entidesMonogoDB[a]().diccionario==false)){
+                            if(entidesMonogoDB[a]().movil.espejo && entidesMonogoDB[a]().movil.sql, entidesMonogoDB[a]().movil.tabla===tabla && entidesMonogoDB[a]().movil.secuencia){
+                                res.secuencia = entidesMonogoDB[a]().movil.secuencia;
+                            }
+                        }
+                        return res;
+                    },{});
+
+}
+EntidadesMongoOracle.prototype.getReferenciaFkOracle = function(tablaA, tablaB){
+    entidesMonogoDB = new EntidadesMongoOracle();
+    return Object.getOwnPropertyNames( EntidadesMongoOracle.prototype ).reduce(function(res, a){
+                        if(a.indexOf("getJson")>=0 && entidesMonogoDB[a]() &&  (entidesMonogoDB[a]().diccionario==true ||entidesMonogoDB[a]().diccionario==false)){
+                            if(entidesMonogoDB[a]().movil.espejo && entidesMonogoDB[a]().movil.sql, entidesMonogoDB[a]().movil.tabla===tablaA && entidesMonogoDB[a]().referencias && entidesMonogoDB[a]().referencias.tabla==tablaB && entidesMonogoDB[a]().referencias.campofk ){
+                                res.campofk = entidesMonogoDB[a]().referencias.campofk;
+                            }
+                        }
+                        return res;
+                    },{});
+
+}
+
 module.exports = EntidadesMongoOracle;

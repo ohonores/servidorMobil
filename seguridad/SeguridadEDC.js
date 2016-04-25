@@ -135,11 +135,13 @@ SeguridadEDC.prototype.validarIndex = function(req, res, next) {
         res.send(mensajes.errorIdentificacion.perfil);
     }
 }
+SeguridadEDC.prototype.validarTokenCors = function(req, callback) {
 
+}
 SeguridadEDC.prototype.validarToken = function(req, res, next) {
     //Extrae el token de la cabecera
-    console.log(req);
- var token = req.body.token;
+ //console.log(req);
+ var token = req.get("x-access-token");
 
  //Valida que exista el toen
  console.log("validarToken");

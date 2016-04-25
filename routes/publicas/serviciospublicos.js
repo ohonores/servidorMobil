@@ -9,9 +9,10 @@ var oracledb = require('../../conexiones-basededatos/conexion-oracle.js');
 var mongodb = require('../../conexiones-basededatos/conexion-mongodb.js');
 var OracleMongo = require('../../utils/OracleMongo.js');
 var oracleMongo =  new OracleMongo(oracledb, mongodb);
-var urlMatriz = "http://documentos.ecuaquimica.com.ec:8087";
-var urlPefil = "/movil/sincronizacion/perfil/:coleccion/:perfil/:index";
-var urlDiccionario = "/movil/sincronizacion/diccionarios/:coleccion/:index";
+var urlMatriz = "http://documentos.ecuaquimica.com.ec:8080";
+var urlPefil = "/movil/sincronizacion/inicio/perfil/:coleccion/:index";
+var urlDiccionario = "/movil/sincronizacion/inicio/diccionarios/:coleccion/:index";
+var urlRecpcion = "http://documentos.ecuaquimica.com.ec:8080/movil/sincronizacion/recepcion/:tabla/"
 /* PAGINA DE INICIO. */
 router.get('/', TipoBrowser.browserAceptado, function(req, res, next) {
      res.send('MOVILE*************');
@@ -56,11 +57,16 @@ router.get('/movil/autentificacion/:identificacion/:empresa/:uidd/:x/:y/:token',
                   expiresInMinutes: 60 //1440 expira en 24 hours
                 });
                 tokenAix = token;
-                oracleMongo.getCount(respuesta.registroMovil.identificacion, respuesta.registroInterno.perfil, urlMatriz+urlPefil, urlMatriz+urlDiccionario, function(total){
-                    respuesta.scripts = oracleMongo.getTablasScript();
-                    respuesta.sincronizacion = total;
-                    respuesta.token = token;// envia el token
-                    res.json(respuesta);
+                oracleMongo.getUrlsPorPefil(respuesta.registroMovil.identificacion, respuesta.registroInterno.perfil, urlMatriz+urlPefil, urlMatriz+urlDiccionario, urlRecpcion, function(total){
+                    oracleMongo.getTablasScript(function(script){
+                            respuesta.scripts = script;
+                            respuesta.scriptsDrops = oracleMongo.getTablasScriptDrop();
+                            respuesta.scriptsUniqueKeys = oracleMongo.getTablasScriptUniqueKey();
+                            respuesta.sincronizacion = total;
+                            respuesta.token = token;// envia el token
+                            res.json(respuesta);
+                    });
+
                 });
                 break;
             default:

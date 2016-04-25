@@ -26,49 +26,65 @@ var mesnajes = require('../../utils/menusYestados.js');
 
 
 
-sincronizar.all("/*", function(req, res, next) {
-  next(); // if the middleware allowed us to get here,
+sincronizar.all("/*", seguridadEDC.validarToken, function(req, res, next) {
+    next(); // if the middleware allowed us to get here,
           // just move on to the next route handler
 });
-sincronizar.get('/perfil/:coleccion/:index', seguridadEDC.verficarInjections, seguridadEDC.validarIndex, function(req, res){
+
+sincronizar.get('/inicio/perfil/:coleccion/:index', seguridadEDC.verficarInjections, seguridadEDC.validarIndex, function(req, res){
         //Datos por Perfil
         console.log('/perfil/:coleccion/:index************************');
         console.log(req.params);
-            oracleMongo.getDatosDinamicamente(req.params.coleccion, parseInt(req.datosperfil.perfil), req.params.index, function(resultado){
+            oracleMongo.getDatosDinamicamenteDeInicio(req.params.coleccion, parseInt(req.datosperfil.perfil), req.params.index, function(resultado){
                     res.json(resultado);
             });
-
-
 });
 
-sincronizar.get('/perfil/:coleccion/:perfil/:index', seguridadEDC.verficarInjections, seguridadEDC.validarIndex, function(req, res){
+sincronizar.get('/actualizar/perfil/:coleccion/:index', seguridadEDC.verficarInjections, seguridadEDC.validarIndex, function(req, res){
+        //Datos por Perfil
+        console.log('/actualizar/perfil/:coleccion/:index************************');
+        console.log(req.params);
+        oracleMongo.getDatosDinamicamenteParaActualizar(req.params.coleccion, parseInt(req.datosperfil.perfil), req.params.index, function(resultado){
+                    res.json(resultado);
+        });
+});
+
+/*sincronizar.get('/perfil/:coleccion/:perfil/:index', seguridadEDC.verficarInjections, seguridadEDC.validarIndex, function(req, res){
         //Datos por Perfil
         console.log('/perfil/:coleccion/:index************************');
         console.log(req.params);
             oracleMongo.getDatosDinamicamente(req.params.coleccion, parseInt(req.params.perfil), req.params.index, function(resultado){
                     res.json(resultado);
             });
-
-
-});
-    //Datos diccionarios
-sincronizar.get('/diccionarios/:coleccion/:index',  function(req, res){
-            oracleMongo.getDatosDinamicamente(req.params.coleccion, null, req.params.index, function(resultado){
+});*/
+//Datos diccionarios
+sincronizar.get('/inicio/diccionarios/:coleccion/:index',  function(req, res){
+            oracleMongo.getDatosDinamicamenteDeInicio(req.params.coleccion, null, req.params.index, function(resultado){
                     res.json(resultado);
             });
         //Datos diccionarios
 });
 
-function supportCrossOriginScript(req, res, next) {
+//Recibir datos
+sincronizar.all('/recepcion/:tabla/',  function(req, res){
+    try{
+        oracleMongo.setDatosDinamicamente(req.params.tabla, req.body , function(resultado){
+                res.json(resultado);
+        });
+    }catch(error){
+        console.log(error);
+        res.status(403).send({
+            estado: false,
+            message:"Error en el json",
+            error:error
+        });
+    }
 
-    res.status(200);
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Headers", "Cache-Control, Pragma, Origin, Authorization, Content-Type,content-Type, accept, X-Requested-With, x-access-token");
-    res.header("Access-Control-Allow-Methods","POST, GET, OPTIONS, DELETE, PUT, HEAD");
-	res.header("Access-Control-Request-Method","POST, GET, OPTIONS, DELETE, PUT, HEAD");
-	res.header("Access-Control-Request-Headers","content-Type, accept, x-access-token");
-	next();
-}
+        //Datos diccionarios
+});
+
+
+
 //The 404 Route (ALWAYS Keep this as the last route)
 /*sincronizar.get('/*', function(req, res, next){
    res.render("404/404.html");

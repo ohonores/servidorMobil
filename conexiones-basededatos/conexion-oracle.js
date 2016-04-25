@@ -32,6 +32,9 @@
  *
  *****************************************************************************/
 var oracledb = require('oracledb');
+var EntidadesMongoOracle = require("../utils/jsonEntity.js");
+var entidesMonogoDB = new EntidadesMongoOracle();
+
 oracledb.outFormat = oracledb.OBJECT;
 var conexion;
 var poolConexion;
@@ -82,10 +85,7 @@ var ClienteOracle = function () {this.init();};
                                 }
 							 connection.execute(sql, parametros, grabar ? { autoCommit: true}:{maxRows:10000}, function(err, result) {
                              				// return the client to the connection pool for other requests to reuse
-                                            if(sql.indexOf("SWISSMOVI.EMOVTSTOCK")<0){
-                                                console.log(sql);
-                                                console.log(parametros);
-                                            }
+
 
                              				if(err) {
                                                 console.log("Error");
@@ -168,4 +168,90 @@ var ClienteOracle = function () {this.init();};
 
   };
 
-  module.exports = new ClienteOracle();
+  ClienteOracle.prototype.grabarJson  = function(datos, tabla, respuesta){
+   //Eliminao el ID que viene, por que en oracle el id es una secuencia
+    console.log("grabarJson *****************" +tabla );
+    console.log(datos);
+    delete datos.ID;
+    var secuencia = entidesMonogoDB.getSecuenciaOracle(tabla);
+
+    //Verificando si el registro a grabar tiene hijos o registros asociados
+    secuencia = secuencia.secuencia;
+    var REGISTROSASOCIADOS = [];
+
+    if(Array.isArray(datos.REGISTROSASOCIADOS) && datos.REGISTROSASOCIADOS.length>0){
+        REGISTROSASOCIADOS = datos.REGISTROSASOCIADOS;
+
+    }
+    delete datos.REGISTROSASOCIADOS;
+   	var padre = this;
+
+  			var columnas = [];
+  			var sqlInsert = "INSERT INTO #TALBA(ID,#COLUMNAS) VALUES(#SECUENCIAORACLE.nextval,#VALORES) RETURNING ID INTO :IDVALOR";
+  			var valores = [];
+            var valoresJson = {};
+  			var valoresIndices = [];
+  			var indice = 1;
+  			//Se hace un recorrido al json para obtener las columnas y valores
+  			for(var key in datos){
+  				//valores.push(datos[key])
+                if(key.indexOf("FECHA")>=0){
+                    valoresJson[key] = new Date(datos[key]);
+                }else{
+                    valoresJson[key] = datos[key]
+                }
+
+  				valoresIndices.push(":"+key);
+  				columnas.push(key.toUpperCase());
+  				indice ++;
+  			}
+            sqlInsert = sqlInsert.replace("#TALBA",tabla).replace("#COLUMNAS",columnas.join(",")).replace("#VALORES",valoresIndices.join(",")).replace("#SECUENCIAORACLE", secuencia);
+
+            //valoresJson[.push({IDVALOR:{dir:oracledb.BIND_OUT}})]
+            valoresJson["IDVALOR"]={type:oracledb.NUMBER,dir:oracledb.BIND_OUT};
+
+  			padre.getPoolClienteConexion(sqlInsert, valoresJson, true, function(resultado){
+                //console.log(resultado);
+  				if(resultado  && resultado.rowsAffected >= 1 && resultado.outBinds && resultado.outBinds.IDVALOR[0]){
+                    if(REGISTROSASOCIADOS.length>0){
+                        REGISTROSASOCIADOS.map(function(r){
+                            var referenciaCampoFk = entidesMonogoDB.getReferenciaFkOracle(tabla, r.tabla);
+                            if(referenciaCampoFk.campofk){
+                                var foreign_keys={};
+                                foreign_keys[referenciaCampoFk.campofk] = resultado.outBinds.IDVALOR[0];
+                                grabarRegistrosRecursivosOracle(0, r.tabla, r.registros, foreign_keys, padre, function(restpuestaA){
+                                        console.log(restpuestaA);
+                                })
+                            }
+
+                        })
+
+                    }
+  					respuesta(true, {estado:true,tipo:"success",mensaje:"REGISTRO GRABADO",id:resultado.outBinds.IDVALOR[0]});
+  				}else{
+  					if(resultado.code && resultado.code ==="23505"){
+  						respuesta(false, {tipo:"error",mensaje:"REGISTRO NO GRABADO ", yaexiste:true});
+  					}else{
+  						respuesta(false, {tipo:"error",mensaje:"REGISTRO NO GRABADO "});
+  					}
+
+  				}
+
+  			});//FIN getPoolClienteConexion
+   }
+
+function grabarRegistrosRecursivosOracle(index, tabla, datos, foreign_keys, oraClase, callBack){
+       if(index < datos.length){
+           for(key in foreign_keys ){
+                datos[index][key] = foreign_keys[key];
+           }
+          oraClase.grabarJson(datos[index], tabla, function(restpuestaora){
+               console.log(restpuestaora);
+           });
+           index +=1;
+           grabarRegistrosRecursivosOracle(index, tabla, datos, foreign_keys, oraClase, callBack);
+       }else{
+            callBack("listo");
+       }
+}
+module.exports = new ClienteOracle();
