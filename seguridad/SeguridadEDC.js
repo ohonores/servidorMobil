@@ -56,10 +56,7 @@ SeguridadEDC.prototype.desencriptar = function(texto){
 
 // verifica si el usuario se encuentra autentificado
 SeguridadEDC.prototype.isUserAutenficado = function(req, res, next) {
-
-    console.log("SeguridadEDC.prototype.isUserAutenficado");
-    console.log(req.user);
-    //Si lo esta permite el siguiente evento
+ //Si lo esta permite el siguiente evento
     if (req.isAuthenticated())
         return next();
 
@@ -83,9 +80,7 @@ var datosInjections = ['select','1=1','delete','update','where','values','=','>'
 SeguridadEDC.prototype.verficarInjections = function (req, res, next){
    var aceptar  = true;
 
-    console.log("verficarInjections")
-   console.log(req.originalUrl)
-   for(keyjson in req.params){
+    for(keyjson in req.params){
 		var dato = req.params[keyjson] + ''.toLowerCase().replace(/'/g, '').replace(/"/g, '')
 		for(index in datosInjections){
 			if(dato.indexOf(datosInjections[index])>=0){
@@ -107,7 +102,7 @@ SeguridadEDC.prototype.verficarInjections = function (req, res, next){
 			}
 		}
 	}
-    console.log(aceptar)
+
     if(aceptar){
         next();
     }else{
@@ -144,8 +139,7 @@ SeguridadEDC.prototype.validarToken = function(req, res, next) {
  var token = req.get("x-access-token");
 
  //Valida que exista el toen
- console.log("validarToken");
- console.log(token);
+
  if (token) {
 
    // Valida con la libreria jwt la experiacion y la decodificacion
@@ -154,8 +148,6 @@ SeguridadEDC.prototype.validarToken = function(req, res, next) {
        return res.json({ estado: false, message: mensajes.errorToken.token });
      } else {
        // si todo esta bien envia el decoed al resto de la ruta
-       console.log(decoded);
-       console.log("listo decoded");
        req.datosperfil = decoded;
        next();
      }
