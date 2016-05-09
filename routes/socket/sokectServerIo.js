@@ -32,7 +32,7 @@ var SocketIo = function(http, empresas) {
                 socket.on('mensaje', function(datos){
                     console.log("mensaje");
                     console.log("socket.room " + socket.id);
-                    console.log(io.sockets.adapter.rooms);
+                    console.log(datos);
                     var cuartos = {mensaje:'server solo al room '+socket.room, estado:true,datos:datos}
                     //Todos en el namespace
                     conexiones[empresa.ruc].emit('respuesta::namespace', {mensaje:'server todos respuesta!', estado:true,datos:datos});

@@ -150,10 +150,24 @@ var mongodb = require('./conexiones-basededatos/conexion-mongodb.js');
 //var sqllite = require('./conexiones-basededatos/conexion-sqllite.js');
 var OracleMongo = require('./utils/OracleMongo.js');
 var oracleMongo =  new OracleMongo(oracledb, mongodb);
+var schedule = require('node-schedule');
+//oracleMongo.crearTareas();
+var rule2 = new schedule.RecurrenceRule();
+rule2.dayOfWeek = [0,1,2,3,4,5,6]; //Corre todos los dias
+rule2.hour = 04;//4 de la mañana
+rule2.minute = 07;//Con 06 minutos
+/*var j = schedule.scheduleJob('*5 * * * * *', function(){
+    Entre *5, fala un /
+        console.log("Hola "+new Date());
+});*/
 
-oracleMongo.crearTareas();
+var j = schedule.scheduleJob(rule2, function(){
+        oracleMongo.crearColecciones(true);
+});
 setTimeout(function () {
-    //oracleMongo.crearColecciones(false);
+        //oracleMongo.testItems();
+    //oracleMongo.crearItemPromocionVenta();
+    oracleMongo.crearColecciones(true);
     /*oracleMongo.getColumnasOracle("select * from SWISSMOVI.emovtafecta where rownum=1", function(d){
         console.log(d);
 

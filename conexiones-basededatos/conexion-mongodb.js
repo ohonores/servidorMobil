@@ -8,15 +8,16 @@ To reduce the number of connection pools created by your application, we recomme
 calling MongoClient.connect once and reusing the database variable returned by the callback:
 ****************/
 var mongodb = require('mongodb');
+var Q = require('q');
 var MongoClient = require('mongodb').MongoClient;
 var db;
-var localhost = "localhost"
+var localhost = "localhost";
 var ClienteMongoDb = function () {this.init();};
 
 ClienteMongoDb.prototype.init = function () {
     // Initialize connection once
     MongoClient.connect("mongodb://"+localhost+":27017/movilesTest", function(err, database) {
-      if(err) { console.log("Error en MongoDb al iniciar la based de datos");throw err};
+      if(err) { console.log("Error en MongoDb al iniciar la based de datos");throw err;}
 
       db = database;
       console.log("Listo Conectado");
@@ -26,7 +27,7 @@ ClienteMongoDb.prototype.getRegistros = function (collection, parametros, result
         db.collection(collection).find(parametros).toArray(function(err, docs) {
              resultado(docs);
         });
-}
+};
 /*ClienteMongoDb.prototype.getRegistros = function (collection, parametros, resultado) {
         db.collection(collection).find(parametros).toArray(function(err, docs) {
              resultado(docs);
@@ -45,7 +46,7 @@ ClienteMongoDb.prototype.getRegistrosCustomColumnas = function (collection, para
            });
        }
 
-}
+};
 ClienteMongoDb.prototype.getRegistrosCustomColumnasPorGrupo = function (collection, keys, condition, initial, reduce, finalize, resultado) {
 
           // group(keys, condition, initial, reduce, finalize, command[, options], callback)
@@ -66,23 +67,23 @@ ClienteMongoDb.prototype.getRegistrosCustomColumnasPorGrupo = function (collecti
            });
 
 
-}
+};
 
 ClienteMongoDb.prototype.getRegistro = function (collection, parametros, resultado) {
         db.collection(collection).findOne(parametros, function(err, registro) {
              resultado(registro);
         });
-}
+};
 ClienteMongoDb.prototype.getCount = function (collection, parametros, resultado) {
         db.collection(collection).count(parametros, function(err, total) {
              resultado(total);
         });
-}
+};
 ClienteMongoDb.prototype.getRegistroCustomColumnas = function (collection, parametros, columnas, resultado) {
         db.collection(collection).findOne(parametros, columnas, function(err, registro) {
              resultado(registro);
         });
-}
+};
 ClienteMongoDb.prototype.grabar = function (collection, parametros, hash, resultado) {
       if(!parametros.fechaColeccion){
         parametros.fechaColeccion = new Date();
@@ -96,7 +97,6 @@ ClienteMongoDb.prototype.grabar = function (collection, parametros, hash, result
           if(parametros.perfil){
               buscar.perfil=parametros.perfil;
           }
-
           db.collection(collection).findOne(buscar,{_id:1,registros:1,hash:1}, function(err, registro) {
                if(registro){
                    if(parametros.index == 1 && parametros.perfil == 102 && collection == "emcestadodecuenta"){
@@ -121,8 +121,20 @@ ClienteMongoDb.prototype.grabar = function (collection, parametros, hash, result
                            if(registroEncontrado){
                                db.collection(collection).remove({_id:registroEncontrado._id,}, function(err, registroEliminado) {
                     //              console.log(" eliminado graband   ...index "+parametros.index + " del pefil "+parametros.perfil +"  collection "+ collection);
-                                  parametros["sincronizar"]=getRegistrosPorSincronizar(registroEncontrado.registros, parametros.registros);
+                                  parametros.sincronizar = getRegistrosPorSincronizar(registroEncontrado.registros, parametros.registros);
+                                  /*Borramefor( var x in parametros.registros){
+									if(parametros.registros[x].registroMovil.preimpreso === "018-900-000023548"){
+										console.log("encontrado");
+										console.log(parametros.registros[x].registroMovil);
+									}
+
+									//console.log("data.registros[x].registroMovil.retencioniva " + data.registros[x].registroMovil.retencioniva);
+									//console.log("data.registros[x].registroMovil.retencionfuente " + data.registros[x].registroMovil.retencionfuente);
+
+								 }
+                                 */
                                    db.collection(collection).insertOne(parametros, function(err, docs) {
+
                                       if(err){
                                           console.log(err);
                                           resultado({error:true,mensaje:err});
@@ -133,9 +145,28 @@ ClienteMongoDb.prototype.grabar = function (collection, parametros, hash, result
                                });
                            }else{
                     //           console.log("grabando   ...index "+parametros.index + " del pefil "+parametros.perfil +"  collection "+ collection);
+                    /*Borrameforfor( var x in parametros.registros){
+                      if(parametros.registros[x].registroMovil.preimpreso === "018-900-000023548"){
+                          console.log("encontrado");
+                          console.log(parametros.registros[x].registroMovil);
+                      }
+
+                      //console.log("data.registros[x].registroMovil.retencioniva " + data.registros[x].registroMovil.retencioniva);
+                      //console.log("data.registros[x].registroMovil.retencionfuente " + data.registros[x].registroMovil.retencionfuente);
+
+                  }*/
                                db.collection(collection).insertOne(parametros, function(err, docs) {
                                   if(err){
+                                      console.log(collection);
                                       console.log(err);
+                                      console.log(parametros);
+                                      console.log(new Date());
+                                      db.collection(collection).findOne({hash:parametros.hash}, function(err, registroEncontrado) {
+                                           console.log("parametros******************");
+                                           console.log(collection);
+                                           console.log(registroEncontrado);
+                                           console.log("parametros******************");
+                                      });
                                       resultado({error:true,mensaje:err});
                                       return;
                                   }
@@ -152,6 +183,16 @@ ClienteMongoDb.prototype.grabar = function (collection, parametros, hash, result
       }
       else{
           //console.log("grabar  2 ...");
+          /*Borrameforfor( var x in parametros.registros){
+            if(parametros.registros[x].registroMovil.preimpreso === "018-900-000023548"){
+                console.log("encontrado en  grabar 2");
+                console.log(parametros.registros[x].registroMovil);
+            }
+
+            //console.log("data.registros[x].registroMovil.retencioniva " + data.registros[x].registroMovil.retencioniva);
+            //console.log("data.registros[x].registroMovil.retencionfuente " + data.registros[x].registroMovil.retencionfuente);
+
+        }*/
           db.collection(collection).insertOne(parametros, function(err, docs) {
   			if(err){
   				console.log(err);
@@ -163,7 +204,7 @@ ClienteMongoDb.prototype.grabar = function (collection, parametros, hash, result
       }
 
 
-}
+};
 ClienteMongoDb.prototype.grabarArray = function (collection, arrayJson, resultado) {
        db.collection(collection).insert(arrayJson, function(err, docs) {
 			if(err){
@@ -173,7 +214,7 @@ ClienteMongoDb.prototype.grabarArray = function (collection, arrayJson, resultad
 			}
 			resultado(docs);
         });
-}
+};
 ClienteMongoDb.prototype.modificar = function (collection, busqueda, actualizar, callback) {
        db.collection(collection).updateOne(
              busqueda,
@@ -181,15 +222,51 @@ ClienteMongoDb.prototype.modificar = function (collection, busqueda, actualizar,
 
              callback(results);
         });
-}
+};
 ClienteMongoDb.prototype.dropCollection = function (collection, callback) {
        db.collection(collection).drop(function(err, results) {
            callback(results);
         });
+};
+ClienteMongoDb.prototype.getTotalRegistrosPorPerfil = function (collection, parametros) {
+    return getTotalRegistrosPorPerfil(collection, parametros);
+};
+ClienteMongoDb.prototype.getTotalRegistrosPorPerfiles = function (collection, parametros) {
+    var deferred = Q.defer();
+    var colecciones = [];
+    collection.map(function(col){
+        colecciones.push(getTotalRegistrosPorPerfil(col, parametros));
+    });
+    Q.all(colecciones).then(function(a){
+        deferred.resolve(a);
+    });
+   return deferred.promise;
+};
+
+function getTotalRegistrosPorPerfil(collection,tabla, parametros){
+    var deferred = Q.defer();
+        db.collection(collection).aggregate(
+         [
+           { $match: parametros},
+           { $group: {$group:{_id:"$identificacion","SELECT COUNT(*) FROM "+tabla:{$sum:{$size:"$registros"}}}} }
+         ]).toArray(function(err, result) {
+             deferred.resolve(result);
+       });
+   return deferred.promise;
 }
+
+
 function getRegistrosPorSincronizar(d, d1){
-    return {eliminar : (d.filter(function(x){return d1.map(function(r){return r.registroMovil.hash}).indexOf(x.registroMovil.hash)>=0?false:true})).map(function(r){return r.registroMovil.hash}),
-            agregar :  (d1.filter(function(x){return d.map(function(r){return r.registroMovil.hash}).indexOf(x.registroMovil.hash)>=0?false:true}))
+    return {eliminar : (d.filter(function(x){return d1.map(function(r){return r.registroMovil.hash;}).indexOf(x.registroMovil.hash)>=0?false:true;})).map(function(r){return r.registroMovil.hash;}),
+            agregar :  (d1.filter(function(x){return d.map(function(r){return r.registroMovil.hash;}).indexOf(x.registroMovil.hash)>=0?false:true;}))
         };
 }
+
+
+module.exports = new ClienteMongoDb();
+lse:true;}))
+        };
+}
+
+
 module.exports = new ClienteMongoDb();

@@ -8,6 +8,7 @@ var seguridadEDC = require('../../seguridad/SeguridadEDC.js');
 var oracledb = require('../../conexiones-basededatos/conexion-oracle.js');
 var mongodb = require('../../conexiones-basededatos/conexion-mongodb.js');
 var OracleMongo = require('../../utils/OracleMongo.js');
+var mensajes = require('../../utils/mensajesLabels.js');
 var oracleMongo =  new OracleMongo(oracledb, mongodb);
 var urlMatriz = "http://documentos.ecuaquimica.com.ec:8080";
 var urlPefil = "/movil/sincronizacion/inicio/perfil/:coleccion/:index";
@@ -48,7 +49,7 @@ router.get('/movil/autentificacion/:identificacion/:empresa/:uidd/:x/:y/:token',
         //Verifica si existe mas de una empresa
         switch (respuesta.length) {
             case 0:
-                res.send("NO ENCONTRADO");
+                res.send(mensajes.errorIdentificacionNoExiste.identificacion);
                 break;
             case 1:
                 respuesta = respuesta[0];

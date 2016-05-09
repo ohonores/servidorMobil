@@ -11,6 +11,9 @@ var Labels = function() {
         "identificacion":{tipo:"error",mensaje:"LA IDENTIFICACION o EMPRESA INGRESADA NO ES ACEPTADA"},
         "perfil":{tipo:"error",mensaje:"EL PERIFL INGRESADO NO ES ACEPTADO"},
     }
+    this.errorIdentificacionNoExiste = {
+        "identificacion":{tipo:"error",mensaje:"LA IDENTIFICACION NO EXISTE"}
+    }
     this.errorToken = {
         "token":{tipo:"error",mensaje:"EL TOKEN NO ES ACEPTADO O YA ESTA EXPIRADO"},
         "notoken":{tipo:"error",mensaje:"TOKEN NO ENCONTRADO"}

@@ -25,6 +25,7 @@
     "passport-local": "^1.0.0",
     "pg": "^4.5.1",
     "promise": "^7.1.1",
+    "q": "^1.4.1",
     "redis": "^2.4.2",
     "request": "^2.69.0",
     "serve-favicon": "~2.3.0",

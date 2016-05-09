@@ -10,10 +10,23 @@ var sqlBusquedaEstabPorPerfilNew = "SELECT * FROM SWISSMOVI.EMOVTPERFIL_ESTABLEC
 var sqlBusquedaEstabPorPerfilMinNew = "SELECT MIN(ID) AS ID FROM SWISSMOVI.EMOVTPERFIL_ESTABLECIMIENTO WHERE MPERFIL_ID =:ID AND ID>:ID";
 
 function getDatos(origen, destino){
-    for(key in destino){
+    for(var key in destino){
         if(typeof(destino[key]) == "string"){
             //console.log(destino[key] + " " + origen[destino[key]]);
-            destino[key] =(destino[key] && destino[key].indexOf("*")===0 )? destino[key].substring(1,destino[key].length):( (origen[destino[key]] === undefined || origen[destino[key]] === null)  ?"":origen[destino[key]]);
+            destino[key] =(destino[key] && destino[key].indexOf("*")===0 )? destino[key].substring(1,destino[key].length):( (origen[destino[key]] === undefined || origen[destino[key]] === null)  ?null:origen[destino[key]]);
+            if(destino[key] == "MESTABLECIMIENTOTIPOPAGO_ID"){
+                if(!isNaN(origen[destino[key]])){
+                    destino[key] = parseInt(origen[destino[key]]);
+                }
+
+            }
+            if(destino[key] == "establecimientoTipoPago_id"){
+                if(!isNaN(origen[destino[key]])){
+                    destino[key] = parseInt(origen[destino[key]]);
+                }
+
+            }
+
             //console.log(destino);
         }else{
             if(key != "arrayJson"){
@@ -25,7 +38,7 @@ function getDatos(origen, destino){
 
 function buscarEtiquetaJsonListaResultados(origen, lista){
 
-    for(key in origen){
+    for(var key in origen){
 
         if(key === "arrayJson"){
             lista.push(true);
@@ -39,7 +52,7 @@ function buscarEtiquetaJsonListaResultados(origen, lista){
 }
 
 function buscarEtiquetaJsonCallFuncion(origen, callBack){
-    for(key in origen){
+    for(var key in origen){
         if(key === "arrayJson"){
             callBack(origen[key]);
         }
@@ -50,7 +63,7 @@ function buscarEtiquetaJsonCallFuncion(origen, callBack){
 }
 
 function setDatoToJsonPorEtiqueta(origen, dato, etiqueta){
-    for(key in origen){
+    for(var key in origen){
             if(key === etiqueta ){
             origen[key] = dato;
 
@@ -67,7 +80,7 @@ var OracleMongo = function (oracle_, mongo_) {
     oracledb = oracle_;
     mongodb = mongo_;
 
-}
+};
 
 var periflesIds = [];
 
@@ -78,7 +91,7 @@ function buscandoRegistrosRecursivos (index, listaRegistros, jsonEntity, callBac
              jsonEntity.parametrosBusqueda.forEach(function(b){
                  var r = listaRegistros[index];
                  jsonEntity.parametrosBusquedaValores.push(eval("r."+b));
-             })
+             });
         }
         oracledb.getPoolClienteConexion(jsonEntity.sqlOrigen, jsonEntity.parametrosBusquedaValores, false, function(respuestaora){
             if(respuestaora && respuestaora.rows && respuestaora.rows.length>0){
@@ -92,13 +105,17 @@ function buscandoRegistrosRecursivos (index, listaRegistros, jsonEntity, callBac
                             if(jsonClon.infoDiccionario && jsonClon.infoDiccionario.arrayJson){
                                 delete jsonClon.infoDiccionario.arrayJson;
                             }
+
+                            if(jsonClon.tipoNegocios && jsonClon.tipoNegocios.arrayJson){
+                                delete jsonClon.tipoNegocios.arrayJson;
+                            }
                             getDatos(registro, jsonClon);
                             return jsonClon;
                     });
                     setDatoToJsonPorEtiqueta(listaRegistros[index], datoMapeado, jsonEntity.etiqueta);
             }
             index = index +1;
-            buscandoRegistrosRecursivos(index, listaRegistros, jsonEntity, callBack)
+            buscandoRegistrosRecursivos(index, listaRegistros, jsonEntity, callBack);
         });
     }else{
         callBack(listaRegistros);
@@ -110,8 +127,16 @@ function grabarRegistrosRecursivos (i, a, id, identificacion, perfil, cantidad, 
         jsonEntity.parametrosBusquedaValores.push(cantidad);
     }
     console.log(grabarRegistrosRecursivos);
+    console.log(jsonEntity.sqlOrigen);
+    console.log(jsonEntity.parametrosBusquedaValores);
     oracledb.getPoolClienteConexion(jsonEntity.sqlOrigen, jsonEntity.parametrosBusquedaValores ? jsonEntity.parametrosBusquedaValores :[] , false, function(respuestaora){
         if(respuestaora && respuestaora.rows && respuestaora.rows.length>0){
+            /*Borrameforfor(var tt in respuestaora.rows){
+                if(respuestaora.rows[tt].PREIMPRESO =="018-900-000023548"){
+                        console.log("Encontrado en lo que entrega oracle ");
+                        console.log(respuestaora.rows[tt]);
+                }
+            }*/
             var jsonClon;
             var nuevoRegistro={
                     index : i,
@@ -120,14 +145,18 @@ function grabarRegistrosRecursivos (i, a, id, identificacion, perfil, cantidad, 
                             if(jsonClon.registroMovil.arrayJson){
                                 delete jsonClon.registroMovil.arrayJson;
                             }
+
                             if(jsonClon.registroMovil.infoDiccionario && jsonClon.registroMovil.infoDiccionario.arrayJson){
                                 delete jsonClon.registroMovil.infoDiccionario.arrayJson;
+                            }
+                            if(jsonClon.registroMovil.tipoNegocios && jsonClon.registroMovil.tipoNegocios.arrayJson){
+                                delete jsonClon.registroMovil.tipoNegocios.arrayJson;
                             }
                             getDatos(registro, jsonClon);
                             jsonClon.registroMovil.hash = hash(jsonClon.registroMovil);
                             return jsonClon;
                     })
-            }
+            };
             //Si existe el id crea la relacion
             if(id){
                 nuevoRegistro.relacion_id = id;
@@ -151,10 +180,11 @@ function grabarRegistrosRecursivos (i, a, id, identificacion, perfil, cantidad, 
                 buscarEtiquetaJsonCallFuncion(jsonEntity.registroMongo, function(nuevoArrayJson){
                     buscandoRegistrosRecursivos (0, nuevoRegistro.registros, nuevoArrayJson, function(resp){
                         nuevoRegistro.registros = resp;
+
                         mongodb.grabar(jsonEntity.coleccion, nuevoRegistro, hash, function(respuesta){
 
                         });//Fin mongodb
-                    })
+                    });
                 });
 
             }else{
@@ -164,8 +194,8 @@ function grabarRegistrosRecursivos (i, a, id, identificacion, perfil, cantidad, 
                 });//Fin mongodb
             }
 
-            if(jsonEntity.parametrosBusquedaValores){jsonEntity.parametrosBusquedaValores.pop()};
-            if(jsonEntity.parametrosBusquedaValores){jsonEntity.parametrosBusquedaValores.pop()};
+            if(jsonEntity.parametrosBusquedaValores){jsonEntity.parametrosBusquedaValores.pop();}
+            if(jsonEntity.parametrosBusquedaValores){jsonEntity.parametrosBusquedaValores.pop();}
             i = i + 1;
             grabarRegistrosRecursivos (i, (respuestaora.rows[respuestaora.rows.length -1].ID + 1), id, identificacion, perfil, cantidad, jsonEntity, callBack);
 
@@ -183,7 +213,7 @@ function grabarRegistrosRecursivosDesdeUnArraySqls(index, listaSqls, i, callBack
             //console.log("grabarRegistrosRecursivosDesdeUnArraySqls");
             //console.log(resultado);
             index = index + 1;
-            grabarRegistrosRecursivosDesdeUnArraySqls(index, listaSqls, resultado, callBack)
+            grabarRegistrosRecursivosDesdeUnArraySqls(index, listaSqls, resultado, callBack);
         });
     }else{
         callBack(i);
@@ -191,7 +221,7 @@ function grabarRegistrosRecursivosDesdeUnArraySqls(index, listaSqls, i, callBack
 }
 OracleMongo.prototype.autentificacion = function(parametros, callBack){
     var busquedaPerfil = {"registroMovil.identificacion":parametros.identificacion };
-        if(parseInt(parametros.empresa) != 0 ){
+        if(parseInt(parametros.empresa) !== 0 ){
             busquedaPerfil["infoEmpresa.empresa_id"] = parametros.empresa;
         }
         //console.log(parametros.identificacion);
@@ -201,7 +231,7 @@ OracleMongo.prototype.autentificacion = function(parametros, callBack){
 
         })*/
         });
-}
+};
 
 OracleMongo.prototype.crearPerfiles = function(borrar, callBack){
 
@@ -223,7 +253,7 @@ OracleMongo.prototype.crearPerfiles = function(borrar, callBack){
         });
 
 
-}
+};
 
 OracleMongo.prototype.crearEstablecimientos = function(borrar){
     console.log("crearEstablecimientos borrar "+borrar);
@@ -236,16 +266,16 @@ OracleMongo.prototype.crearEstablecimientos = function(borrar){
                 //    console.log(jsonEstablecimiento.parametrosBusqueda);
                     jsonEstablecimiento.parametrosBusqueda.forEach(function(b){
                         jsonEstablecimiento.parametrosBusquedaValores.push(eval("r."+b));
-                    })
+                    });
                 //    console.log(jsonEstablecimiento.parametrosBusquedaValores);
-                    grabarRegistrosRecursivos (1, 0, r["_id"], r.registroMovil.identificacion, r.registroInterno.perfil, 50, jsonEstablecimiento , function(resultado){
+                    grabarRegistrosRecursivos (1, 0, r._id, r.registroMovil.identificacion, r.registroInterno.perfil, 50, jsonEstablecimiento , function(resultado){
                             //console.log(resultado);
                     });
-                })
+                });
             });
 
     });
-}
+};
 
 
 OracleMongo.prototype.crearDiccionarios = function(borrar){
@@ -257,14 +287,14 @@ OracleMongo.prototype.crearDiccionarios = function(borrar){
                             entidesMonogoDB.getJsonDiccionarioCuentaBancaria(),
                             entidesMonogoDB.getJsonDiccionarioDocumento(),
                             entidesMonogoDB.getJsonDiccionarioBodegaVenta()
-                        ]
+                        ];
         console.log("creadno crearDiccionarios ");
         grabarRegistrosRecursivosDesdeUnArraySqls(0, dicicionarios, 1, function(resultado){
             console.log("crearDiccionarios");
             console.log(resultado);
         });
     });
-}
+};
 
 OracleMongo.prototype.crearEstadoCuenta = function(borrar){
     console.log("crearDiccionarios borrar "+borrar);
@@ -277,16 +307,16 @@ OracleMongo.prototype.crearEstadoCuenta = function(borrar){
                 //console.log(jsonEstadoCuenta.parametrosBusqueda);
                 jsonEstadoCuenta.parametrosBusqueda.forEach(function(b){
                     jsonEstadoCuenta.parametrosBusquedaValores.push(eval("r."+b));
-                })
+                });
                 //.log(jsonEstadoCuenta.parametrosBusquedaValores);
-                grabarRegistrosRecursivos (1, 0, r["_id"], r.registroMovil.identificacion, r.registroInterno.perfil, 50, jsonEstadoCuenta , function(resultado){
+                grabarRegistrosRecursivos (1, 0, r._id, r.registroMovil.identificacion, r.registroInterno.perfil, 50, jsonEstadoCuenta , function(resultado){
                         //console.log(resultado);
                 });
-            })
+            });
         });
     });
 
-}
+};
 
 OracleMongo.prototype.crearItems = function(borrar){
     mongodb.dropCollection(borrar ? entidesMonogoDB.getJsonItems().coleccion : "noborrar", function(coleccionBorrada){
@@ -296,7 +326,20 @@ OracleMongo.prototype.crearItems = function(borrar){
                 //console.log(resultado);
         });
     });
-}
+};
+
+OracleMongo.prototype.crearItemPromocionVenta = function(borrar){
+    mongodb.dropCollection(borrar ? entidesMonogoDB.getJsonPromocionVenta().coleccion : "noborrar", function(coleccionBorrada){
+        var jsonItemPromocionVenta = entidesMonogoDB.getJsonPromocionVenta();
+                                //(i, a, id, identificacion, cantidad, jsonEntity, callBack)
+        grabarRegistrosRecursivos (1, 0, null, null, null, 50, jsonItemPromocionVenta , function(resultado){
+                //console.log(resultado);
+        });
+    });
+};
+
+
+
 //Scripts ****************************************************************/
 OracleMongo.prototype.getTablasScript = function(callBack){
     var tablasEspejo = [];
@@ -317,14 +360,14 @@ OracleMongo.prototype.getTablasScript = function(callBack){
     getSriptTablaDesdeUnSql(0, tablasEspejo,  function(camposPorColeccion){
             camposPorColeccion.forEach(function(a){
                 tablasCustomColumnas[a.coleccion] = entidesMonogoDB.getTablaMovil(entidesMonogoDB[a.getjson](), a.campos, true);
-            })
+            });
         callBack(tablasCustomColumnas);
     });
 
 
 //    return  entidesMonogoDB.getTablasScript();
 
-}
+};
 OracleMongo.prototype.getTablasScriptDrop = function(){
     var tablasEspejo = [];
     return Object.getOwnPropertyNames( EntidadesMongoOracle.prototype ).reduce(function(res, a){
@@ -341,7 +384,7 @@ OracleMongo.prototype.getTablasScriptDrop = function(){
 
 
 
-}
+};
 OracleMongo.prototype.getTablasScriptUniqueKey = function(){
     var tablasEspejo = [];
     var index = 1;
@@ -361,7 +404,7 @@ OracleMongo.prototype.getTablasScriptUniqueKey = function(){
 
 
 
-}
+};
 
 //Para entregar al restful
 OracleMongo.prototype.getDatosDinamicamenteDeInicio = function(coleccion, perfil, index, callBack){
@@ -372,7 +415,7 @@ OracleMongo.prototype.getDatosDinamicamenteDeInicio = function(coleccion, perfil
     mongodb.getRegistroCustomColumnas(coleccion, parametros, {registros:1,_id:0}, function(respuesta){
             callBack(respuesta);
     });
-}
+};
 OracleMongo.prototype.getDatosDinamicamenteParaActualizar = function(coleccion, perfil, index, callBack){
     var parametros = {index: parseInt(index)};
     if(perfil){
@@ -381,7 +424,7 @@ OracleMongo.prototype.getDatosDinamicamenteParaActualizar = function(coleccion, 
     mongodb.getRegistroCustomColumnas(coleccion, parametros, {sincronizar:1,_id:0}, function(respuesta){
             callBack(respuesta);
     });
-}
+};
 
 //Para entregar al restful
 OracleMongo.prototype.setDatosDinamicamente = function(tabla, datos, callBack){
@@ -389,7 +432,7 @@ OracleMongo.prototype.setDatosDinamicamente = function(tabla, datos, callBack){
         oracledb.grabarJson(datos, tabla, function(estado, respuestaora){
             callBack(estado, respuestaora);
         });
-}
+};
 
 OracleMongo.prototype.getUrlsPorPefil = function(identificacion, perfil, urlPorPefil, urlDiccionario, urlRecpcion, callBack){
     getTotalesParcialesPorPerifil(0, entidesMonogoDB.getColecciones(), identificacion, perfil, function(nuevaColeccion){
@@ -401,26 +444,27 @@ OracleMongo.prototype.getUrlsPorPefil = function(identificacion, perfil, urlPorP
             }
             col.recepcion = urlRecpcion.replace(":tabla", col.tabla);
             col.urls = col.indices.map(function(indice){
-                return url.replace(":index", indice.index);;
+                return url.replace(":index", indice.index);
             });
             delete col.indices;
             return col;
-        })
+        });
         callBack(nuevaColeccionA);
     });
-}
-
+};
+var creandoA= false;
 OracleMongo.prototype.crearColecciones = function(borrar){
 
     //1. Crear perfiles
     var padre = this;
         padre.crearPerfiles(borrar, function(estado, resultado){
 
-            if(estado){
+            if(estado && !creandoA){
                console.log("crearPerfiles "+estado);
                 //1.1. Una vez creado perfil se crean los establecimiento y estados de cuenta
                 padre.crearEstablecimientos(borrar);
                 padre.crearEstadoCuenta(borrar);
+                creandoA = false;
             }else{
                 console.log("Por favor revise la consola, no se grabaron los perfiles");
             }
@@ -428,7 +472,8 @@ OracleMongo.prototype.crearColecciones = function(borrar){
     //diccionarios
     padre.crearDiccionarios(borrar);
     padre.crearItems(borrar);
-}
+    padre.crearItemPromocionVenta(borrar);
+};
 
 /**
     FUNCION QUE PERMITE CREAR UN CRON DE LA SIGUIENTE TAREA:
@@ -449,13 +494,33 @@ OracleMongo.prototype.crearTareas = function(){
     var j = schedule.scheduleJob(rule2, function(){
             padre.crearColecciones(true);
     });
-}
+};
+OracleMongo.prototype.validarTotalRegistrosPorPefil = function(){
+    
+};
+
+
+
+
+OracleMongo.prototype.testItems = function(){
+
+    oracledb.getPoolClienteConexion("select * from SWISSMOVI.emovtitem WHERE CODIGO='44030028'", [] , false, function(respuestaora){
+        //for(i in respuestaora){
+            //if(respuestaora[0].CODIGO =="44030028"){
+                        console.log(respuestaora);
+            //}
+        //    }
+        //}
+
+});
+};
+
 function getTotalesParcialesPorPerifil(index, colecciones, identificacion, perfil, callBack){
     if(index < colecciones.length){
-        var parametros = {}
+        var parametros = {};
         if(!colecciones[index].diccionario){
-            parametros["identificacion"] = identificacion;
-            parametros["perfil"] = perfil;
+            parametros.identificacion = identificacion;
+            parametros.perfil = perfil;
         }
 
         mongodb.getRegistrosCustomColumnas(colecciones[index].coleccion, parametros, {index:1,_id:0}, function(respuesta){
