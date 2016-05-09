@@ -243,10 +243,12 @@ ClienteMongoDb.prototype.getTotalRegistrosPorPerfiles = function (colecciones, p
 
 function getTotalRegistrosPorPerfil(collection,tabla, parametros){
     var deferred = Q.defer();
+    var grupo = {_id:"$identificacion"};
+    grupo["SELECT COUNT(*) FROM "+tabla] ={$sum:{$size:"$registros"}};
         db.collection(collection).aggregate(
          [
            { $match: parametros},
-           { $group: {$group:{_id:"$identificacion","SELECT COUNT(*) FROM "+tabla:{$sum:{$size:"$registros"}}}} }
+           { $group: {$group:grupo} }
          ]).toArray(function(err, result) {
              deferred.resolve(result);
        });
