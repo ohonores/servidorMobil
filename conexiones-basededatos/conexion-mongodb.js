@@ -229,10 +229,10 @@ ClienteMongoDb.prototype.dropCollection = function (collection, callback) {
         });
 };
 
-ClienteMongoDb.prototype.getTotalRegistrosPorPerfiles = function (colecciones, parametros) {
+ClienteMongoDb.prototype.getTotalRegistrosPorPerfiles = function (collections, parametros) {
     var deferred = Q.defer();
     var colecciones = [];
-    collection.map(function(col){
+    collections.map(function(col){
         colecciones.push(getTotalRegistrosPorPerfil(col.coleccion, col.tabla, parametros));
     });
     Q.all(colecciones).then(function(a){

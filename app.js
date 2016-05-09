@@ -165,9 +165,11 @@ var j = schedule.scheduleJob(rule2, function(){
         oracleMongo.crearColecciones(true);
 });
 setTimeout(function () {
+    var ddd = oracleMongo.getTotalRegistrosPorPerfiles(respuesta.registroMovil.identificacion);
+    console.log(ddd);
         //oracleMongo.testItems();
     //oracleMongo.crearItemPromocionVenta();
-    oracleMongo.crearColecciones(true);
+    //oracleMongo.crearColecciones(true);
     /*oracleMongo.getColumnasOracle("select * from SWISSMOVI.emovtafecta where rownum=1", function(d){
         console.log(d);
 
