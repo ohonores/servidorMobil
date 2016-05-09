@@ -232,7 +232,12 @@ ClienteMongoDb.prototype.dropCollection = function (collection, callback) {
 ClienteMongoDb.prototype.getTotalRegistrosPorPerfiles = function (collections, parametros) {
     var deferred = Q.defer();
     var colecciones = [];
+    console.log(collections);
+    console.log(parametros);
     collections.map(function(col){
+
+         console.log("collections");
+         console.log(col);
         colecciones.push(getTotalRegistrosPorPerfil(col.coleccion, col.tabla, parametros));
     });
     Q.all(colecciones).then(function(a){
@@ -251,6 +256,7 @@ function getTotalRegistrosPorPerfil(collection,tabla, parametros){
            { $match: parametros},
            { $group: {$group:grupo} }
          ]).toArray(function(err, result) {
+             console.log(result)
              deferred.resolve(result);
        });
    return deferred.promise;

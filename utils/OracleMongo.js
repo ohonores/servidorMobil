@@ -497,6 +497,7 @@ OracleMongo.prototype.crearTareas = function(){
 };
 OracleMongo.prototype.getTotalRegistrosPorPerfiles = function(identificacion){
     mongodb.getTotalRegistrosPorPerfiles(entidesMonogoDB.getColecciones(),{identificacion:identificacion}).then(function(res){
+        console.log(res);
         return res;
     });
 };
