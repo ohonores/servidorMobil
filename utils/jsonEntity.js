@@ -510,7 +510,7 @@ EntidadesMongoOracle.prototype.getColecciones = function(){
     obj = new EntidadesMongoOracle();
     return Object.getOwnPropertyNames( EntidadesMongoOracle.prototype ).reduce(function(res, a){
                         if(a.indexOf("getJson")>=0 && obj[a]() &&  (obj[a]().diccionario==true ||obj[a]().diccionario==false)){
-                            res.push({coleccion:obj[a]().coleccion,diccionario:obj[a]().diccionario, tabla:obj[a]().movil.tabla});
+                            res.push({coleccion:obj[a]().coleccion,diccionario:obj[a]().diccionario, tabla:obj[a]().movil.tabla, espejo:obj[a]().movil.espejo});
                             return res;
                         }else{
                             return res;

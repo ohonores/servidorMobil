@@ -64,9 +64,12 @@ router.get('/movil/autentificacion/:identificacion/:empresa/:uidd/:x/:y/:token',
                             respuesta.scriptsDrops = oracleMongo.getTablasScriptDrop();
                             respuesta.scriptsUniqueKeys = oracleMongo.getTablasScriptUniqueKey();
                             respuesta.sincronizacion = total;
-                            respuesta.validarTotales = oracleMongo.getTotalRegistrosPorPerfiles(respuesta.registroMovil.identificacion);
                             respuesta.token = token;// envia el token
-                            res.json(respuesta);
+                            oracleMongo.getTotalRegistrosPorPerfiles(respuesta.registroMovil.identificacion).then(function(validar){
+                                respuesta.validarTotales = validar;
+                                res.json(respuesta);
+                            })
+
                     });
 
                 });

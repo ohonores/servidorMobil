@@ -234,11 +234,11 @@ ClienteMongoDb.prototype.getTotalRegistrosPorPerfiles = function (collections, p
     var colecciones = [];
     console.log(collections);
     console.log(parametros);
-    collections.map(function(col){
+    collections.forEach(function(col){
+         if(col.espejo && col.coleccion && col.tabla){
+             colecciones.push(getTotalRegistrosPorPerfil(col.coleccion, col.tabla, col.diccionario ? {}:parametros));
+         }
 
-         console.log("collections");
-         console.log(col);
-        colecciones.push(getTotalRegistrosPorPerfil(col.coleccion, col.tabla, col.diccionario ? {}:parametros));
     });
     Q.all(colecciones).then(function(a){
         deferred.resolve(a);
@@ -250,17 +250,12 @@ function getTotalRegistrosPorPerfil(collection,tabla, parametros){
     var deferred = Q.defer();
     var grupo = {_id:"$identificacion"};
         grupo["SELECT COUNT(*) FROM "+tabla] ={$sum:{$size:"$registros"}};
-        console.log("getTotalRegistrosPorPerfil");
-         console.log(collection);
-         console.log(tabla);
-         console.log(parametros);
         db.collection(collection).aggregate(
          [
            { $match: parametros},
            {$group:grupo}
          ]).toArray(function(err, result) {
-             console.log(result)
-             deferred.resolve(result);
+            deferred.resolve(result);
        });
    return deferred.promise;
 }

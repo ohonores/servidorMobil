@@ -165,8 +165,10 @@ var j = schedule.scheduleJob(rule2, function(){
         oracleMongo.crearColecciones(true);
 });
 setTimeout(function () {
-    var ddd = oracleMongo.getTotalRegistrosPorPerfiles(respuesta.registroMovil.identificacion);
-    console.log(ddd);
+    oracleMongo.getTotalRegistrosPorPerfiles("1714417035").then(function(validar){
+                                   console.log(validar);
+                                })
+
         //oracleMongo.testItems();
     //oracleMongo.crearItemPromocionVenta();
     //oracleMongo.crearColecciones(true);
