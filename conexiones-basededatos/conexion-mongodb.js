@@ -244,7 +244,8 @@ ClienteMongoDb.prototype.getTotalRegistrosPorPerfiles = function (colecciones, p
 function getTotalRegistrosPorPerfil(collection,tabla, parametros){
     var deferred = Q.defer();
     var grupo = {_id:"$identificacion"};
-    grupo["SELECT COUNT(*) FROM "+tabla] ={$sum:{$size:"$registros"}};
+        grupo["SELECT COUNT(*) FROM "+tabla] ={$sum:{$size:"$registros"}};
+
         db.collection(collection).aggregate(
          [
            { $match: parametros},
@@ -261,12 +262,5 @@ function getRegistrosPorSincronizar(d, d1){
             agregar :  (d1.filter(function(x){return d.map(function(r){return r.registroMovil.hash;}).indexOf(x.registroMovil.hash)>=0?false:true;}))
         };
 }
-
-
-module.exports = new ClienteMongoDb();
-lse:true;}))
-        };
-}
-
 
 module.exports = new ClienteMongoDb();
