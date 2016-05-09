@@ -235,7 +235,7 @@ ClienteMongoDb.prototype.getTotalRegistrosPorPerfiles = function (collections, p
     console.log(collections);
     console.log(parametros);
     collections.forEach(function(col){
-         if(col.espejo && col.coleccion && col.tabla){
+         if(!col.espejo && col.coleccion && col.tabla){
              colecciones.push(getTotalRegistrosPorPerfil(col.coleccion, col.tabla, col.diccionario ? {}:parametros));
          }
 
