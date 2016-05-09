@@ -228,14 +228,12 @@ ClienteMongoDb.prototype.dropCollection = function (collection, callback) {
            callback(results);
         });
 };
-ClienteMongoDb.prototype.getTotalRegistrosPorPerfil = function (collection, parametros) {
-    return getTotalRegistrosPorPerfil(collection, parametros);
-};
-ClienteMongoDb.prototype.getTotalRegistrosPorPerfiles = function (collection, parametros) {
+
+ClienteMongoDb.prototype.getTotalRegistrosPorPerfiles = function (colecciones, parametros) {
     var deferred = Q.defer();
     var colecciones = [];
     collection.map(function(col){
-        colecciones.push(getTotalRegistrosPorPerfil(col, parametros));
+        colecciones.push(getTotalRegistrosPorPerfil(col.coleccion, col.tabla, parametros));
     });
     Q.all(colecciones).then(function(a){
         deferred.resolve(a);

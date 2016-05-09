@@ -495,8 +495,10 @@ OracleMongo.prototype.crearTareas = function(){
             padre.crearColecciones(true);
     });
 };
-OracleMongo.prototype.validarTotalRegistrosPorPefil = function(){
-    
+OracleMongo.prototype.getTotalRegistrosPorPerfiles = function(identificacion){
+    mongodb.getTotalRegistrosPorPerfiles(entidesMonogoDB.getColecciones(),{identificacion:identificacion}).then(function(res){
+        return res;
+    });
 };
 
 
