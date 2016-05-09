@@ -60,7 +60,6 @@ router.get('/movil/autentificacion/:identificacion/:empresa/:uidd/:x/:y/:token',
                 tokenAix = token;
                 oracleMongo.getUrlsPorPefil(respuesta.registroMovil.identificacion, respuesta.registroInterno.perfil, urlMatriz+urlPefil, urlMatriz+urlDiccionario, urlRecpcion, function(total){
                     oracleMongo.getTablasScript(function(script){
-                            respuesta.validarExistenciaPerfilMobil:oracleMongo.validarExistenciaPerfilMobil();
                             respuesta.scriptsDrops = oracleMongo.getTablasScriptDrop();
                             respuesta.scripts = script;
                             respuesta.scriptsUniqueKeys = oracleMongo.getTablasScriptUniqueKey();
