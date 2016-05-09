@@ -60,13 +60,23 @@ router.get('/movil/autentificacion/:identificacion/:empresa/:uidd/:x/:y/:token',
                 tokenAix = token;
                 oracleMongo.getUrlsPorPefil(respuesta.registroMovil.identificacion, respuesta.registroInterno.perfil, urlMatriz+urlPefil, urlMatriz+urlDiccionario, urlRecpcion, function(total){
                     oracleMongo.getTablasScript(function(script){
-                            respuesta.scripts = script;
+                            respuesta.validarExistenciaPerfilMobil:oracleMongo.validarExistenciaPerfilMobil();
                             respuesta.scriptsDrops = oracleMongo.getTablasScriptDrop();
+                            respuesta.scripts = script;
                             respuesta.scriptsUniqueKeys = oracleMongo.getTablasScriptUniqueKey();
                             respuesta.sincronizacion = total;
-                            respuesta.token = token;// envia el token
                             oracleMongo.getTotalRegistrosPorPerfiles(respuesta.registroMovil.identificacion).then(function(validar){
-                                respuesta.validarTotales = validar;
+
+                                respuesta.validarSincronizacion = validar.map(function(script){
+                                    var map = {};
+                                    for(var key in script){
+                                        map.slq = key;
+                                        map.total = script[key];
+                                    }
+                                    return map;
+                                });
+                                respuesta.validarSincronizacion.push({sql:oracleMongo.validarExistenciaPerfilMobil(),total:1});
+                                respuesta.token = token;// envia el token
                                 res.json(respuesta);
                             })
 

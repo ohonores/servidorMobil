@@ -499,6 +499,9 @@ OracleMongo.prototype.getTotalRegistrosPorPerfiles = function(identificacion){
     return mongodb.getTotalRegistrosPorPerfiles(entidesMonogoDB.getColecciones(),{identificacion:identificacion});
 };
 
+OracleMongo.prototype.validarExistenciaPerfilMobil = function(){
+    return entidesMonogoDB.getJsonPerfiles().validarExistenciaPerfilMobil;
+};
 
 
 
