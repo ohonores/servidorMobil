@@ -255,7 +255,7 @@ function getTotalRegistrosPorPerfil(collection,tabla, parametros){
            { $match: parametros},
            {$group:grupo}
          ]).toArray(function(err, result) {
-             if(result){
+             if(result && result[0]){
                  delete result[0]._id;
                  deferred.resolve(result[0]);
              }else{
