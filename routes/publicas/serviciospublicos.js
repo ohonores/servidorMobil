@@ -71,10 +71,11 @@ router.get('/movil/autentificacion/:identificacion/:empresa/:uidd/:x/:y/:token',
                                     for(var key in script){
                                         map.slq = key;
                                         map.total = script[key];
+                                        map.tabla = key.split("FROM")[1].trim();
                                     }
                                     return map;
                                 });
-                                respuesta.validarSincronizacion.push({sql:oracleMongo.validarExistenciaPerfilMobil(),total:1});
+                                respuesta.validarSincronizacion.push({sql:oracleMongo.validarExistenciaPerfilMobil(),total:1, tabla:oracleMongo.validarExistenciaPerfilMobil().split("FROM")[1].trim()});
                                 respuesta.token = token;// envia el token
                                 res.json(respuesta);
                             },function(x){

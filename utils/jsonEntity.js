@@ -17,7 +17,7 @@ EntidadesMongoOracle.prototype.getJsonPerfiles = function(){
     return {
                     coleccion:"emcperfiles",
                     sqlOrigen:"SELECT * FROM  SWISSMOVI.EMOVTPERFIL ORDER BY ID ASC",
-                    validarExistenciaPerfilMobil:"SELECT COUNT(*) FROM  SWISSMOVI.EMOVTPERFIL",
+                    validarExistenciaPerfilMobil:"SELECT COUNT(*) FROM  EMOVTPERFIL",
                     movil:{tabla:"emovtperfil", crear:true},
 
                     registroMongo:{
