@@ -13,7 +13,7 @@ var oracleMongo =  new OracleMongo(oracledb, mongodb);
 var urlMatriz = "http://documentos.ecuaquimica.com.ec:8080";
 var urlPefil = "/movil/sincronizacion/inicio/perfil/:coleccion/:index";
 var urlDiccionario = "/movil/sincronizacion/inicio/diccionarios/:coleccion/:index";
-var urlRecpcion = "http://documentos.ecuaquimica.com.ec:8080/movil/sincronizacion/recepcion/:tabla/"
+var urlRecpcion = "http://documentos.ecuaquimica.com.ec:8080/movil/sincronizacion/recepcion/:tabla/";
 /* PAGINA DE INICIO. */
 router.get('/', TipoBrowser.browserAceptado, function(req, res, next) {
      res.send('MOVILE*************');
@@ -77,14 +77,17 @@ router.get('/movil/autentificacion/:identificacion/:empresa/:uidd/:x/:y/:token',
                                 respuesta.validarSincronizacion.push({sql:oracleMongo.validarExistenciaPerfilMobil(),total:1});
                                 respuesta.token = token;// envia el token
                                 res.json(respuesta);
-                            })
+                            },function(x){
+                                respuesta.token = token;// envia el token
+                                res.json(respuesta);
+                            });
 
                     });
 
                 });
                 break;
             default:
-            res.json(respuesta.map(function(a){ return a.infoEmpresa}));
+            res.json(respuesta.map(function(a){ return a.infoEmpresa;}));
 
         }//fin switch
 
@@ -93,4 +96,4 @@ router.get('/movil/autentificacion/:identificacion/:empresa/:uidd/:x/:y/:token',
     });
 });
 
-module.exports = router
+module.exports = router;

@@ -165,13 +165,13 @@ var j = schedule.scheduleJob(rule2, function(){
         oracleMongo.crearColecciones(true);
 });
 setTimeout(function () {
-    oracleMongo.getTotalRegistrosPorPerfiles("1714417035").then(function(validar){
+    /*oracleMongo.getTotalRegistrosPorPerfiles("1714417035").then(function(validar){
                                    console.log(validar);
-                                })
-
+                               });
+*/
         //oracleMongo.testItems();
     //oracleMongo.crearItemPromocionVenta();
-    //oracleMongo.crearColecciones(true);
+    oracleMongo.crearColecciones(true);
     /*oracleMongo.getColumnasOracle("select * from SWISSMOVI.emovtafecta where rownum=1", function(d){
         console.log(d);
 

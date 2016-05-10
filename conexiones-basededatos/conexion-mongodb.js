@@ -240,6 +240,8 @@ ClienteMongoDb.prototype.getTotalRegistrosPorPerfiles = function (collections, p
     });
     Q.all(colecciones).then(function(a){
         deferred.resolve(a);
+    },function(x){
+        deferred.resolve(x);
     });
    return deferred.promise;
 };
@@ -253,8 +255,13 @@ function getTotalRegistrosPorPerfil(collection,tabla, parametros){
            { $match: parametros},
            {$group:grupo}
          ]).toArray(function(err, result) {
-            delete result[0]._id;
-            deferred.resolve(result[0]);
+             if(result){
+                 delete result[0]._id;
+                 deferred.resolve(result[0]);
+             }else{
+                 deferred.reject(false);
+             }
+
        });
    return deferred.promise;
 }
