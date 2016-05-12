@@ -277,7 +277,7 @@ OracleMongo.prototype.crearEstablecimientos = function(borrar){
     });
 };
 
-function crearBodegasPorPefil(borrar){
+function crearBodegasPorPefil(borrar, inicio){
     console.log("crearEstablecimientos borrar "+borrar);
     var jsonBodega = {};
     borrar = false;
@@ -291,7 +291,7 @@ function crearBodegasPorPefil(borrar){
                         jsonBodega.parametrosBusquedaValores.push(eval("r."+b));
                     });
                 //    console.log(jsonEstablecimiento.parametrosBusquedaValores);
-                    grabarRegistrosRecursivos (1, 0, r._id, r.registroMovil.identificacion, r.registroInterno.perfil, 50, jsonBodega , function(resultado){
+                    grabarRegistrosRecursivos (inicio, 0, null , null, null, 50, jsonBodega , function(resultado){
                             //console.log(resultado);
                     });
                 });
@@ -309,13 +309,13 @@ OracleMongo.prototype.crearDiccionarios = function(borrar){
                             entidesMonogoDB.getJsonDiccionarioBanco(),
                             entidesMonogoDB.getJsonDiccionarioCuentaBancaria(),
                             entidesMonogoDB.getJsonDiccionarioDocumento(),
-                        //    entidesMonogoDB.getJsonDiccionarioBodegaVenta()
+                            entidesMonogoDB.getJsonDiccionarioBodegaVenta()
                         ];
         console.log("creadno crearDiccionarios ");
         grabarRegistrosRecursivosDesdeUnArraySqls(0, dicicionarios, 1, function(resultado){
             console.log("crearDiccionarios");
             console.log(resultado);
-            crearBodegasPorPefil(false);
+            //crearBodegasPorPefil(false,resultado+1);
         });
     });
 };
