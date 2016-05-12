@@ -69,7 +69,7 @@ router.get('/movil/autentificacion/:identificacion/:empresa/:uidd/:x/:y/:token',
                                 respuesta.validarSincronizacion = validar.map(function(script){
                                     var map = {};
                                     for(var key in script){
-                                        map.slq = key;
+                                        map.sql = key;
                                         map.total = script[key];
                                         map.tabla = key.split("FROM")[1].trim();
                                     }
