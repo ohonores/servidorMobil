@@ -248,6 +248,7 @@ ClienteMongoDb.prototype.getTotalRegistrosPorPerfiles = function (collections, p
 
 function getTotalRegistrosPorPerfil(collection,tabla, parametros){
     var deferred = Q.defer();
+    //db.emcdiccionarios.aggregate([{$project:{_id:"$index", d:{$size:"$registros"}}}])
     var grupo = {_id:"$identificacion"};
         grupo["SELECT COUNT(*) as total FROM "+tabla] ={$sum:{$size:"$registros"}};
         db.collection(collection).aggregate(

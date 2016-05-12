@@ -1,4 +1,4 @@
-var io = require('socket.io')
+var io = require('socket.io');
 conexiones = [];
 var SocketIo = function(http, empresas) {
     console.log("entro constructor");
@@ -23,7 +23,7 @@ var SocketIo = function(http, empresas) {
                         if(datos.room){
                             socket.join(datos.room);
                         }
-                        socket.room = datos.room
+                        socket.room = datos.room;
                         console.log(socket.room);
                         //Validar el usuario
                         //Indicar que ha sido autentificado y esta listo para la comunicacion con el servidor
@@ -33,7 +33,7 @@ var SocketIo = function(http, empresas) {
                     console.log("mensaje");
                     console.log("socket.room " + socket.id);
                     console.log(datos);
-                    var cuartos = {mensaje:'server solo al room '+socket.room, estado:true,datos:datos}
+                    var cuartos = {mensaje:'server solo al room '+socket.room, estado:true,datos:datos};
                     //Todos en el namespace
                     conexiones[empresa.ruc].emit('respuesta::namespace', {mensaje:'server todos respuesta!', estado:true,datos:datos});
                     //room
@@ -43,10 +43,10 @@ var SocketIo = function(http, empresas) {
                     // socket.broadcast.to(room).emit(room, {mensaje:'server solo al room '+room, estado:true,datos:datos});
 
                     //Mensaje individual
-                    socket.emit('respuesta', {mensaje:'server solo a ti', estado:true,datos:datos});
+                    socket.emit('respuesta', {mensaje:'server edi solo a ti', estado:true,datos:datos});
                 });
                 socket.on('disconnect', function () {
-                        socket.leave(socket.room)
+                        socket.leave(socket.room);
                 });
         });
     });

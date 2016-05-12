@@ -3,21 +3,21 @@ var scritpEspejo = "CREATE TABLE IF NOT EXISTS #TABLA (id integer primary key au
 var scritpDropTables = "DROP TABLE IF  EXISTS  #TABLA";
 var scritpUniqueKeys = "CREATE UNIQUE INDEX #NOMBRE ON #TABLA(hash)";
 var scritpB = "PRAGMA foreign_keys = ON;";
-var tipoDato = "TEXT"
+var tipoDato = "TEXT";
 var EntidadesMongoOracle = function(){
 
-}
+};
 EntidadesMongoOracle.prototype.getScriptA = function(){
     return scritpA;
-}
+};
 EntidadesMongoOracle.prototype.getScriptB = function(){
     return scritpB;
-}
+};
 EntidadesMongoOracle.prototype.getJsonPerfiles = function(){
     return {
                     coleccion:"emcperfiles",
                     sqlOrigen:"SELECT * FROM  SWISSMOVI.EMOVTPERFIL ORDER BY ID ASC",
-                    validarExistenciaPerfilMobil:"SELECT COUNT(*) FROM  EMOVTPERFIL",
+                    validarExistenciaPerfilMobil:"SELECT COUNT(*) as total FROM  emovtperfil",
                     movil:{tabla:"emovtperfil", crear:true},
 
                     registroMongo:{
@@ -202,7 +202,8 @@ EntidadesMongoOracle.prototype.getJsonDiccionarioBodegaVenta = function(){
     return {
                     coleccion:"emcdiccionarios",
                     movil:{tabla:"emovtdiccionarios", crear:true},
-                    sqlOrigen:"SELECT distinct ID,CODIGO,DESCRIPCION,TIPOBODEGA,ESTABLECIMIENTO_ID FROM (SELECT B.* FROM SWISSMOVI.EMOVTPERFIL_BODEGA PB JOIN  SWISSMOVI.EMOVVBODEGA B ON B.ID=PB.MBODEGA_ID  ORDER BY PB.ID ASC) PE WHERE  PE.ID>=:A AND ROWNUM<=:B",
+                    sqlOrigen:"SELECT distinct ID,CODIGO,DESCRIPCION,TIPOBODEGA,ESTABLECIMIENTO_ID FROM (SELECT B.* FROM SWISSMOVI.EMOVTPERFIL_BODEGA PB JOIN  SWISSMOVI.EMOVVBODEGA B ON B.ID=PB.MBODEGA_ID WHERE PB.MPERFIL_ID=:ID ORDER BY PB.ID ASC) PE WHERE  PE.ID>=:A AND ROWNUM<=:B",
+                    parametrosBusqueda:["registroInterno.perfil"],
                     parametrosBusquedaValores:[],//Este array indica que se utilizaran paraemtros como el A que es id de donde empezara a leer y B que es la cantidad de registros a traer
                     registroMongo:{
                         registroMovil:{
@@ -360,8 +361,8 @@ EntidadesMongoOracle.prototype.getJsonPromocionVenta = function(){
 
                         }
                     }
-                }
-}
+                };
+};
 
 EntidadesMongoOracle.prototype.getJsonCartera = function(){
     return {
@@ -380,8 +381,8 @@ EntidadesMongoOracle.prototype.getJsonCartera = function(){
 
                         }
                     }
-                }//FIN DEL JSON
-}
+                };//FIN DEL JSON
+};
 EntidadesMongoOracle.prototype.getJsonCarteraDetalle = function(){
     return {
                     coleccion:"emccarteraDetalle",
@@ -404,8 +405,8 @@ EntidadesMongoOracle.prototype.getJsonCarteraDetalle = function(){
 
                         }
                     }
-                }//FIN DEL JSON
-}
+                };//FIN DEL JSON
+};
 EntidadesMongoOracle.prototype.getJsonAfecta = function(){
     return {
                     coleccion:"emcafecta",
@@ -422,8 +423,8 @@ EntidadesMongoOracle.prototype.getJsonAfecta = function(){
 
                         }
                     }
-                }//Fin del json
-}
+                };//Fin del json
+};
 
 EntidadesMongoOracle.prototype.getJsonOrden = function(){
     return {
@@ -442,8 +443,8 @@ EntidadesMongoOracle.prototype.getJsonOrden = function(){
 
                         }
                     }
-                }//Fin del json
-}
+                };//Fin del json
+};
 EntidadesMongoOracle.prototype.getJsonOrdenDetalle = function(){
     return {
                     coleccion:"emcordenDetalle",
@@ -454,10 +455,12 @@ EntidadesMongoOracle.prototype.getJsonOrdenDetalle = function(){
                         "MITEM_ID":"INTEGER",
                         "MPROMOCIONVENTA_ID":"INTEGER",
                         "PRECIO":"REAL",
+                        "PRECIOORIGINAL":"REAL",
                         "IMPUESTO1":"REAL",
                         "IMPUESTO2":"REAL",
                         "IMPUESTO3":"REAL",
                         "DESCUENTO":"REAL",
+                        "DESCUENTOORIGINAL":"REAL",
                         "CANTIDAD":"INTEGER"
                     },
                     updateOrigen:"",
@@ -466,8 +469,8 @@ EntidadesMongoOracle.prototype.getJsonOrdenDetalle = function(){
 
                         }
                     }
-                }//Fin del json
-}
+                };//Fin del json
+};
 EntidadesMongoOracle.prototype.getJsonOrdenCondicion = function(){
     return {
                     coleccion:"emcordenCondicion",
@@ -489,8 +492,8 @@ EntidadesMongoOracle.prototype.getJsonOrdenCondicion = function(){
 
                         }
                     }
-                }//Fin del json
-}
+                };//Fin del json
+};
 
 EntidadesMongoOracle.prototype.getTablasScript = function(){
     /*obj = new EntidadesMongoOracle();
@@ -506,11 +509,11 @@ EntidadesMongoOracle.prototype.getTablasScript = function(){
                         }
                     },{});
                     */
-}
+};
 EntidadesMongoOracle.prototype.getColecciones = function(){
     obj = new EntidadesMongoOracle();
     return Object.getOwnPropertyNames( EntidadesMongoOracle.prototype ).reduce(function(res, a){
-                        if(a.indexOf("getJson")>=0 && obj[a]() &&  (obj[a]().diccionario==true ||obj[a]().diccionario==false)){
+                        if(a.indexOf("getJson")>=0 && obj[a]() &&  (obj[a]().diccionario===true ||obj[a]().diccionario===false)){
                             res.push({coleccion:obj[a]().coleccion,diccionario:obj[a]().diccionario, tabla:obj[a]().movil.tabla, espejo:obj[a]().movil.espejo});
                             return res;
                         }else{
@@ -518,18 +521,19 @@ EntidadesMongoOracle.prototype.getColecciones = function(){
                         }
                     },[]);
 
-}
+};
 function getCamposParaCrearTablaMovil(json){
     var campos = [];
-    for(key in json.registroMongo.registroMovil){
+    for(var key in json.registroMongo.registroMovil){
         if(key != "arrayJson"){
             campos.push(key);
         }
     }
-    return campos
+    return campos;
 }
 EntidadesMongoOracle.prototype.getTablaMovil = function(json, utilizarEstosCampos, espejo){
     var campos = [];
+    var key;
     if(Array.isArray(utilizarEstosCampos) &&  utilizarEstosCampos.length>0){
 
         for(key in utilizarEstosCampos){
@@ -549,20 +553,20 @@ EntidadesMongoOracle.prototype.getTablaMovil = function(json, utilizarEstosCampo
         return scritpA.replace(/#TABLA/g, json.movil.tabla).replace("#COLUMNAS", campos.join(",") );
     }
 
-}
+};
 EntidadesMongoOracle.prototype.getScriptsDropTables = function(json){
         return scritpDropTables.replace(/#TABLA/g, json.movil.tabla);
-}
+};
 
 EntidadesMongoOracle.prototype.getScriptsUniqueKeys = function(json, index){
         return scritpUniqueKeys.replace(/#TABLA/g, json.movil.tabla).replace("#NOMBRE", "UNIQUEHASH"+index);
-}
+};
 
 
 EntidadesMongoOracle.prototype.getSecuenciaOracle = function(tabla){
     entidesMonogoDB = new EntidadesMongoOracle();
     return Object.getOwnPropertyNames( EntidadesMongoOracle.prototype ).reduce(function(res, a){
-                        if(a.indexOf("getJson")>=0 && entidesMonogoDB[a]() &&  (entidesMonogoDB[a]().diccionario==true ||entidesMonogoDB[a]().diccionario==false)){
+                        if(a.indexOf("getJson")>=0 && entidesMonogoDB[a]() &&  (entidesMonogoDB[a]().diccionario===true ||entidesMonogoDB[a]().diccionario===false)){
                             if(entidesMonogoDB[a]().movil.espejo && entidesMonogoDB[a]().movil.sql, entidesMonogoDB[a]().movil.tabla===tabla && entidesMonogoDB[a]().movil.secuencia){
                                 res.secuencia = entidesMonogoDB[a]().movil.secuencia;
                             }
@@ -570,11 +574,11 @@ EntidadesMongoOracle.prototype.getSecuenciaOracle = function(tabla){
                         return res;
                     },{});
 
-}
+};
 EntidadesMongoOracle.prototype.getReferenciaFkOracle = function(tablaA, tablaB){
     entidesMonogoDB = new EntidadesMongoOracle();
     return Object.getOwnPropertyNames( EntidadesMongoOracle.prototype ).reduce(function(res, a){
-                        if(a.indexOf("getJson")>=0 && entidesMonogoDB[a]() &&  (entidesMonogoDB[a]().diccionario==true ||entidesMonogoDB[a]().diccionario==false)){
+                        if(a.indexOf("getJson")>=0 && entidesMonogoDB[a]() &&  (entidesMonogoDB[a]().diccionario===true ||entidesMonogoDB[a]().diccionario===false)){
                             if(entidesMonogoDB[a]().movil.espejo && entidesMonogoDB[a]().movil.sql, entidesMonogoDB[a]().movil.tabla===tablaA && entidesMonogoDB[a]().referencias && entidesMonogoDB[a]().referencias.tabla==tablaB && entidesMonogoDB[a]().referencias.campofk ){
                                 res.campofk = entidesMonogoDB[a]().referencias.campofk;
                             }
@@ -582,6 +586,6 @@ EntidadesMongoOracle.prototype.getReferenciaFkOracle = function(tablaA, tablaB){
                         return res;
                     },{});
 
-}
+};
 
 module.exports = EntidadesMongoOracle;

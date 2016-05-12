@@ -277,6 +277,29 @@ OracleMongo.prototype.crearEstablecimientos = function(borrar){
     });
 };
 
+function crearBodegasPorPefil(borrar){
+    console.log("crearEstablecimientos borrar "+borrar);
+    var jsonBodega = {};
+    borrar = false;
+    mongodb.dropCollection(borrar ? entidesMonogoDB.getJsonEstablecimientos().coleccion : "noborrar", function(coleccionBorrada){
+            console.log("crearEstablecimientos creado");
+            mongodb.getRegistrosCustomColumnas(entidesMonogoDB.getJsonPerfiles().coleccion,{},{_id:1,"registroMovil.identificacion":1,"registroInterno.perfil":1}, function(respuesta){
+                respuesta.forEach(function(r){
+                    jsonBodega = entidesMonogoDB.getJsonDiccionarioBodegaVenta();
+                //    console.log(jsonEstablecimiento.parametrosBusqueda);
+                    jsonBodega.parametrosBusqueda.forEach(function(b){
+                        jsonBodega.parametrosBusquedaValores.push(eval("r."+b));
+                    });
+                //    console.log(jsonEstablecimiento.parametrosBusquedaValores);
+                    grabarRegistrosRecursivos (1, 0, r._id, r.registroMovil.identificacion, r.registroInterno.perfil, 50, jsonBodega , function(resultado){
+                            //console.log(resultado);
+                    });
+                });
+            });
+
+    });
+}
+
 
 OracleMongo.prototype.crearDiccionarios = function(borrar){
     console.log("crearDiccionarios borrar "+borrar);
@@ -286,12 +309,13 @@ OracleMongo.prototype.crearDiccionarios = function(borrar){
                             entidesMonogoDB.getJsonDiccionarioBanco(),
                             entidesMonogoDB.getJsonDiccionarioCuentaBancaria(),
                             entidesMonogoDB.getJsonDiccionarioDocumento(),
-                            entidesMonogoDB.getJsonDiccionarioBodegaVenta()
+                        //    entidesMonogoDB.getJsonDiccionarioBodegaVenta()
                         ];
         console.log("creadno crearDiccionarios ");
         grabarRegistrosRecursivosDesdeUnArraySqls(0, dicicionarios, 1, function(resultado){
             console.log("crearDiccionarios");
             console.log(resultado);
+            crearBodegasPorPefil(false);
         });
     });
 };

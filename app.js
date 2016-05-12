@@ -171,7 +171,7 @@ setTimeout(function () {
 */
         //oracleMongo.testItems();
     //oracleMongo.crearItemPromocionVenta();
-    oracleMongo.crearColecciones(true);
+    //oracleMongo.crearColecciones(true);
     /*oracleMongo.getColumnasOracle("select * from SWISSMOVI.emovtafecta where rownum=1", function(d){
         console.log(d);
 
