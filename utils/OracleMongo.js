@@ -346,7 +346,18 @@ OracleMongo.prototype.crearPerfiles = function(borrar){
 OracleMongo.prototype.setSizeArrayPorDocumento = function(nuevoSize){
     sizeArrayPorDocumento = nuevoSize;
 };
-OracleMongo.prototype.crearColeccionesMongo = function(borrar, jsonEntity){
+OracleMongo.prototype.crearColeccionesMongo = function(borrar, jsonEntityArray){
+    var deferred = Q.defer();
+    var coleccionesPorCrear = [];
+    jsonEntityArray.forEach(function(){
+        coleccionesPorCrear.push(crearColeccionMongo(borrar, jsonEntity));
+    });
+    Q.all(coleccionesPorCrear).then(function(r){
+        deferred.resolve(r);
+    });
+    return deferred.promise;
+};
+OracleMongo.prototype.crearColeccionMongo = function(borrar, jsonEntity){
     var deferred = Q.defer();
     borrarColeccion(borrar, jsonEntity).
     then(insertarDocumentos).
@@ -431,22 +442,19 @@ function crearBodegasPorPefil(borrar, inicio){
 
 
 OracleMongo.prototype.crearDiccionarios = function(borrar){
-    console.log("crearDiccionarios borrar "+borrar);
-    //En el json jsonEntity existen vairas entidades que pertencen a la misma collection
-    mongodb.dropCollection(borrar ? entidesMonogoDB.getJsonDiccionarioBanco().coleccion : "noborrar", function(coleccionBorrada){
+    borrarColeccion(borrar, entidesMonogoDB.getJsonDiccionarioBanco()).
+    then(function(r){
         var dicicionarios = [
                             entidesMonogoDB.getJsonDiccionarioBanco(),
                             entidesMonogoDB.getJsonDiccionarioCuentaBancaria(),
                             entidesMonogoDB.getJsonDiccionarioDocumento(),
                             entidesMonogoDB.getJsonDiccionarioBodegaVenta()
                         ];
-        console.log("creadno crearDiccionarios ");
-        grabarRegistrosRecursivosDesdeUnArraySqls(0, dicicionarios, 1, function(resultado){
-            console.log("crearDiccionarios");
-            console.log(resultado);
-            //crearBodegasPorPefil(false,resultado+1);
+        padre.crearColeccionesMongo(false, dicicionarios).then(function(a){
+                console.log("crearColecciones crearDiccionarios listo",a);
         });
     });
+
 };
 
 OracleMongo.prototype.crearEstadoCuenta = function(borrar){
@@ -691,23 +699,19 @@ OracleMongo.prototype.crearColecciones = function(borrar){
     var padre = this;
         padre.crearPerfiles(borrar).
         then(function(r){
-            padre.crearColeccionesMongo(borrar, entidesMonogoDB.getJsonEstablecimientos()).then(function(a){
-                console.log("crearColecciones getJsonEstablecimientos listo");
+            padre.crearColeccionesMongo(borrar, [entidesMonogoDB.getJsonEstablecimientos(),entidesMonogoDB.getJsonEstadoDeCuenta()]).then(function(a){
+                console.log("crearColecciones 1 listo ",a);
             });
-            padre.crearColeccionesMongo(borrar, entidesMonogoDB.getJsonEstadoDeCuenta()).then(function(a){
-                console.log("crearColecciones getJsonEstadoDeCuenta listo");
-            });
+
             //padre.crearEstadoCuenta(borrar);
         },function(error){
             console.log(error);
         });
-        padre.crearColeccionesMongo(borrar, entidesMonogoDB.getJsonItems()).then(function(a){
-            console.log("crearColecciones getJsonEstadoDeCuenta listo");
-        });
-        padre.crearColeccionesMongo(borrar, entidesMonogoDB.getJsonPromocionVenta()).then(function(a){
-            console.log("crearColecciones getJsonPromocionVenta listo");
+        padre.crearColeccionesMongo(borrar, [entidesMonogoDB.getJsonItems(),entidesMonogoDB.getJsonPromocionVenta()]).then(function(a){
+            console.log("crearColecciones 2 listo");
         });
 
+        padre.crearDiccionarios(borrar);
             /*if(estado && !creandoA){
               console.log("crearPerfiles "+estado);
                 //1.1. Una vez creado perfil se crean los establecimiento y estados de cuenta
