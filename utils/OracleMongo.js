@@ -349,7 +349,7 @@ OracleMongo.prototype.setSizeArrayPorDocumento = function(nuevoSize){
 OracleMongo.prototype.crearColeccionesMongo = function(borrar, jsonEntityArray){
     var deferred = Q.defer();
     var coleccionesPorCrear = [];
-    jsonEntityArray.forEach(function(){
+    jsonEntityArray.forEach(function(jsonEntity){
         coleccionesPorCrear.push(crearColeccionMongo(borrar, jsonEntity));
     });
     Q.all(coleccionesPorCrear).then(function(r){
