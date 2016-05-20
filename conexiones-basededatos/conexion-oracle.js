@@ -343,7 +343,6 @@ function grabarMovilJson(parametrosJson){
  ClienteOracle.prototype.grabarJson = function(datos, tabla){
          console.log("grabarJson entro");
          var deferred = Q.defer();
-
          delete datos.id;
          if(!tabla){
              console.log("la tabla no existe");

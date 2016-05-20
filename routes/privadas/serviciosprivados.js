@@ -89,7 +89,6 @@ sincronizar.get('/inicio/diccionarios/:coleccion/:index',  function(req, res){
 sincronizar.all('/recepcion/:tabla/',  function(req, res){
     try{
         console.log("/recepcion/:tabla/");
-        
         oracleMongo.setDatosDinamicamente(req.params.tabla, req.body, req.datosperfil, function(resultado){
             if(resultado === true){
                 res.json({estado:"R"});

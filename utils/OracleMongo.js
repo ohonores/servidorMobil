@@ -155,7 +155,6 @@ function grabarRegistrosRecursivosQ (i, a, id, identificacion, perfil, cantidad,
     var listaGrabarRegistrosRecursivos = [];
 
     grabarRegistrosRecursivos(i, a, id, identificacion, perfil, cantidad, jsonEntity, function(r){
-        console.log("grabarRegistrosRecursivosQ",r);
         deferred.resolve(r);
     });
     return deferred.promise;
@@ -227,7 +226,6 @@ function grabarRegistrosRecursivos (i, a, id, identificacion, perfil, cantidad, 
 
 
         }else{
-            console.log("FIN***************DEL CURSO",i,perfil);
             callBack({perfil:perfil, indeces:i>0?i-1:i});
         }
     });
@@ -344,7 +342,7 @@ OracleMongo.prototype.crearColeccionesMongo = function(borrar, jsonEntity){
     borrarColeccion(borrar, jsonEntity).
     then(insertarDocumentos).
     then(function(r){
-        console.log("crearEstablecimientos",r.length);
+        console.log(jsonEntity.coleccion,r.length);
         console.log(
                 r.reduce(function(a,b){
                     a += b.indeces;
@@ -382,8 +380,10 @@ function insertarDocumentos(jsonEntity){
                     });
         });
     }else{
+        console.log("No se hace el recorrdio por perfil");
         //Graba los documentos segun la tabla de oracle en un conjunto de sizeArrayPorDocumento
-        grabarRegistrosRecursivos (1, 0, null, null, null, sizeArrayPorDocumento, JSON.parse(JSON.stringify(jsonEntity)) , function(resultado){
+        grabarRegistrosRecursivosQ(1, 0, null, null, null, sizeArrayPorDocumento, JSON.parse(JSON.stringify(jsonEntity))).thne(function(resultado){
+                console.log("resultado items",resultado);
                 deferred.resolve(resultado);
         });
     }
@@ -676,13 +676,17 @@ OracleMongo.prototype.crearColecciones = function(borrar){
     var padre = this;
         padre.crearPerfiles(borrar).
         then(function(r){
-            padre.crearColeccionesMongo(borrar, entidesMonogoDB.getJsonEstablecimientos());
-            padre.crearColeccionesMongo(borrar, entidesMonogoDB.getJsonEstadoDeCuenta());
+            padre.crearColeccionesMongo(borrar, entidesMonogoDB.getJsonEstablecimientos()).then(function(a){
+                console.log("crearColecciones getJsonEstablecimientos listo");
+            });
+            padre.crearColeccionesMongo(borrar, entidesMonogoDB.getJsonEstadoDeCuenta()).then(function(a){
+                console.log("crearColecciones getJsonEstadoDeCuenta listo");
+            });
             //padre.crearEstadoCuenta(borrar);
         },function(error){
             console.log(error);
         });
-        padre.crearColeccionesMongo(borrar, entidesMonogoDB.getJsonItems());
+        //padre.crearColeccionesMongo(borrar, entidesMonogoDB.getJsonItems());
 
             /*if(estado && !creandoA){
               console.log("crearPerfiles "+estado);
