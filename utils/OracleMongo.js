@@ -357,7 +357,7 @@ OracleMongo.prototype.crearColeccionesMongo = function(borrar, jsonEntityArray){
     });
     return deferred.promise;
 };
-OracleMongo.prototype.crearColeccionMongo = function(borrar, jsonEntity){
+function crearColeccionMongo(borrar, jsonEntity){
     var deferred = Q.defer();
     borrarColeccion(borrar, jsonEntity).
     then(insertarDocumentos).
