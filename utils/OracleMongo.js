@@ -9,7 +9,7 @@ var oracle,mongodb,oracledb;
 var sqlBusquedaPerfilesNew = "SELECT * FROM  SWISSMOVI.EMOVTPERFIL WHERE ROWNUM <2";
 var sqlBusquedaEstabPorPerfilNew = "SELECT * FROM SWISSMOVI.EMOVTPERFIL_ESTABLECIMIENTO PE WHERE PE.MPERFIL_ID =:ID AND  PE.ID>=:A AND ROWNUM<=:B ORDER BY PE.ID ASC";
 var sqlBusquedaEstabPorPerfilMinNew = "SELECT MIN(ID) AS ID FROM SWISSMOVI.EMOVTPERFIL_ESTABLECIMIENTO WHERE MPERFIL_ID =:ID AND ID>:ID";
-
+var sizeArrayPorDocumento = 100;
 function getDatos(origen, destino){
     for(var key in destino){
         if(typeof(destino[key]) == "string"){
@@ -235,7 +235,7 @@ function grabarRegistrosRecursivos (i, a, id, identificacion, perfil, cantidad, 
 function grabarRegistrosRecursivosDesdeUnArraySqls(index, listaSqls, i, callBack){
     console.log("grabarRegistrosRecursivosDesdeUnArraySqls "+index);
     if(index < listaSqls.length){
-        grabarRegistrosRecursivos (i, 0, null , null, null, 50, listaSqls[index] , function(resultado){
+        grabarRegistrosRecursivos (i, 0, null , null, null, sizeArrayPorDocumento, listaSqls[index] , function(resultado){
             //console.log("grabarRegistrosRecursivosDesdeUnArraySqls");
             //console.log(resultado);
             index = index + 1;
@@ -336,6 +336,9 @@ OracleMongo.prototype.crearPerfiles = function(borrar){
     });
     return deferred.promise;
 };
+OracleMongo.prototype.setSizeArrayPorDocumento = function(nuevoSize){
+    sizeArrayPorDocumento = nuevoSize;
+};
 OracleMongo.prototype.crearColeccionesMongo = function(borrar, jsonEntity){
     var deferred = Q.defer();
     borrarColeccion(borrar, jsonEntity).
@@ -359,26 +362,31 @@ OracleMongo.prototype.crearColeccionesMongo = function(borrar, jsonEntity){
 
 function insertarDocumentos(jsonEntity){
     var deferred = Q.defer();
-    var estabs = [];
+    var listaRegistrosGrabados = [];
     var jsonEstablecimiento = {};
-    mongodb.getRegistrosCustomColumnas(entidesMonogoDB.getJsonPerfiles().coleccion,{},{_id:1,"registroMovil.identificacion":1,"registroInterno.perfil":1}, function(respuesta){
-
-                respuesta.forEach(function(r){
-                    jsonEstablecimiento = JSON.parse(JSON.stringify(jsonEntity));
-                    jsonEstablecimiento.parametrosBusqueda.forEach(function(b){
-                        jsonEstablecimiento.parametrosBusquedaValores.push(eval("r."+b));
+    var nuevoJsonDoc = {};
+    //Valida si la entidad tiene que ser recorrida por cada perfil
+    if(jsonEntity.iteracionPorPerfil){
+        //Inicia el recorrido
+        //Se grabara los documentos  por perfil en un conjunto de sizeArrayPorDocumento
+        mongodb.getRegistrosCustomColumnas(entidesMonogoDB.getJsonPerfiles().coleccion,{},{_id:1,"registroMovil.identificacion":1,"registroInterno.perfil":1}, function(respuesta){
+                    respuesta.forEach(function(r){
+                        nuevoJsonDoc = JSON.parse(JSON.stringify(jsonEntity));
+                        nuevoJsonDoc.parametrosBusqueda.forEach(function(b){
+                            nuevoJsonDoc.parametrosBusquedaValores.push(eval("r."+b));
+                        });
+                        listaRegistrosGrabados.push(grabarRegistrosRecursivosQ(1, 0, r._id, r.registroMovil.identificacion, r.registroInterno.perfil, sizeArrayPorDocumento, nuevoJsonDoc ));
                     });
-                    estabs.push(grabarRegistrosRecursivosQ(1, 0, r._id, r.registroMovil.identificacion, r.registroInterno.perfil, 50, jsonEstablecimiento ));
-                    /*grabarRegistrosRecursivos (1, 0, r._id, r.registroMovil.identificacion, r.registroInterno.perfil, 50, jsonEstablecimiento , function(total){
-                                deferred.resolve({totalRegistros:total});
-                    });*/
-                });
-                Q.all(estabs).then(function(a){
-                    console.log("crearEstablecimientos fin");
-
-                    deferred.resolve(a);
-                });
-    });
+                    Q.all(listaRegistrosGrabados).then(function(a){
+                        deferred.resolve(a);
+                    });
+        });
+    }else{
+        //Graba los documentos segun la tabla de oracle en un conjunto de sizeArrayPorDocumento
+        grabarRegistrosRecursivos (1, 0, null, null, null, sizeArrayPorDocumento, JSON.parse(JSON.stringify(jsonEntity)) , function(resultado){
+                deferred.resolve(resultado);
+        });
+    }
 
     return deferred.promise;
 }
@@ -397,7 +405,7 @@ function crearBodegasPorPefil(borrar, inicio){
                         jsonBodega.parametrosBusquedaValores.push(eval("r."+b));
                     });
                 //    console.log(jsonEstablecimiento.parametrosBusquedaValores);
-                    grabarRegistrosRecursivos (inicio, 0, null , null, null, 50, jsonBodega , function(resultado){
+                    grabarRegistrosRecursivos (inicio, 0, null , null, null, sizeArrayPorDocumento, jsonBodega , function(resultado){
                             //console.log(resultado);
                     });
                 });
@@ -439,7 +447,7 @@ OracleMongo.prototype.crearEstadoCuenta = function(borrar){
                     jsonEstadoCuenta.parametrosBusquedaValores.push(eval("r."+b));
                 });
                 //.log(jsonEstadoCuenta.parametrosBusquedaValores);
-                grabarRegistrosRecursivos (1, 0, r._id, r.registroMovil.identificacion, r.registroInterno.perfil, 50, jsonEstadoCuenta , function(resultado){
+                grabarRegistrosRecursivos (1, 0, r._id, r.registroMovil.identificacion, r.registroInterno.perfil, sizeArrayPorDocumento, jsonEstadoCuenta , function(resultado){
                         //console.log(resultado);
                 });
             });
@@ -452,7 +460,7 @@ OracleMongo.prototype.crearItems = function(borrar){
     mongodb.dropCollection(borrar ? entidesMonogoDB.getJsonItems().coleccion : "noborrar", function(coleccionBorrada){
         var jsonItems = entidesMonogoDB.getJsonItems();
                                 //(i, a, id, identificacion, cantidad, jsonEntity, callBack)
-        grabarRegistrosRecursivos (1, 0, null, null, null, 50, jsonItems , function(resultado){
+        grabarRegistrosRecursivos (1, 0, null, null, null, sizeArrayPorDocumento, jsonItems , function(resultado){
                 //console.log(resultado);
         });
     });
@@ -462,7 +470,7 @@ OracleMongo.prototype.crearItemPromocionVenta = function(borrar){
     mongodb.dropCollection(borrar ? entidesMonogoDB.getJsonPromocionVenta().coleccion : "noborrar", function(coleccionBorrada){
         var jsonItemPromocionVenta = entidesMonogoDB.getJsonPromocionVenta();
                                 //(i, a, id, identificacion, cantidad, jsonEntity, callBack)
-        grabarRegistrosRecursivos (1, 0, null, null, null, 50, jsonItemPromocionVenta , function(resultado){
+        grabarRegistrosRecursivos (1, 0, null, null, null, sizeArrayPorDocumento, jsonItemPromocionVenta , function(resultado){
                 //console.log(resultado);
         });
     });
@@ -669,11 +677,12 @@ OracleMongo.prototype.crearColecciones = function(borrar){
         padre.crearPerfiles(borrar).
         then(function(r){
             padre.crearColeccionesMongo(borrar, entidesMonogoDB.getJsonEstablecimientos());
+            padre.crearColeccionesMongo(borrar, entidesMonogoDB.getJsonEstadoDeCuenta());
             //padre.crearEstadoCuenta(borrar);
         },function(error){
             console.log(error);
         });
-
+        padre.crearColeccionesMongo(borrar, entidesMonogoDB.getJsonItems());
 
             /*if(estado && !creandoA){
               console.log("crearPerfiles "+estado);

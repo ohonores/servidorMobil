@@ -64,6 +64,7 @@ EntidadesMongoOracle.prototype.getJsonEstablecimientos = function(){
     return {
                     coleccion:"emcperfilestablecimientos",
                     diccionario:false,
+                    iteracionPorPerfil:true,
                     movil:{tabla:"emovtperfil_establecimiento", crear:true},
                     sqlOrigen:"SELECT * FROM (SELECT * FROM SWISSMOVI.EMOVTPERFIL_ESTABLECIMIENTO  WHERE MPERFIL_ID =:ID ORDER BY ID ASC) PE WHERE  PE.ID>=:A AND ROWNUM<=:B",
 
@@ -239,6 +240,7 @@ EntidadesMongoOracle.prototype.getJsonEstadoDeCuenta = function(){
     return {
                     coleccion:"emcestadodecuenta",
                     diccionario:false,
+                    iteracionPorPerfil:true,
                     movil:{tabla:"emovtestadoscuenta", crear:true},
                     sqlOrigen:"SELECT * FROM (SELECT EC.* FROM SWISSMOVI.EMOVTESTADO_CUENTA EC JOIN SWISSMOVI.EMOVTPERFIL_ESTABLECIMIENTO PE  ON PE.ID=EC.MPERFILESTABLECIMIENTO_ID WHERE PE.MPERFIL_ID=:ID ORDER BY EC.ID ASC) PA WHERE  PA.ID>=:A AND ROWNUM<=:B",
                     parametrosBusqueda:["registroInterno.perfil"],
