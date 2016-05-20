@@ -153,7 +153,7 @@ function buscandoRegistrosRecursivos (index, listaRegistros, jsonEntity, callBac
 function grabarRegistrosRecursivosQ (i, a, id, identificacion, perfil, cantidad, jsonEntity){
     var deferred = Q.defer();
     var listaGrabarRegistrosRecursivos = [];
-    console.log("grabarRegistrosRecursivosQ ",jsonEntity.coleccion);
+    //console.log("grabarRegistrosRecursivosQ ",jsonEntity.coleccion);
     grabarRegistrosRecursivos(i, a, id, identificacion, perfil, cantidad, jsonEntity, function(r){
         deferred.resolve(r);
     });
@@ -164,14 +164,14 @@ function grabarRegistrosRecursivos (i, a, id, identificacion, perfil, cantidad, 
         jsonEntity.parametrosBusquedaValores.push(a);
         jsonEntity.parametrosBusquedaValores.push(cantidad);
     }
-    if(jsonEntity.sqlOrigen.indexOf("item")>=0){
+    //if(jsonEntity.sqlOrigen.indexOf("item")>=0){
     console.log(jsonEntity.sqlOrigen);
     console.log(jsonEntity.parametrosBusquedaValores);
-}
+//}
     oracledb.getPoolClienteConexion(jsonEntity.sqlOrigen, jsonEntity.parametrosBusquedaValores ? jsonEntity.parametrosBusquedaValores :[] , false, function(respuestaora){
-        if(jsonEntity.sqlOrigen.indexOf("item")>=0){
-       console.log("grabarRegistrosRecursivos encontrados",respuestaora.rows.length," perfil ",perfil);
-}
+//        if(jsonEntity.sqlOrigen.indexOf("item")>=0){
+       console.log("grabarRegistrosRecursivos encontrados",jsonEntity.coleccion,respuestaora.rows.length);
+//}
         if(respuestaora && respuestaora.rows && respuestaora.rows.length>0){
             var jsonClon;
             var nuevoRegistro={
@@ -221,6 +221,9 @@ function grabarRegistrosRecursivos (i, a, id, identificacion, perfil, cantidad, 
 
                 mongodb.grabar(jsonEntity.coleccion, nuevoRegistro, function(respuesta){
                 //    console.log(respuesta);
+                },function(x){
+                    console.log(x);
+                    callBack({error:true});
                 });//Fin mongodb
             }
 
@@ -390,7 +393,7 @@ function insertarDocumentos(jsonEntity){
     }else{
         console.log("No se hace el recorrdio por perfil");
         //Graba los documentos segun la tabla de oracle en un conjunto de sizeArrayPorDocumento
-        grabarRegistrosRecursivosQ(1, 0, null, null, null, sizeArrayPorDocumento, jsonEntity).thne(function(resultado){
+        grabarRegistrosRecursivosQ(1, 0, null, null, null, sizeArrayPorDocumento, jsonEntity).then(function(resultado){
                 console.log("resultado items",resultado);
                 deferred.resolve(resultado);
         });
@@ -682,7 +685,7 @@ OracleMongo.prototype.crearColecciones = function(borrar){
 
     //1. Crear perfiles
     var padre = this;
-        padre.crearPerfiles(borrar).
+        /*padre.crearPerfiles(borrar).
         then(function(r){
             padre.crearColeccionesMongo(borrar, entidesMonogoDB.getJsonEstablecimientos()).then(function(a){
                 console.log("crearColecciones getJsonEstablecimientos listo");
@@ -693,8 +696,10 @@ OracleMongo.prototype.crearColecciones = function(borrar){
             //padre.crearEstadoCuenta(borrar);
         },function(error){
             console.log(error);
+        });*/
+        padre.crearColeccionesMongo(borrar, entidesMonogoDB.getJsonItems()).then(function(a){
+            console.log("crearColecciones getJsonEstadoDeCuenta listo");
         });
-        padre.crearColeccionesMongo(borrar, entidesMonogoDB.getJsonItems());
 
             /*if(estado && !creandoA){
               console.log("crearPerfiles "+estado);
