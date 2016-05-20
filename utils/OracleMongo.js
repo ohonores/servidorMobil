@@ -164,10 +164,14 @@ function grabarRegistrosRecursivos (i, a, id, identificacion, perfil, cantidad, 
         jsonEntity.parametrosBusquedaValores.push(a);
         jsonEntity.parametrosBusquedaValores.push(cantidad);
     }
-    //console.log(jsonEntity.sqlOrigen);
-    //console.log(jsonEntity.parametrosBusquedaValores);
+    if(jsonEntity.sqlOrigen.indexOf("item")>=0){
+    console.log(jsonEntity.sqlOrigen);
+    console.log(jsonEntity.parametrosBusquedaValores);
+}
     oracledb.getPoolClienteConexion(jsonEntity.sqlOrigen, jsonEntity.parametrosBusquedaValores ? jsonEntity.parametrosBusquedaValores :[] , false, function(respuestaora){
-    //    console.log("grabarRegistrosRecursivos encontrados",respuestaora.rows.length," perfil ",perfil);
+        if(jsonEntity.sqlOrigen.indexOf("item")>=0){
+       console.log("grabarRegistrosRecursivos encontrados",respuestaora.rows.length," perfil ",perfil);
+}
         if(respuestaora && respuestaora.rows && respuestaora.rows.length>0){
             var jsonClon;
             var nuevoRegistro={
@@ -206,7 +210,8 @@ function grabarRegistrosRecursivos (i, a, id, identificacion, perfil, cantidad, 
                         mongodb.grabar(jsonEntity.coleccion, nuevoRegistro).then(function(r){
                             //    console.log(r.estado);
                         },function(x){
-                        //    console.log(x);
+                            console.log(x);
+                            callBack({error:true});
                         });
                     });
 
@@ -226,7 +231,9 @@ function grabarRegistrosRecursivos (i, a, id, identificacion, perfil, cantidad, 
 
 
         }else{
+            if(jsonEntity.sqlOrigen.indexOf("item")>=0){
             console.log("grabarRegistrosRecursivos FIN ",i);
+        }
             callBack({perfil:perfil, indeces:i>0?i-1:i});
         }
     });
