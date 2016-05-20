@@ -686,7 +686,7 @@ OracleMongo.prototype.crearColecciones = function(borrar){
         },function(error){
             console.log(error);
         });
-        //padre.crearColeccionesMongo(borrar, entidesMonogoDB.getJsonItems());
+        padre.crearColeccionesMongo(borrar, entidesMonogoDB.getJsonItems());
 
             /*if(estado && !creandoA){
               console.log("crearPerfiles "+estado);
