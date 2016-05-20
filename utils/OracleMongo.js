@@ -442,6 +442,7 @@ function crearBodegasPorPefil(borrar, inicio){
 
 
 OracleMongo.prototype.crearDiccionarios = function(borrar){
+    var padre = this;
     borrarColeccion(borrar, entidesMonogoDB.getJsonDiccionarioBanco()).
     then(function(r){
         var dicicionarios = [
