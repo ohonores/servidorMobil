@@ -153,7 +153,7 @@ function buscandoRegistrosRecursivos (index, listaRegistros, jsonEntity, callBac
 function grabarRegistrosRecursivosQ (i, a, id, identificacion, perfil, cantidad, jsonEntity){
     var deferred = Q.defer();
     var listaGrabarRegistrosRecursivos = [];
-
+    console.log("grabarRegistrosRecursivosQ ",jsonEntity.coleccion);
     grabarRegistrosRecursivos(i, a, id, identificacion, perfil, cantidad, jsonEntity, function(r){
         deferred.resolve(r);
     });
@@ -226,6 +226,7 @@ function grabarRegistrosRecursivos (i, a, id, identificacion, perfil, cantidad, 
 
 
         }else{
+            console.log("grabarRegistrosRecursivos FIN ",indeces);
             callBack({perfil:perfil, indeces:i>0?i-1:i});
         }
     });
@@ -382,7 +383,7 @@ function insertarDocumentos(jsonEntity){
     }else{
         console.log("No se hace el recorrdio por perfil");
         //Graba los documentos segun la tabla de oracle en un conjunto de sizeArrayPorDocumento
-        grabarRegistrosRecursivosQ(1, 0, null, null, null, sizeArrayPorDocumento, JSON.parse(JSON.stringify(jsonEntity))).thne(function(resultado){
+        grabarRegistrosRecursivosQ(1, 0, null, null, null, sizeArrayPorDocumento, jsonEntity).thne(function(resultado){
                 console.log("resultado items",resultado);
                 deferred.resolve(resultado);
         });
