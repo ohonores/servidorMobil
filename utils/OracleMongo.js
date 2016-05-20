@@ -451,9 +451,10 @@ OracleMongo.prototype.crearDiccionarios = function(borrar){
                             entidesMonogoDB.getJsonDiccionarioDocumento(),
                             entidesMonogoDB.getJsonDiccionarioBodegaVenta()
                         ];
-        padre.crearColeccionesMongo(false, dicicionarios).then(function(a){
+        grabarRegistrosRecursivosDesdeUnArraySqls(0, dicicionarios, 1, function(){
                 console.log("crearColecciones crearDiccionarios listo",a);
         });
+
     });
 
 };
