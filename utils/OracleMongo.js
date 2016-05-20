@@ -352,7 +352,7 @@ OracleMongo.prototype.crearColeccionesMongo = function(borrar, jsonEntity){
     then(insertarDocumentos).
     then(function(r){
 
-        if(Array.isArray(a)){
+        if(Array.isArray(r)){
             console.log(jsonEntity.coleccion,r.length);
             console.log(
                     r.reduce(function(a,b){
