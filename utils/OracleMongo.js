@@ -364,7 +364,7 @@ function insertarDocumentos(jsonEntity){
     mongodb.getRegistrosCustomColumnas(entidesMonogoDB.getJsonPerfiles().coleccion,{},{_id:1,"registroMovil.identificacion":1,"registroInterno.perfil":1}, function(respuesta){
 
                 respuesta.forEach(function(r){
-                    jsonEstablecimiento = entidesMonogoDB.getJsonEstablecimientos();
+                    jsonEstablecimiento = JSON.parse(JSON.stringify(jsonEntity));
                     jsonEstablecimiento.parametrosBusqueda.forEach(function(b){
                         jsonEstablecimiento.parametrosBusquedaValores.push(eval("r."+b));
                     });
