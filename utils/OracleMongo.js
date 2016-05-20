@@ -226,7 +226,7 @@ function grabarRegistrosRecursivos (i, a, id, identificacion, perfil, cantidad, 
 
 
         }else{
-            console.log("grabarRegistrosRecursivos FIN ",indeces);
+            console.log("grabarRegistrosRecursivos FIN ",i);
             callBack({perfil:perfil, indeces:i>0?i-1:i});
         }
     });
