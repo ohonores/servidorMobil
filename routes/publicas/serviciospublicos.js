@@ -96,5 +96,15 @@ router.get('/movil/autentificacion/:identificacion/:empresa/:uidd/:x/:y/:token',
 
     });
 });
-
+router.get('/movil/iniciar/sensor/sincronizador/:perfil', function(req, res) {
+        console.log('/movil/iniciar/sensor/sincronizador');
+        oracleMongo.crearColecciones(false);
+        req.app.conexiones[req.app.empresas[0].ruc].emit('respuesta::namespace', {mensaje:'server todos respuesta!', estado:true,datos:{"key":"es un prueba desde el servidor"}});
+        //req.app.conexiones[req.app.empresas[1].ruc].emit('respuesta::namespace', {mensaje:'server todos respuesta!', estado:true,datos:{"key":"es un prueba desde el servidor"}});
+        console.log('/actualizar/perfil/urls-para-sincronizar');
+        oracleMongo.getTodosLosCambiosPorSincronizarPorPerfil(parseInt(req.params.perfil)).then(function(resultado){
+                    res.json({sincronizacion:resultado});
+        });
+        //res.send("listo");
+});
 module.exports = router;

@@ -34,7 +34,7 @@
 var oracledb = require('oracledb');
 var EntidadesMongoOracle = require("../utils/jsonEntity.js");
 var entidesMonogoDB = new EntidadesMongoOracle();
-
+var Q = require('q');
 oracledb.outFormat = oracledb.OBJECT;
 var conexion;
 var poolConexion;
@@ -128,130 +128,287 @@ var ClienteOracle = function () {this.init();};
                              });
          });
  };
+function getConexion(datos, tabla) {
+     var deferred = Q.defer();
+    poolConexion.getConnection (function(err, connection) {
+                              if(err){
+                                  deferred.reject(err);
+                              }else{
+                                   deferred.resolve({conexion:connection, datos:datos, tabla:tabla});
+                              }
+                          }
+                      );
+    return deferred.promise;
+}
+function enviarConnectionAlPool(x) {
+     var deferred = Q.defer();
+     if(x.excepcion && !x.excepcion.estado && x.conexion){
+         x.conexion.rollback(function(err){
+             console.log("enviarConnectionAlPool and rollback done ");
+             if(err){
+                  console.log("enviarConnectionAlPool and rollback error ",err);
+                 deferred.reject(false);
+             }
+            x.conexion.release(function(err){
+                if (err) {
+                    console.log(" enviarConnectionAlPool and connection.release error ",err);
+                    deferred.reject(err);
+                }else{
+                    console.log(" enviarConnectionAlPool and connection.release ok ");
+                    deferred.resolve(true);
+                }
+            });
+        });
+    }else{
+        deferred.resolve(true);
+    }
+   return deferred.promise;
+}
+function commitTransaccion(connection) {
+     var deferred = Q.defer();
+     connection.commit(function(err){
+         console.log("commitTransaccion done ");
+         if(err){
+              console.log("commitTransaccion error ",err);
+             deferred.reject(false);
+         }else{
+             connection.release(function(err){
+                            if (err) {
+                                  console.log(" connection.release error ",err);
+                                deferred.reject(err);
+                            }else{
+                                 console.log(" connectio ok ");
+                                deferred.resolve(true);
+                            }
+            });
+            //deferred.resolve(true);
+         }
+     });
+     return deferred.promise;
+}
+ function getPoolClienteConexionCommit(connection, sql, parametros,commit, resultado) {
+    connection.execute(sql, parametros, { autoCommit: commit}, function(err, result) {
+            // return the client to the connection pool for other requests to reuse
+                if(err) {
+                    console.log("Error");
+                    console.log(err);
+                    connection.release(
+                        function(err){
+                            if (err) {
+                                console.log(err);
+                                resultado(err);
+                                return;
+                            }
+                    });
+                    resultado({estado:true,error:err});
+                    return;
+                }else{
+                    resultado(result);
+                }
+        });
+
+ }
 
  ClienteOracle.prototype.getClienteConexion = function (sql, parametros, resultado) {
-                if(!conexion){
-                    getPoolClienteConexion(sql, parametros, function(res){
-                        resultado(res);
+     if(!conexion){
+         getPoolClienteConexion(sql, parametros, function(res){
+             resultado(res);
+        return;
+        });
+    }
+    conexion.execute(sql, parametros,{maxRows:1000}, function(err, result) {
+        if(err) {
+            conexion.release(
+                function(err){
+                    if(err) {
+                        console.log(err);
+                        resultado(err);
                         return;
-                    });
-
-                }
-                              conexion.execute(sql, parametros,{maxRows:1000}, function(err, result) {
-                              				if(err) {
-                              					conexion.release(
-                                                                     function(err)
-                                                                     {
-                                                                       if (err) {
-                                                                         console.log(err);
-                                                                         resultado(err);
-                                                                         return;
-                                                                       }
-                                                                     });
-                              				}else{
-                              				    /* Release the connection back to the connection pool */
-                                                 conexion.release(
-                                                               function(err)
-                                                               {
-                                                                 if (err) {
-                                                                     console.log(err);
-                                                                     resultado(err);
-                                                                     return;
-                                                                 }
-                                                               });
-
-                                                 //Enviando los resultados
-                              					resultado(result);
-                                                return;
-                              				}
-                              });
-
+                    }
+            });
+        }else{
+            /* Release the connection back to the connection pool */
+            conexion.release(
+                function(err){
+                    if (err) {
+                        console.log(err);
+                        resultado(err);
+                        return;
+                    }
+            });
+            //Enviando los resultados
+            resultado(result);
+            return;
+        }
+    });
   };
 
-  ClienteOracle.prototype.grabarJson  = function(datos, tabla, respuesta){
-   //Eliminao el ID que viene, por que en oracle el id es una secuencia
-    console.log("grabarJson *****************" +tabla );
-    console.log(datos);
-    delete datos.ID;
-    var secuencia = entidesMonogoDB.getSecuenciaOracle(tabla);
+  function getScriptInsert(datos, tabla, secuencia){
+      var columnas = [];
+      var sqlInsert = "INSERT INTO #TALBA(ID,#COLUMNAS) VALUES(#SECUENCIAORACLE.nextval,#VALORES) RETURNING ID INTO :IDVALOR";
+      var valores = [];
+      var valoresJson = {};
+      var valoresIndices = [];
+      var indice = 1;
+      //Se hace un recorrido al json para obtener las columnas y valores
+      for(var key in datos){
+          //valores.push(datos[key])
+          if(key.toLowerCase().indexOf("fecha")>=0){
+              if(isNaN(datos[key])){
+                  valoresJson[key] = new Date(datos[key]);
+              }else{
+                  valoresJson[key] = new Date(parseInt(datos[key]));
+              }
 
-    //Verificando si el registro a grabar tiene hijos o registros asociados
-    secuencia = secuencia.secuencia;
-    var REGISTROSASOCIADOS = [];
+          }else{
+              valoresJson[key] = datos[key];
+          }
 
-    if(Array.isArray(datos.REGISTROSASOCIADOS) && datos.REGISTROSASOCIADOS.length>0){
-        REGISTROSASOCIADOS = datos.REGISTROSASOCIADOS;
+          valoresIndices.push(":"+key);
+          columnas.push(key.toUpperCase());
+          indice ++;
+      }
+      return { sqlInsert :sqlInsert.replace("#TALBA",tabla).replace("#COLUMNAS",columnas.join(",")).replace("#VALORES",valoresIndices.join(",")).replace("#SECUENCIAORACLE", secuencia), valoresJson:valoresJson};
+}
+ClienteOracle.prototype.grabarNestedJson  = function(datos, tabla){
+     var deferred = Q.defer();
+     var padre = this;
+     getConexion(datos, tabla).             //Se obitene una session debido a que es una comit de una transaccion y esta solo acepta commit de una misma connection
+     then(grabarMovilJson).                 //Graba los registros en forma recursiva
+     then(commitTransaccion).               //Hace commit y envia la conexion a la pool
+     then(function(r){
+         deferred.resolve(true);            //Envia el resultado de la respuesta
+     },function(x){
+         enviarConnectionAlPool(x).//Envia la conexion al pool si existieran problemas
+         then(function(c) {
+             delete x.conexion;
+             deferred.reject(x);            //Envia el error, is llegara a suceder
+         },function(d){
+             delete x.conexion;
+             deferred.reject(x);            //Envia el error, is llegara a suceder
+         });
 
-    }
-    delete datos.REGISTROSASOCIADOS;
-   	var padre = this;
+    });
+    return deferred.promise;
 
-  			var columnas = [];
-  			var sqlInsert = "INSERT INTO #TALBA(ID,#COLUMNAS) VALUES(#SECUENCIAORACLE.nextval,#VALORES) RETURNING ID INTO :IDVALOR";
-  			var valores = [];
-            var valoresJson = {};
-  			var valoresIndices = [];
-  			var indice = 1;
-  			//Se hace un recorrido al json para obtener las columnas y valores
-  			for(var key in datos){
-  				//valores.push(datos[key])
-                if(key.indexOf("FECHA")>=0){
-                    valoresJson[key] = new Date(datos[key]);
-                }else{
-                    valoresJson[key] = datos[key]
-                }
+};
+function grabarMovilJson(parametrosJson){
 
-  				valoresIndices.push(":"+key);
-  				columnas.push(key.toUpperCase());
-  				indice ++;
-  			}
-            sqlInsert = sqlInsert.replace("#TALBA",tabla).replace("#COLUMNAS",columnas.join(",")).replace("#VALORES",valoresIndices.join(",")).replace("#SECUENCIAORACLE", secuencia);
+      var datos = parametrosJson.datos;
+      var tabla = parametrosJson.tabla;
+      var conexion = parametrosJson.conexion;
+      var errores = parametrosJson.errores;
+      //.log("grabarJson entro",parametrosJson);
+      var deferred = Q.defer();
+      datos.idmovil = datos.id;
+      delete datos.id;
+      if(errores){
+          deferred.reject({mensaje:errores, conexion:conexion});
+         return deferred.promise;
+      }
+      var secuencia = entidesMonogoDB.getSecuenciaOracle(tabla);
 
-            //valoresJson[.push({IDVALOR:{dir:oracledb.BIND_OUT}})]
-            valoresJson["IDVALOR"]={type:oracledb.NUMBER,dir:oracledb.BIND_OUT};
+      //Verificando si el registro a grabar tiene hijos o registros asociados
+      secuencia = secuencia.secuencia;
+      var REGISTROSASOCIADOS = [];
 
-  			padre.getPoolClienteConexion(sqlInsert, valoresJson, true, function(resultado){
-                //console.log(resultado);
-  				if(resultado  && resultado.rowsAffected >= 1 && resultado.outBinds && resultado.outBinds.IDVALOR[0]){
-                    if(REGISTROSASOCIADOS.length>0){
-                        REGISTROSASOCIADOS.map(function(r){
-                            var referenciaCampoFk = entidesMonogoDB.getReferenciaFkOracle(tabla, r.tabla);
-                            if(referenciaCampoFk.campofk){
-                                var foreign_keys={};
-                                foreign_keys[referenciaCampoFk.campofk] = resultado.outBinds.IDVALOR[0];
-                                grabarRegistrosRecursivosOracle(0, r.tabla, r.registros, foreign_keys, padre, function(restpuestaA){
-                                        console.log(restpuestaA);
-                                })
-                            }
-
-                        })
-
+      if((Array.isArray(datos.REGISTROSASOCIADOS) && datos.REGISTROSASOCIADOS.length>0)){
+            REGISTROSASOCIADOS = datos.REGISTROSASOCIADOS;
+      }
+      delete datos.REGISTROSASOCIADOS;
+      delete datos.registrosasociados;
+   	  var scriptInsert = getScriptInsert(datos, tabla, secuencia);
+      scriptInsert.valoresJson.IDVALOR={type:oracledb.NUMBER,dir:oracledb.BIND_OUT};
+      getPoolClienteConexionCommit(conexion, scriptInsert.sqlInsert, scriptInsert.valoresJson, false, function(resultado){
+                if(resultado  && resultado.rowsAffected >= 1 && resultado.outBinds && resultado.outBinds.IDVALOR[0]){
+                    if(REGISTROSASOCIADOS.length === 0){
+                        deferred.resolve(conexion);
+                    }else{
+                        grabarTablasAsociadas(conexion, tabla, REGISTROSASOCIADOS, resultado).then(function(r){
+                            deferred.resolve(conexion);
+                        },function(x){
+                            deferred.reject(x);
+                        });
                     }
-  					respuesta(true, {estado:true,tipo:"success",mensaje:"REGISTRO GRABADO",id:resultado.outBinds.IDVALOR[0]});
   				}else{
-  					if(resultado.code && resultado.code ==="23505"){
-  						respuesta(false, {tipo:"error",mensaje:"REGISTRO NO GRABADO ", yaexiste:true});
+                    if(resultado.code && resultado.code ==="23505"){
+  						deferred.reject({mensaje:"REGISTRO NO GRABADO POR QUE YA SE ENCUENTRA GRABADO", excepcion:resultado, conexion:conexion});
   					}else{
-  						respuesta(false, {tipo:"error",mensaje:"REGISTRO NO GRABADO "});
+  						deferred.reject({mensaje:"REGISTRO NO GRABADO", excepcion:resultado,conexion:conexion});
   					}
-
   				}
-
   			});//FIN getPoolClienteConexion
-   }
+            return deferred.promise;
+ }
+ ClienteOracle.prototype.grabarJson = function(datos, tabla){
+         console.log("grabarJson entro");
+         var deferred = Q.defer();
 
-function grabarRegistrosRecursivosOracle(index, tabla, datos, foreign_keys, oraClase, callBack){
-       if(index < datos.length){
-           for(key in foreign_keys ){
-                datos[index][key] = foreign_keys[key];
-           }
-          oraClase.grabarJson(datos[index], tabla, function(restpuestaora){
-               console.log(restpuestaora);
-           });
-           index +=1;
-           grabarRegistrosRecursivosOracle(index, tabla, datos, foreign_keys, oraClase, callBack);
-       }else{
-            callBack("listo");
-       }
+         delete datos.id;
+         if(!tabla){
+             console.log("la tabla no existe");
+             deferred.reject({mensaje:"La tabla no existe"});
+            return deferred.promise;
+         }
+         var secuencia = entidesMonogoDB.getSecuenciaOracle(tabla);
+
+         //Verificando si el registro a grabar tiene hijos o registros asociados
+         secuencia = secuencia.secuencia;
+         var padre = this;
+         var scriptInsert = getScriptInsert(datos, tabla, secuencia);
+         scriptInsert.valoresJson.IDVALOR={type:oracledb.NUMBER,dir:oracledb.BIND_OUT};
+         padre.getPoolClienteConexion(scriptInsert.sqlInsert, scriptInsert.valoresJson, true, function(resultado){
+                   if(resultado  && resultado.rowsAffected >= 1 && resultado.outBinds && resultado.outBinds.IDVALOR[0]){
+                        deferred.resolve(true);
+                   }else{
+                       deferred.reject(false);
+                   }
+        });
+};
+function grabarTablasAsociadas(conexion, tabla, REGISTROSASOCIADOS, resultado){
+    var deferred = Q.defer();
+    var grupoRegistrosAsociadosPorTabla = [];
+    REGISTROSASOCIADOS.forEach(function(r){
+        var referenciaCampoFk = entidesMonogoDB.getReferenciaFkOracle(tabla, r.tabla);
+        if(referenciaCampoFk.campofk){
+            var foreign_keys={};
+            foreign_keys[referenciaCampoFk.campofk] = resultado.outBinds.IDVALOR[0];
+            grupoRegistrosAsociadosPorTabla.push(grabarRegistrosRecursivosOracle(conexion, r.tabla, r.registros, foreign_keys));
+        }else{
+            grupoRegistrosAsociadosPorTabla.push(grabarRegistrosRecursivosOracle(conexion, r.tabla, r.registros, null));
+        }
+    });
+    Q.all(grupoRegistrosAsociadosPorTabla).then(function(){
+        deferred.resolve(true);
+    },function(x){
+        console.log("Error en grabarTablasAsociadas ******* ",x);
+        deferred.reject(x);
+    });
+
+     return deferred.promise;
+
+}
+function grabarRegistrosRecursivosOracle(conexion, tabla, datos, foreign_keys){
+    var deferred = Q.defer();
+    var registrosPorGrabar = [];
+    var errores = "";
+    datos.forEach(function(dato){
+        if(foreign_keys){
+            for(var key in foreign_keys ){
+                 delete dato[key];
+                 delete dato[key.toLowerCase()];
+                 dato[key] = foreign_keys[key];
+            }
+        }else{
+            errores = "No se econtro una relacion con la tabla  " + tabla;
+        }
+        registrosPorGrabar.push(grabarMovilJson({conexion:conexion, tabla:tabla, datos:dato, errores:errores}));
+    });
+    Q.all(registrosPorGrabar).then(function(r){
+        deferred.resolve(true);
+    },function(x){
+        deferred.reject(x);
+    });
+    return deferred.promise;
 }
 module.exports = new ClienteOracle();

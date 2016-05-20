@@ -1,5 +1,6 @@
 var io = require('socket.io');
 conexiones = [];
+var socket;
 var SocketIo = function(http, empresas) {
     console.log("entro constructor");
 
@@ -45,6 +46,23 @@ var SocketIo = function(http, empresas) {
                     //Mensaje individual
                     socket.emit('respuesta', {mensaje:'server edi solo a ti', estado:true,datos:datos});
                 });
+                socket.on('sincronizar', function(datos){
+                    console.log("sincronizar");
+                    console.log("socket.room " + socket.id);
+                    console.log(datos);
+                    var cuartos = {mensaje:'server solo al room '+socket.room, estado:true,datos:datos};
+                    //Todos en el namespace
+                    conexiones[empresa.ruc].emit('respuesta::namespace', {mensaje:'server todos respuesta!', estado:true,datos:datos});
+                    //room
+                    if(socket.room){
+                        conexiones[empresa.ruc].to(socket.room).emit('room',{mensaje:'server solo al room '+ socket.room, estado:true,datos:datos});
+                        conexiones[empresa.ruc].to(socket.room).emit('sincronizar',{mensaje:'server solo al room '+ socket.room, estado:true,datos:datos});
+                    }
+                    // socket.broadcast.to(room).emit(room, {mensaje:'server solo al room '+room, estado:true,datos:datos});
+
+                    //Mensaje individual
+                    socket.emit('respuesta', {mensaje:'server edi solo a ti', estado:true,datos:datos});
+                });
                 socket.on('disconnect', function () {
                         socket.leave(socket.room);
                 });
@@ -53,7 +71,25 @@ var SocketIo = function(http, empresas) {
 
 
 
+
 };
+
+SocketIo.prototype.getSocket = function(){
+    return socket;
+};
+SocketIo.prototype.getConexiones = function(){
+    return conexiones;
+};
+/**
+ * ACCIONES
+ */
+ var accionesAsistenVirtual = {
+
+ 	'sincronizar':function(mensaje, socket){
+     	io.clients[mensaje.id].send(JSON.stringify({mensajechatadmin:mensaje.mensaje}));
+
+     }
+ };
 
 
 module.exports = SocketIo;

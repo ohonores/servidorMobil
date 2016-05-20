@@ -230,7 +230,7 @@ rutasPrivadas.log = log;
 rutasPrivadas.oracleMongo = oracleMongo;
 rutasPublicas.use('/movil/sincronizacion', rutasPrivadas);
 app.use('/', rutasPublicas);
-
+app.oracleMongo = oracleMongo;
 //The 404 Route (ALWAYS Keep this as the last route)
 app.get('/*', function(req, res, next){
    res.render("404/404.html");
