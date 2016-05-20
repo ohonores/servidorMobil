@@ -165,12 +165,12 @@ function grabarRegistrosRecursivos (i, a, id, identificacion, perfil, cantidad, 
         jsonEntity.parametrosBusquedaValores.push(cantidad);
     }
     //if(jsonEntity.sqlOrigen.indexOf("item")>=0){
-    console.log(jsonEntity.sqlOrigen);
-    console.log(jsonEntity.parametrosBusquedaValores);
+    //console.log(jsonEntity.sqlOrigen);
+    //console.log(jsonEntity.parametrosBusquedaValores);
 //}
     oracledb.getPoolClienteConexion(jsonEntity.sqlOrigen, jsonEntity.parametrosBusquedaValores ? jsonEntity.parametrosBusquedaValores :[] , false, function(respuestaora){
 //        if(jsonEntity.sqlOrigen.indexOf("item")>=0){
-       console.log("grabarRegistrosRecursivos encontrados",jsonEntity.coleccion,respuestaora.rows.length);
+       //console.log("grabarRegistrosRecursivos encontrados",jsonEntity.coleccion,respuestaora.rows.length);
 //}
         if(respuestaora && respuestaora.rows && respuestaora.rows.length>0){
             var jsonClon;
@@ -234,9 +234,7 @@ function grabarRegistrosRecursivos (i, a, id, identificacion, perfil, cantidad, 
 
 
         }else{
-            if(jsonEntity.sqlOrigen.indexOf("item")>=0){
-            console.log("grabarRegistrosRecursivos FIN ",i);
-        }
+
             callBack({perfil:perfil, indeces:i>0?i-1:i});
         }
     });
@@ -353,13 +351,19 @@ OracleMongo.prototype.crearColeccionesMongo = function(borrar, jsonEntity){
     borrarColeccion(borrar, jsonEntity).
     then(insertarDocumentos).
     then(function(r){
-        console.log(jsonEntity.coleccion,r.length);
-        console.log(
-                r.reduce(function(a,b){
-                    a += b.indeces;
-                    return a;
-                },0)
-                );
+
+        if(Array.isArray(a)){
+            console.log(jsonEntity.coleccion,r.length);
+            console.log(
+                    r.reduce(function(a,b){
+                        a += b.indeces;
+                        return a;
+                    },0)
+                    );
+        }else{
+            console.log(jsonEntity.coleccion,r);
+        }
+
         deferred.resolve(r);
     },function(r){
 
@@ -685,7 +689,7 @@ OracleMongo.prototype.crearColecciones = function(borrar){
 
     //1. Crear perfiles
     var padre = this;
-        /*padre.crearPerfiles(borrar).
+        padre.crearPerfiles(borrar).
         then(function(r){
             padre.crearColeccionesMongo(borrar, entidesMonogoDB.getJsonEstablecimientos()).then(function(a){
                 console.log("crearColecciones getJsonEstablecimientos listo");
@@ -696,9 +700,12 @@ OracleMongo.prototype.crearColecciones = function(borrar){
             //padre.crearEstadoCuenta(borrar);
         },function(error){
             console.log(error);
-        });*/
+        });
         padre.crearColeccionesMongo(borrar, entidesMonogoDB.getJsonItems()).then(function(a){
             console.log("crearColecciones getJsonEstadoDeCuenta listo");
+        });
+        padre.crearColeccionesMongo(borrar, entidesMonogoDB.getJsonPromocionVenta()).then(function(a){
+            console.log("crearColecciones getJsonPromocionVenta listo");
         });
 
             /*if(estado && !creandoA){
