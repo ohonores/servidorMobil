@@ -73,9 +73,11 @@ EntidadesMongoOracle.prototype.getJsonEstablecimientos = function(){
                     registroTipoCamposNumericos:{
                         "ESTABLECIMIENTO_ID":"INTEGER",
                         "ESTABLECIMIENTOTIPOPAGO_ID":"INTEGER"
+
                     },
                     registroMongo:{
                         registroMovil:{
+                            id:"ID",
                             establecimiento_id:"ESTABLECIMIENTO_ID",
                             establecimientoTipoPago_id:"MESTABLECIMIENTOTIPOPAGO_ID",
                             codigoEstablecimiento:"CODIGO",
@@ -449,6 +451,7 @@ EntidadesMongoOracle.prototype.getJsonOrden = function(){
     return {
                     coleccion:"emcorden",
                     diccionario:true,
+                    sincronizar:false,
                     movil:{tabla:"emovtorden", crear:true, espejo:true, sql:"SELECT * FROM SWISSMOVI.EMOVTORDEN where rownum = 1",secuencia:"SWISSMOVI.emovsorden"},
                     referencias:[{tabla:"emovtorden_detalle",campofk:"MORDEN_ID"},{tabla:"emovtorden_condicion",campofk:"MORDEN_ID"}],
                     registroTipoCamposNumericos:{

@@ -79,7 +79,7 @@ sincronizar.get('/actualizar/perfil/urls-para-sincronizar', seguridadEDC.verfica
             });
 });*/
 //Datos diccionarios
-sincronizar.get('/inicio/diccionarios/:coleccion/:index',  function(req, res){
+sincronizar.get('/inicio/diccionarios/:coleccion/:index', seguridadEDC.validarIndex, function(req, res){
     oracleMongo.getDatosDinamicamenteDeInicio(req.params.coleccion, null, req.params.index, function(resultado){
         res.json(resultado);
     });

@@ -9,7 +9,7 @@ var oracle,mongodb,oracledb;
 var sqlBusquedaPerfilesNew = "SELECT * FROM  SWISSMOVI.EMOVTPERFIL WHERE ROWNUM <2";
 var sqlBusquedaEstabPorPerfilNew = "SELECT * FROM SWISSMOVI.EMOVTPERFIL_ESTABLECIMIENTO PE WHERE PE.MPERFIL_ID =:ID AND  PE.ID>=:A AND ROWNUM<=:B ORDER BY PE.ID ASC";
 var sqlBusquedaEstabPorPerfilMinNew = "SELECT MIN(ID) AS ID FROM SWISSMOVI.EMOVTPERFIL_ESTABLECIMIENTO WHERE MPERFIL_ID =:ID AND ID>:ID";
-var sizeArrayPorDocumento = 100;
+var sizeArrayPorDocumento = 200;
 function getDatos(origen, destino){
     for(var key in destino){
         if(typeof(destino[key]) == "string"){
@@ -19,7 +19,6 @@ function getDatos(origen, destino){
                 if(!isNaN(origen[destino[key]])){
                     destino[key] = parseInt(origen[destino[key]]);
                 }
-
             }
             if(destino[key] == "establecimientoTipoPago_id"){
                 if(!isNaN(origen[destino[key]])){
@@ -235,7 +234,7 @@ function grabarRegistrosRecursivos (i, a, id, identificacion, perfil, cantidad, 
 
         }else{
 
-            callBack({perfil:perfil, indeces:i>0?i-1:i});
+            callBack({perfil:perfil, indeces:i});
         }
     });
 }
@@ -246,7 +245,7 @@ function grabarRegistrosRecursivosDesdeUnArraySqls(index, listaSqls, i, callBack
             //console.log("grabarRegistrosRecursivosDesdeUnArraySqls");
             //console.log(resultado);
             index = index + 1;
-            grabarRegistrosRecursivosDesdeUnArraySqls(index, listaSqls, resultado, callBack);
+            grabarRegistrosRecursivosDesdeUnArraySqls(index, listaSqls, resultado.indeces, callBack);
         });
     }else{
         callBack(i);
@@ -442,16 +441,15 @@ function crearBodegasPorPefil(borrar, inicio){
 
 
 OracleMongo.prototype.crearDiccionarios = function(borrar){
-    var padre = this;
     borrarColeccion(borrar, entidesMonogoDB.getJsonDiccionarioBanco()).
     then(function(r){
-        var dicicionarios = [
+        var diccionarios = [
                             entidesMonogoDB.getJsonDiccionarioBanco(),
                             entidesMonogoDB.getJsonDiccionarioCuentaBancaria(),
                             entidesMonogoDB.getJsonDiccionarioDocumento(),
                             entidesMonogoDB.getJsonDiccionarioBodegaVenta()
                         ];
-        grabarRegistrosRecursivosDesdeUnArraySqls(0, dicicionarios, 1, function(){
+        grabarRegistrosRecursivosDesdeUnArraySqls(0, diccionarios, 1, function(a){
                 console.log("crearColecciones crearDiccionarios listo",a);
         });
 

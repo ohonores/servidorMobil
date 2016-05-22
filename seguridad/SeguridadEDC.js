@@ -127,6 +127,7 @@ SeguridadEDC.prototype.validarIndex = function(req, res, next) {
     if(req.params &&  !isNaN(req.params.index)){
         next();
     }else {
+        res.status(403);
         res.send(mensajes.errorIdentificacion.perfil);
     }
 }
