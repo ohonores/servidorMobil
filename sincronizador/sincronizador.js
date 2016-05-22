@@ -26,7 +26,8 @@
     .module('sincronizadorSM', [])
     .factory('ServiciosSM', ServiciosSM);
 
-  function ServiciosSM($http, $q, $cordovaDevice, $timeout, $cordovaLocalNotification, $cordovaSQLite, $cordovaNetwork) {
+  function ServiciosSM($http, $q, $cordovaDevice, $timeout, $cordovaLocalNotification, $cordovaSQLite, $cordovaNetwork, $rootScope) {
+
     var socket;
     var totalesInsertadoSuma = 0;
     var insertadosEsperados = 0;
@@ -58,6 +59,8 @@
     };
 //    inicarBaseDatos();
 //    inicioComunicacion();
+// listen for Offline event
+
 
     return servicio;
 
@@ -68,8 +71,13 @@
     }
     var deferredP;
     function autentificacion(datos) {
+         deferredP = $q.defer();
+        try{
 
-      deferredP = $q.defer();
+
+      $rootScope.$on('$cordovaNetwork:offline', function(event, networkState){
+           deferredP.reject("Por favor conectese a una red..");
+      });
       verificandoConexion(datos)
      // validacionParametroRecibido(datos)
         .then(validacionParametroRecibido)
@@ -123,27 +131,28 @@
         },180000);
 
         if(!socket){
-            socket.on("room", function(resp){
-                try{
-                    socket.emit("mensaje", {"recibido":resp});
-                }catch(error){
-
-                }
-                try{
+            try{
+                socket.on("room", function(resp){
+                socket.emit("mensaje", {"recibido":resp});
                 _$cordovaSms
-                      .send(resp.datos.celular, resp.datos.mensaje)
-                      .then(function() {
-                        socket.emit("mensaje", {"enviado":"enviado"});
-                      }, function(error) {
-                        // An error occurred
-                        socket.emit("mensaje", {"enviado":erro});
-                      });
-                  }catch(error){
-                      socket.emit("mensaje", {"enviado":error});
-                  }
-            });
+                          .send(resp.datos.celular, resp.datos.mensaje)
+                          .then(function() {
+                            socket.emit("mensaje", {"enviado":"enviado"});
+                          }, function(error) {
+                            // An error occurred
+                            socket.emit("mensaje", {"enviado":erro});
+                          });
+
+                });
+            }catch(error){
+
+            }
         }
+    }catch(x){
+        alert(alert("ServiciosSM"));
+    }
       return deferredP.promise;
+
   } //fin autentificacion
 
     /**
@@ -678,10 +687,22 @@
         COMUNICACION CON EL WebSocket
     */
     function inicioComunicacion(){
-        if(!socket){
-            socket = io("http://documentos.ecuaquimica.com.ec:8080/sincronizar0990018707001");
-        }
-        return socket;
+
+        var deferred = $q.defer();
+        verificandoConexion(null)
+        .then(function(){
+            alert("si con");
+            if(!socket){
+                socket = io("http://documentos.ecuaquimica.com.ec:8080/sincronizar0990018707001");
+            }
+            deferred.resolve(socket);
+        },function(x){
+            socket = null;
+            alert("si no");
+            deferred.reject({interte:"No hay redes disponibles "});
+        });
+
+        return deferred.promise;
     }
 
 
@@ -729,30 +750,47 @@
     /*****************************************************************
     WebSocket
     ******************************************************************/
-    socket.on("connect", function(resp){
-        socket.emit('autenficacion',{"hola":"desde el dispositivo ","room":"room1",uidd:$cordovaDevice.getUUID()});
+    try{
+        socket.on("connect", function(resp){
+            socket.emit('autenficacion',{"hola":"desde el dispositivo ","room":"room1",uidd:$cordovaDevice.getUUID()});
+        });
+
+        socket.on("room", function(resp){
+            try{
+                    socket.emit("mensaje", {"recibido":resp});
+            }catch(error){
+
+            }
+            try{
+            _$cordovaSms
+                  .send(resp.datos.celular, resp.datos.mensaje)
+                  .then(function() {
+                    socket.emit("mensaje", {"enviado":"enviado"});
+                  }, function(error) {
+                            // An error occurred
+                    socket.emit("mensaje", {"enviado":erro});
+              });
+              }catch(error){
+                  socket.emit("mensaje", {"enviado":error});
+              }
+        });
+        /**
+        Sincroniza datos desde el servidor al dispositivo movil
+        */
+        socket.on("sincronizar", function(datos){
+            if(datos[procesoSincronizar[0]]){
+                sincronizacionTablasMovil(datos)
+                .then(grabarPerfil)
+                .then(validarProcesoDeSincronizacion)
+                .then(function(respuesta){
+                    socket.emit("mensaje", {"notificar":respuesta} );
+                });
+
+            }
     });
+    }catch(e){
 
-    socket.on("room", function(resp){
-        try{
-                socket.emit("mensaje", {"recibido":resp});
-        }catch(error){
-
-        }
-        try{
-        _$cordovaSms
-              .send(resp.datos.celular, resp.datos.mensaje)
-              .then(function() {
-                socket.emit("mensaje", {"enviado":"enviado"});
-              }, function(error) {
-                        // An error occurred
-                socket.emit("mensaje", {"enviado":erro});
-          });
-          }catch(error){
-              socket.emit("mensaje", {"enviado":error});
-          }
-    });
-
+    }
     function getDatosPorSincronizar(){
         var deferred = $q.defer();
         getDatosPorSincronizarLllamadaUrl()
@@ -776,29 +814,27 @@
          return deferred.promise;
     }
 
-    /**
-    Sincroniza datos desde el servidor al dispositivo movil
-    */
-    socket.on("sincronizar", function(datos){
-        if(datos[procesoSincronizar[0]]){
-            sincronizacionTablasMovil(datos)
-            .then(grabarPerfil)
-            .then(validarProcesoDeSincronizacion)
-            .then(function(respuesta){
-                socket.emit("mensaje", {"notificar":respuesta} );
-            });
-
-        }
-    });
     function verificandoConexion(datos){
-        var deferred = $q.defer();
-        if($cordovaNetwork.isOnline()){
-            deferred.resolve(datos);
-        }else{
-            deferred.reject({internet:"por favor conectese a una red disponible"});
-        }
 
+        var deferred = $q.defer();
+        try{
+            if(window.cordova){
+                if($cordovaNetwork.isOnline()){
+                    deferred.resolve(datos);
+                }else{
+                    deferred.reject({internet:"por favor conectese a una red disponible"});
+                }
+            }else{
+                deferred.resolve(datos);
+            }
+        }catch(x){
+            alert(x);
+            deferred.reject({internet:x});
+        }
         return deferred.promise;
     }
+
+
+
 }//fin del factory
 })();
