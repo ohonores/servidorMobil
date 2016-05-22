@@ -54,6 +54,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 //app.use(express.session({ secret: 'alien' }));
 app.use('/recursos',express.static(path.join(__dirname, 'bower_components')));
 app.use('/socket',express.static(path.join(__dirname, 'node_modules')));
+app.use('/sincronizador',express.static(path.join(__dirname, 'sincronizador')));
 var client;
 var redisStore;
 if(process.env.REDIS == 1){
