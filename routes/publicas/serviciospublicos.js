@@ -14,6 +14,7 @@ var urlMatriz = "http://documentos.ecuaquimica.com.ec:8080";
 var urlPefil = "/movil/sincronizacion/inicio/perfil/:coleccion/:index";
 var urlDiccionario = "/movil/sincronizacion/inicio/diccionarios/:coleccion/:index";
 var urlRecpcion = "http://documentos.ecuaquimica.com.ec:8080/movil/sincronizacion/recepcion/:tabla/";
+var urlSincronizarPerifil = "http://documentos.ecuaquimica.com.ec:8080/movil/sincronizacion/actualizar/perfil-sinc/:coleccion/:index";
 /* PAGINA DE INICIO. */
 router.get('/', TipoBrowser.browserAceptado, function(req, res, next) {
      res.send('MOVILE*************');
@@ -45,6 +46,7 @@ router.get('/datos',function(req, res, next){
     //  Grabando cada peticion en la base de mongo
     // =====================================
 router.get('/movil/autentificacion/:identificacion/:empresa/:uidd/:x/:y/:token', seguridadEDC.validarIdentificacion, function(req, res) {
+    console.log('/movil/autentificacion/:identificacion/:empresa/:uidd/:x/:y/:token');
     oracleMongo.autentificacion(req.params, function(respuesta){
         //Verifica si existe mas de una empresa
         switch (respuesta.length) {
@@ -55,17 +57,20 @@ router.get('/movil/autentificacion/:identificacion/:empresa/:uidd/:x/:y/:token',
                 respuesta = respuesta[0];
                 // creacion del token
                 var token = jwt.sign({identificacion:req.params.identificacion,perfil:respuesta.registroInterno.perfil,empresa:req.params.uidd}, tokens.secret, {
-                  expiresInMinutes: 60 //1440 expira en 24 hours
+                  expiresInMinutes: 11520 //1440 expira en 24 hours
                 });
                 tokenAix = token;
+                console.log(token);
                 oracleMongo.getUrlsPorPefil(respuesta.registroMovil.identificacion, respuesta.registroInterno.perfil, urlMatriz+urlPefil, urlMatriz+urlDiccionario, urlRecpcion, function(total){
+                     console.log("token*****", total);
                     oracleMongo.getTablasScript(function(script){
+                            //console.log("token*****", script);
                             respuesta.scriptsDrops = oracleMongo.getTablasScriptDrop();
                             respuesta.scripts = script;
                             respuesta.scriptsUniqueKeys = oracleMongo.getTablasScriptUniqueKey();
                             respuesta.sincronizacion = total;
                             oracleMongo.getTotalRegistrosPorPerfiles(respuesta.registroMovil.identificacion).then(function(validar){
-
+                                console.log("getTotalRegistrosPorPerfiles", validar);
                                 respuesta.validarSincronizacion = validar.map(function(script){
                                     var map = {};
                                     for(var key in script){
@@ -96,7 +101,7 @@ router.get('/movil/autentificacion/:identificacion/:empresa/:uidd/:x/:y/:token',
 
     });
 });
-router.get('/movil/iniciar/sensor/sincronizador/:perfil', function(req, res) {
+/*router.get('/movil/iniciar/sensor/sincronizador/:perfil', function(req, res) {
         console.log('/movil/iniciar/sensor/sincronizador');
         oracleMongo.crearColecciones(false);
         req.app.conexiones[req.app.empresas[0].ruc].emit('respuesta::namespace', {mensaje:'server todos respuesta!', estado:true,datos:{"key":"es un prueba desde el servidor"}});
@@ -106,5 +111,47 @@ router.get('/movil/iniciar/sensor/sincronizador/:perfil', function(req, res) {
                     res.json({sincronizacion:resultado});
         });
         //res.send("listo");
+});*/
+
+router.get('/movil/iniciar/sensor/sincronizador/get-datos', function(req, res) {
+     console.log('/movil/iniciar/sensor/sincronizador/get-datos',new Date());
+    oracleMongo.getTodosLosCambiosPorSincronizarPorPerfil(null,  urlSincronizarPerifil).then(function(resultado){
+                    res.json({sincronizacion:resultado});
+        });
+});
+var sincronizarColeeciones = false;
+var sincronizarColeecionesPendientes  = [];
+router.get('/movil/iniciar/sensor/sincronizador/actualizar-datos', function(req, res) {
+        console.log('/movil/iniciar/sensor/sincronizador/actualizar-datos',new Date());
+       if(!sincronizarColeeciones){
+        sincronizarColeeciones = true;
+        oracleMongo.crearColecciones(false).then(function(a){
+            res.json(a);
+            sincronizarColeeciones = false;
+        },function(x){
+             res.json(x);
+            sincronizarColeeciones = false;
+        });
+    }else{
+        res.json("Existe un proceso ya iniciado");
+    }
+});
+var creandoColeeciones = false;
+router.get('/movil/iniciar/cargar-datos-iniciales', function(req, res) {
+   
+        console.log('/movil/iniciar/cargar-datos-iniciales',new Date());
+    if(!creandoColeeciones){
+        creandoColeeciones = true;
+        oracleMongo.crearColecciones(true).then(function(a){
+            res.json(a);
+            creandoColeeciones = false;
+        },function(x){
+             res.json(x);
+           creandoColeeciones = false;
+        });
+    }else{
+        res.json("Existe un proceso ya iniciado");
+    }
+       
 });
 module.exports = router;

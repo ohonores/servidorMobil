@@ -8,6 +8,7 @@ To reduce the number of connection pools created by your application, we recomme
 calling MongoClient.connect once and reusing the database variable returned by the callback:
 ****************/
 var mongodb = require('mongodb');
+var Binary = mongodb.Binary;
 var Q = require('q');
 var hash = require('object-hash');
 var MongoClient = require('mongodb').MongoClient;
@@ -15,6 +16,9 @@ var db;
 var localhost = "localhost";
 var ClienteMongoDb = function () {this.init();};
 var collectionErroresAlGrabar = "emcerrores";
+ClienteMongoDb.prototype.Binary = function () {
+        return Binary;
+}
 ClienteMongoDb.prototype.init = function () {
     // Initialize connection once
     MongoClient.connect("mongodb://"+localhost+":27017/movilesTest", function(err, database) {
@@ -24,6 +28,33 @@ ClienteMongoDb.prototype.init = function () {
       console.log("Listo Conectado");
     });
 };
+ClienteMongoDb.prototype.crearIndices = function (collection, index) {
+	var deferred = Q.defer();
+	console.log(index);
+	if(index.unique){
+		 delete index.unique;
+		 console.log(index);
+		 db.collection(collection).createIndex(index,{unique:true}, function(err, docs) {
+				if(err){
+					deferred.reject(err);
+				}else{
+					deferred.resolve(true);
+				}
+				 
+		  });
+	}else{
+		db.collection(collection).ensureIndex(index, function(err, docs) {
+			if(err){
+				deferred.reject(err);
+			}else{
+				deferred.resolve(true);
+			}
+             
+		});
+	}
+	return deferred.promise;
+}
+
 ClienteMongoDb.prototype.getRegistros = function (collection, parametros, resultado) {
         db.collection(collection).find(parametros).toArray(function(err, docs) {
              resultado(docs);
@@ -38,6 +69,20 @@ ClienteMongoDb.prototype.getRegistrosCustomColumnas = function (collection, para
        if(customColumnas){
 
            db.collection(collection).find(parametros, customColumnas).toArray(function(err, docs) {
+
+                resultado(docs);
+           });
+       }else{
+           db.collection(collection).find(parametros).toArray(function(err, docs) {
+                resultado(docs);
+           });
+       }
+
+};
+ClienteMongoDb.prototype.getRegistrosCustomColumnasOrdenLimite = function (collection, parametros, customColumnas, sort, limite, resultado) {
+       if(customColumnas && sort && limite){
+
+           db.collection(collection).find(parametros, customColumnas).sort(sort).limit(limite).toArray(function(err, docs) {
 
                 resultado(docs);
            });
@@ -88,21 +133,23 @@ ClienteMongoDb.prototype.getRegistroCustomColumnas = function (collection, param
 
 function existenciaDocumentoConRegistrosArray(collection, parametros){
     var deferred = Q.defer();
-    db.collection(collection).findOne(parametros.buscar, parametros.columnas, function(err, registroA) {
-         if(!registroA){
+   // console.log("existenciaDocumentoConRegistrosArray", collection);
+    db.collection(collection).findOne(parametros.buscar, parametros.columnas, function(err, registroEncontrado) {
+         if(!registroEncontrado){
+             //Si el registro no es encontrado con el perfil, hash e index, se hace una nueva busqueda pero solo con el index u perfil
              delete parametros.buscar.hash;
              delete parametros.columnas.hash;
              db.collection(collection).findOne(parametros.buscar, parametros.columnas, function(err, registroB) {
                  if(registroB && registroB._id){
                      db.collection(collection).remove({_id:registroB._id,}, function(err, registroEliminado) {
-                         deferred.resolve({encontrado:true,registros:registroB.registros});
+                        deferred.resolve({encontrado:true,registros:registroB.registros});
                      });
                  }else{
-                      deferred.resolve({encontrado:false});
+                     deferred.resolve({encontrado:false});
                  }
              });
          }else{
-             deferred.reject({mensaje:"Registro ya existe ",coleccion:collection, id:registroA._id});
+             deferred.reject({mensaje:"Registro ya existe ",coleccion:collection, id:registroEncontrado._id, existe:true});
          }
 
     });
@@ -139,9 +186,13 @@ function existenciaDocumentoConHash(collection, documentoPorInsertar){
     return deferred.promise;
 }
 
-function validarDocumentoConRegistroArray(collection, parametros){
+function validarDocumentoConRegistroArray(collection, parametros, grabarSinValidarExistencia){
     var deferred = Q.defer();
     var buscar;
+    if(grabarSinValidarExistencia === true){
+         deferred.resolve({grabar:true,documento:parametros});
+         return deferred.promise;
+    }
     //Valida que el registros tenga presente las keys:
     //index y registros
     //Con este antes de enviar a grabar hace una busqueda del registro, para evitar duplicaciones
@@ -156,7 +207,8 @@ function validarDocumentoConRegistroArray(collection, parametros){
             }
             existenciaDocumentoConRegistrosArray(collection, {buscar:buscar, columnas:{_id:1,registros:1,hash:1}}). //Primera busqueda, Segunda busqueda y eliminacion del registro en la segunda busqueda
             then(function(r){
-                if(r.encontrado){
+                console.log("Econtrado listo para actualizar", collection);
+                if(r.encontrado === true){
                     parametros.sincronizar = getRegistrosPorSincronizarPorArrays(r.registros, parametros.registros);
                 }
                 deferred.resolve({grabar:true,documento:parametros});
@@ -164,7 +216,7 @@ function validarDocumentoConRegistroArray(collection, parametros){
                 deferred.reject(x);
             });
     }else{
-        //Validad si el registro tiene un key registroInterno y registroInterno.perfil con el objetivo de buscarlo
+        //Valida si el registro tiene un key registroInterno y registroInterno.perfil con el objetivo de buscarlo
         if(parametros.registroInterno && parametros.registroInterno.perfil && !parametros.index){
 
                 existenciaDocumentoConHash(collection, parametros).
@@ -181,7 +233,12 @@ function validarDocumentoConRegistroArray(collection, parametros){
                     }
                 });
         }else{
-            deferred.resolve({grabar:true,documento:parametros});
+            if(!parametros.index && Array.isArray(parametros.registros)){
+                deferred.resolve({grabar:false, mensaje:"Contiene registros pero no contiene el index"});
+            }else{
+                 deferred.resolve({grabar:true,documento:parametros});
+            }
+           
         }
 
 
@@ -189,9 +246,9 @@ function validarDocumentoConRegistroArray(collection, parametros){
     return deferred.promise;
 }
 
-ClienteMongoDb.prototype.grabar = function (collection, parametros) {
+ClienteMongoDb.prototype.grabar = function (collection, parametros, grabarSinValidarExistencia) {
     var deferred = Q.defer();
-    grabarQ(collection, parametros).then(function(r){
+    grabarQ(collection, parametros, grabarSinValidarExistencia).then(function(r){
         if(r.estado){
             deferred.resolve(r);
         }else {
@@ -201,6 +258,511 @@ ClienteMongoDb.prototype.grabar = function (collection, parametros) {
     },function(x){
         deferred.reject(x);
     });
+     return deferred.promise;
+};
+ClienteMongoDb.prototype.grabarRegistroIndividual = function (collection, parametros) {
+    var deferred = Q.defer();
+	var claveacc = parametros.claveacceso;
+	var importeTotal = parametros.importeTotal;
+	delete parametros.claveacceso;
+    db.collection(collection).insertOne(parametros, function(err, docs) {
+                  if(err){
+					var arrayDocumentos = "";
+					console.log("ruc y doc ",(claveacc.substring(10,23)+"."+claveacc.substring(8,10)));
+					switch(claveacc.substring(10,23)+"."+claveacc.substring(8,10)){
+						case '0990018707001.01':
+							console.log("entro................");
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 //{$push:{"documentosRecibidosEcuaquimica":{empresa:"0990018707001",codDoc:"01",fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+								 {$push:{"documentosRecibidos.0990018707001.04":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+								 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0990018707001.04':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0990018707001.04":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+									 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0990018707001.05':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0990018707001.05":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+									 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0990018707001.06':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0990018707001.06":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+									 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0990018707001.07':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0990018707001.07":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+									 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						
+						
+						
+						case '0991076409001.01':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0991076409001.01":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+									 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0991076409001.04':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0991076409001.04":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+								 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0991076409001.05':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0991076409001.05":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+								 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0991076409001.06':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0991076409001.06":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+								 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0991076409001.07':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0991076409001.07":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+								 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						
+						
+						case '0991076395001.01':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0991076395001.01":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+									 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0991076395001.04':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0991076395001.04":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+								 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0991076395001.05':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0991076395001.05":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+									 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0991076395001.06':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0991076395001.06":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+								 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0991076395001.07':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0991076395001.07":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+								 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						
+						
+						
+						case '0992448334001.01':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0992448334001.01":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+								 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0992448334001.04':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0992448334001.04":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+									 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0992448334001.05':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0992448334001.05":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+									 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0992448334001.06':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0992448334001.06":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+									 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0992448334001.07':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0992448334001.07":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+										 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						
+						
+						case '0990018901001.01':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0990018901001.01":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+									 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0990018901001.04':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0990018901001.04":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+									 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0990018901001.05':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0990018901001.05":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+								 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0990018901001.06':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0990018901001.06":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+									 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0990018901001.07':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0990018901001.07":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+								 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						
+						
+						case '0990018677001.01':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0990018677001.01":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+								 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0990018677001.04':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0990018677001.04":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+									 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0990018677001.05':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0990018677001.05":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+									 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0990018677001.06':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0990018677001.06":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0990018677001.07':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0990018677001.07":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+								 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						
+						
+						case '0992667753001.01':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0992667753001.01":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+									 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0992667753001.04':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0992667753001.04":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+									 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0992667753001.05':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0992667753001.05":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+											 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0992667753001.06':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0992667753001.06":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+									 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0992667753001.07':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0992667753001.07":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+									 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						
+						
+						case '0992237600001.01':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0992237600001.01":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+									 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0992237600001.04':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0992237600001.04":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+								 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0992237600001.05':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0992237600001.05":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+									 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0992237600001.06':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0992237600001.06":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+								 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0992237600001.07':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0992237600001.07":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+									 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						
+						
+						case '0992637846001.01':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0992637846001.01":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+										 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0992637846001.04':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0992637846001.04":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+								 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0992637846001.05':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0992637846001.05":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+									 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0992637846001.06':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0992637846001.06":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+									 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						case '0992637846001.07':
+							db.collection(collection).updateOne(
+								 {identificacion:parametros.identificacion},
+								 {$push:{"documentosRecibidos.0992637846001.07":{fechaemision:claveacc.substring(0,8),claveacceso:claveacc}}}, function(err1, results) {
+								 if(err1){
+									console.log("Error 1",err1)
+								 }
+								 deferred.resolve({estado:true,docs:docs});
+							});
+						break;
+						
+						
+					}
+                     console.log(err);
+					 var ddd = {}
+					 ddd["documentosRecibidos"] = {};
+					 ddd["documentosRecibidos"][claveacc.substring(10,23)]= {};
+					 ddd["documentosRecibidos"][claveacc.substring(10,23)][claveacc.substring(8,10)] = {};
+					 ddd["documentosRecibidos"][claveacc.substring(10,23)][claveacc.substring(8,10)][claveacc.substring(0,8)] = {claveacceso:claveacc};
+					 
+					 
+				 }
+				 deferred.resolve({estado:true,docs:docs});
+     });
+     return deferred.promise;
+};
+ClienteMongoDb.prototype.grabarRegistroGrupo = function (collection, parametros) {
+    var deferred = Q.defer();
+    db.collection(collection).insert(parametros, function(err, docs) {
+                  if(err){
+					 console.log("Error ",err);
+                     console.log(err);
+                 }
+				 deferred.resolve({estado:true,docs:docs});
+     });
      return deferred.promise;
 };
 function grabarErrores(error){
@@ -232,29 +794,31 @@ ClienteMongoDb.prototype.grabarRegistrosDesdeMovil = function (collection, docum
        });
      return deferred.promise;
 };
-function grabarQ(collection, parametros) {
+
+function grabarQ(collection, parametros, grabarSinValidarExistencia) {
     var deferred = Q.defer();
       if(!parametros.fechaColeccion){
         parametros.fechaColeccion = new Date();
       }
-
-      validarDocumentoConRegistroArray(collection, parametros).
-      then(function(resultado){
-
-          if(resultado && resultado.grabar){
-              db.collection(collection).insertOne(resultado.documento, function(err, docs) {
-                  if(err){
-                     deferred.notify({mensaje:err});
-                 }else{
-                      deferred.resolve({estado:true,docs:docs});
-                 }
-               });
-          }else{
-               deferred.resolve({estado:false,mensaje:resultado});
-          }
-      },function(x){
-           deferred.reject({error:true,mensaje:x});
-      });
+      validarDocumentoConRegistroArray(collection, parametros, grabarSinValidarExistencia).
+          then(function(resultado){
+              if(resultado && resultado.grabar === true ){
+                  db.collection(collection).insertOne(resultado.documento, function(err, docs) {
+                      if(err){
+                         deferred.notify({mensaje:err});
+                     }else{
+                          console.log("grabarQ", collection);
+                          deferred.resolve({estado:true,docs:docs});
+                     }
+                   });
+              }else{
+                   deferred.resolve({estado:false,mensaje:resultado});
+              }
+          },function(x){
+               deferred.reject({error:true,mensaje:x});
+          });
+      
+      
      return deferred.promise;
 }
 
@@ -330,6 +894,9 @@ ClienteMongoDb.prototype.getTotalRegistrosPorPerfiles = function (collections, p
 
 function getTotalRegistrosPorPerfil(collection,tabla, parametros){
     var deferred = Q.defer();
+    console.log("collection",collection);
+    console.log("tabla",tabla);
+    console.log("parametros",parametros);
     //db.emcdiccionarios.aggregate([{$project:{_id:"$index", d:{$size:"$registros"}}}])
     var grupo = {_id:"$identificacion"};
         grupo["SELECT COUNT(*) as total FROM "+tabla] ={$sum:{$size:"$registros"}};

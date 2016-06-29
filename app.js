@@ -163,7 +163,7 @@ rule2.minute = 07;//Con 06 minutos
 });*/
 
 var j = schedule.scheduleJob(rule2, function(){
-        oracleMongo.crearColecciones(true);
+        //oracleMongo.crearColecciones(true);
 });
 setTimeout(function () {
     /*oracleMongo.getTotalRegistrosPorPerfiles("1714417035").then(function(validar){
@@ -172,7 +172,8 @@ setTimeout(function () {
 */
         //oracleMongo.testItems();
     //oracleMongo.crearItemPromocionVenta();
-    oracleMongo.crearColecciones(true);
+    oracleMongo.llamarProcedimiento("cargarpedido(:pvcodret,:pvmsret)",{pvcodret:"out",pvmsret:"out"});
+  //  oracleMongo.crearColecciones(true);
     /*oracleMongo.getColumnasOracle("select * from SWISSMOVI.emovtafecta where rownum=1", function(d){
         console.log(d);
 

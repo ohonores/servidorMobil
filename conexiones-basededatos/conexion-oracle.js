@@ -43,12 +43,12 @@ var ClienteOracle = function () {this.init();};
  ClienteOracle.prototype.init = function () {
  		oracledb.createPool (
           {
-            user          : "webapp",
-            password      : "webapp",
+            user          : "swissmovi",
+            password      : "swissmovi",
             connectString : "swiss01_1_29",
-            poolMax       : 50, // maximum size of the pool
-            poolMin       : 0, // let the pool shrink completely
-            poolIncrement : 10, // only grow the pool by one connection at a time
+            poolMax       : 100, // maximum size of the pool
+            poolMin       : 10, // let the pool shrink completely
+            poolIncrement : 20, // only grow the pool by one connection at a time
             poolTimeout   : 0  // never terminate idle connections
           },
           function(err, pool)
@@ -72,62 +72,82 @@ var ClienteOracle = function () {this.init();};
           });
  };
 
- ClienteOracle.prototype.getPoolClienteConexion = function (sql, parametros, grabar, resultado) {
+ClienteOracle.prototype.llamarProcedimiento = function (nombre, parametros, resultado) {
  		poolConexion.getConnection (
                               function(err, connection)
                               {
 
                                 if (err) {
-                                    console.log("Error");
+                                    console.log("Error", sql);
     								console.log(err);
+                                    
                                   resultado(err);
                                   return;
                                 }
-							 connection.execute(sql, parametros, grabar ? { autoCommit: true}:{maxRows:10000}, function(err, result) {
+                                var iniciarProcedimiento =  "BEGIN :nombre; END;".replace(":nombre",nombre)
+                                 console.log("iniciarProcedimiento", iniciarProcedimiento);
+                                  /**
+                                  Verificar parametros de salida
+                                  
+                                  */
+                                  for(key in parametros){
+                                        if(parametros[key] === "out"){
+                                            parametros[key]={dir:oracledb.BIND_OUT, type:oracledb.STRING, maxSize:500}
+                                        }
+                                      
+                                  }
+                                  console.log("iniciarProcedimiento", parametros);
+                                 connection.execute(iniciarProcedimiento,parametros, function(err, result) {
+                                        console.log(err);
+                                        console.log(result);
+                                        resultado(true);
+                                 });
+                              });
+}
+
+ClienteOracle.prototype.getPoolClienteConexion = function (sql, parametros, grabar, resultado) {
+ 		poolConexion.getConnection (
+                              function(err, connection)
+                              {
+                                if (err) {
+                                  console.log("Error poolConexion.getConnection ",err,"Sql",sql);
+                                  resultado({error:err});
+                                  return;
+                                }
+							     connection.execute(sql, parametros, grabar ? { autoCommit: true}:{maxRows:10000}, function(err, result) {
                              				// return the client to the connection pool for other requests to reuse
-
-
                              				if(err) {
-                                                console.log("Error");
-                								console.log(err);
-                             					connection.release(
+                                                console.log("Error connection.execute", err);
+                								connection.release(
                                                                     function(err)
                                                                     {
                                                                       if (err) {
-                                                                        console.log(err);
-                                                                        resultado(err);
+                                                                        console.log("Error connection.release en error en connection.execute",err);
+                                                                        resultado({error:err});
                                                                         return;
                                                                       }
 
                                                                     });
-												                resultado(err);
+												                resultado({error:err});
                                                                 return;
                              				}else{
                              				    /* Release the connection back to the connection pool */
                                                 connection.release(
-                                                              function(err)
-                                                              {
-                                                                if (err) {
-                                                                    console.log(err);
-                                                                    resultado(err);
-                                                                    return;
-                                                                }
-                                                                if(result && result.rows){
-                                                                                    /*if(sql.indexOf("SWISSMOVI.EMOVTSTOCK")<0){
-                                        													console.log("Total encontrados ");
-                                        													console.log(result.rows.length);
-                                                                                        }*/
-                                                                                    }
-                                                   					    resultado(result);
-                                                                return;
-                                                              });
-
-                                                //Enviando los resultados
-
-                             				}
+                                                    function(err)
+                                                    {
+                                                        if (err) {
+                                                            console.log("Error connection.release en despues de connection.execute",err);
+                                                            resultado({error:err});
+                                                            return;
+                                                        }
+                                                        resultado(result);
+                                                        return;
+                                                    });
+                             				
+                                            }
                              });
          });
- };
+};
 function getConexion(datos, tabla) {
      var deferred = Q.defer();
     poolConexion.getConnection (function(err, connection) {
