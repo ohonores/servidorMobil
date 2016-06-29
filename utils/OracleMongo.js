@@ -352,8 +352,13 @@ function grabarRegistrosRecursivosDesdeUnArraySqls(index, listaSqls, i, callBack
         grabarRegistrosRecursivos (i, 0, null , null, null, sizeArrayPorDocumento, listaSqls[index] , function(resultado){
             //console.log("grabarRegistrosRecursivosDesdeUnArraySqls");
             //console.log(resultado);
-            index = index + 1;
-            grabarRegistrosRecursivosDesdeUnArraySqls(index, listaSqls, resultado.indeces, callBack);
+            if(resultado.error){
+                callBack(resultado);
+            }else{
+                index = index + 1;
+                grabarRegistrosRecursivosDesdeUnArraySqls(index, listaSqls, resultado.indeces, callBack);
+            }
+            
         });
     }else{
         callBack(i);
@@ -561,7 +566,12 @@ OracleMongo.prototype.crearDiccionarios = function(borrar){
                         ];
         grabarRegistrosRecursivosDesdeUnArraySqls(0, diccionarios, 1, function(a){
                 console.log("crearColecciones crearDiccionarios listo",a);
-				deferred.resolve(true);
+                if(a.error){
+                    deferred.reject(a);
+                }else{
+                   deferred.resolve(true); 
+                }
+				
         });
 
     });
@@ -859,7 +869,7 @@ OracleMongo.prototype.crearColecciones = function(borrar){
 								 console.log("getJsonCruce ok");
 								 padre.crearDiccionarios(borrar).then(function(t){
                                        console.log("crearDiccionarios ok **************************");
-									deferred.resolve(t);
+									   deferred.resolve(t);
 								 });
 							},function(x4){
 								console.log("Fin por favor iniciar nuevamente getJsonCruce",error);
