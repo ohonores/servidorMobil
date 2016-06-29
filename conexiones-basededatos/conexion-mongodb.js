@@ -207,8 +207,9 @@ function validarDocumentoConRegistroArray(collection, parametros, grabarSinValid
             }
             existenciaDocumentoConRegistrosArray(collection, {buscar:buscar, columnas:{_id:1,registros:1,hash:1}}). //Primera busqueda, Segunda busqueda y eliminacion del registro en la segunda busqueda
             then(function(r){
-                console.log("Econtrado listo para actualizar", collection);
+                
                 if(r.encontrado === true){
+                    console.log("Econtrado listo para actualizar", collection);
                     parametros.sincronizar = getRegistrosPorSincronizarPorArrays(r.registros, parametros.registros);
                 }
                 deferred.resolve({grabar:true,documento:parametros});
@@ -807,7 +808,7 @@ function grabarQ(collection, parametros, grabarSinValidarExistencia) {
                       if(err){
                          deferred.notify({mensaje:err});
                      }else{
-                          console.log("grabarQ", collection);
+                          console.log("grabarQ", collection,grabarSinValidarExistencia);
                           deferred.resolve({estado:true,docs:docs});
                      }
                    });

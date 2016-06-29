@@ -840,6 +840,7 @@ OracleMongo.prototype.getUrlsPorPefil = function(identificacion, perfil, urlPorP
 var creandoA= false;
 OracleMongo.prototype.crearColecciones = function(borrar){
 	grabarSinValidarExistencia = borrar;
+    console.log(grabarSinValidarExistencia, borrar)
 	var deferred = Q.defer();
     //1. Crear perfiles
     var padre = this;
@@ -857,6 +858,7 @@ OracleMongo.prototype.crearColecciones = function(borrar){
 							padre.crearColeccionesMongo(borrar, [entidesMonogoDB.getJsonCruce()]).then(function(a){
 								 console.log("getJsonCruce ok");
 								 padre.crearDiccionarios(borrar).then(function(t){
+                                       console.log("crearDiccionarios ok **************************");
 									deferred.resolve(t);
 								 });
 							},function(x4){
