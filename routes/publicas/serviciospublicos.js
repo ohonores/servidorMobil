@@ -129,8 +129,9 @@ router.get('/movil/iniciar/sensor/sincronizador/actualizar-datos', function(req,
             res.json(a);
             sincronizarColeeciones = false;
         },function(x){
-             res.json(x);
             sincronizarColeeciones = false;
+            res.json(x);
+            
         });
     }else{
         res.json("Existe un proceso ya iniciado");
@@ -146,8 +147,9 @@ router.get('/movil/iniciar/cargar-datos-iniciales', function(req, res) {
             res.json(a);
             creandoColeeciones = false;
         },function(x){
+             creandoColeeciones = false;
              res.json(x);
-           creandoColeeciones = false;
+           
         });
     }else{
         res.json("Existe un proceso ya iniciado");

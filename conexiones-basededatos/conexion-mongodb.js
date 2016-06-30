@@ -131,24 +131,53 @@ ClienteMongoDb.prototype.getRegistroCustomColumnas = function (collection, param
         });
 };
 
-function existenciaDocumentoConRegistrosArray(collection, parametros){
+function existenciaDocumentoConRegistrosArray(collection, parametros, new_registros){
     var deferred = Q.defer();
-   // console.log("existenciaDocumentoConRegistrosArray", collection);
+    
+   
     db.collection(collection).findOne(parametros.buscar, parametros.columnas, function(err, registroEncontrado) {
          if(!registroEncontrado){
+             console.log("No encontrados", parametros.buscar, collection, "total " ,new_registros.length);
              //Si el registro no es encontrado con el perfil, hash e index, se hace una nueva busqueda pero solo con el index u perfil
              delete parametros.buscar.hash;
              delete parametros.columnas.hash;
+             console.log("nueva busqueda", parametros.buscar, collection);
              db.collection(collection).findOne(parametros.buscar, parametros.columnas, function(err, registroB) {
                  if(registroB && registroB._id){
-                     db.collection(collection).remove({_id:registroB._id,}, function(err, registroEliminado) {
-                        deferred.resolve({encontrado:true,registros:registroB.registros});
-                     });
+                     
+                    console.log("2 si  econtrado", parametros.buscar, collection, "total q ya existe ",registroB.registros.length," contra nuevo ", new_registros.length);
+                    //console.log(" grabado ",registroB.registros[0]," contra nuevo ", new_registros[0]);
+                      //console.log(registroEncontrado.hash);
+                    var sincronizar = getRegistrosPorSincronizarPorArrays(registroB.registros, new_registros);
+                    if(!(sincronizar && sincronizar.eliminar && sincronizar.eliminar.length==0 &&  sincronizar.agregar && sincronizar.agregar.length==0)){
+                        console.log(" sincronizar ",sincronizar);
+                        db.collection(collection).remove({_id:registroB._id,}, function(err, registroEliminado) {
+                            
+                            if(registroEliminado){
+                                deferred.resolve({encontrado:true, sincronizar:sincronizar});
+                            }else{
+                               if(err){
+                                    deferred.reject({mensaje:"Registro no pudo ser elimiando ", coleccion:collection, id:registroB._id, problemasEliminar:true, error:err});
+                                }else{
+                                    deferred.reject({mensaje:"Registro no pudo ser elimiando ", coleccion:collection, id:registroB._id, problemasEliminar:true});
+                                } 
+                            }
+                            
+                        });
+                    }else{
+                       // console.log("2 no econtrado", parametros.buscar, collection);
+                        //console.log(registroEncontrado.hash);
+                        deferred.reject({mensaje:"Registro ya existe ",coleccion:collection, id:registroB._id, existe:true});
+                    }
+                
+                     
                  }else{
                      deferred.resolve({encontrado:false});
                  }
              });
          }else{
+             //console.log("Registro ya existe ",parametros.buscar);
+            
              deferred.reject({mensaje:"Registro ya existe ",coleccion:collection, id:registroEncontrado._id, existe:true});
          }
 
@@ -198,21 +227,20 @@ function validarDocumentoConRegistroArray(collection, parametros, grabarSinValid
     //Con este antes de enviar a grabar hace una busqueda del registro, para evitar duplicaciones
     if(parametros.index>=0 && Array.isArray(parametros.registros)){
             //Crear un hash del array registros, para hacerlo unico
-            parametros.hash = hash(parametros.registros);
+            //parametros.hash = parametros.hash; este ya existe 
             //Parametros a buscar
             buscar={index:parametros.index, hash:parametros.hash};
             //si tiene perfil se agrega  a la busqueda
             if(parametros.perfil){
-                buscar.perfil=parametros.perfil;
+                buscar.perfil = parametros.perfil;
             }
-            existenciaDocumentoConRegistrosArray(collection, {buscar:buscar, columnas:{_id:1,registros:1,hash:1}}). //Primera busqueda, Segunda busqueda y eliminacion del registro en la segunda busqueda
+            existenciaDocumentoConRegistrosArray(collection, {buscar:buscar, columnas:{_id:1,registros:1,hash:1}}, parametros.registros). //Primera busqueda, Segunda busqueda y eliminacion del registro en la segunda busqueda
             then(function(r){
-                
-                if(r.encontrado === true){
+                if(r.encontrado === true && r.sincronizar){
                     console.log("Econtrado listo para actualizar", collection);
-                    parametros.sincronizar = getRegistrosPorSincronizarPorArrays(r.registros, parametros.registros);
+                    parametros.sincronizar = r.sincronizar
                 }
-                deferred.resolve({grabar:true,documento:parametros});
+                deferred.resolve({grabar:true,documento:parametros,encontrado:r.encontrado, sincronizado:r.sincronizar?true:false});
             },function(x){
                 deferred.reject(x);
             });
@@ -249,6 +277,7 @@ function validarDocumentoConRegistroArray(collection, parametros, grabarSinValid
 
 ClienteMongoDb.prototype.grabar = function (collection, parametros, grabarSinValidarExistencia) {
     var deferred = Q.defer();
+   
     grabarQ(collection, parametros, grabarSinValidarExistencia).then(function(r){
         if(r.estado){
             deferred.resolve(r);
@@ -805,11 +834,13 @@ function grabarQ(collection, parametros, grabarSinValidarExistencia) {
           then(function(resultado){
               if(resultado && resultado.grabar === true ){
                   db.collection(collection).insertOne(resultado.documento, function(err, docs) {
-                      if(err){
-                         deferred.notify({mensaje:err});
+                    if(err){
+                        console.log("validarDocumentoConRegistroArray insertOne",err);
+                         //deferred.notify({mensaje:err});
+                        deferred.reject({error:true,mensaje:err});
                      }else{
-                          console.log("grabarQ", collection,grabarSinValidarExistencia);
-                          deferred.resolve({estado:true,docs:docs});
+                         // console.log("grabarQ", collection,grabarSinValidarExistencia);
+                          deferred.resolve({estado:true,docs:docs,resultado:resultado});
                      }
                    });
               }else{

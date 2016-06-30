@@ -172,7 +172,7 @@ setTimeout(function () {
 */
         //oracleMongo.testItems();
     //oracleMongo.crearItemPromocionVenta();
-    oracleMongo.llamarProcedimiento("cargarpedido(:pvcodret,:pvmsret)",{pvcodret:"out",pvmsret:"out"});
+   // oracleMongo.llamarProcedimiento("cargarpedido(:pvcodret,:pvmsret)",{pvcodret:"out",pvmsret:"out"});
   //  oracleMongo.crearColecciones(true);
     /*oracleMongo.getColumnasOracle("select * from SWISSMOVI.emovtafecta where rownum=1", function(d){
         console.log(d);
@@ -227,7 +227,8 @@ setTimeout(function () {
             console.log(estado);
             console.log(resultado);
     });*/
-},1000);
+    console.log(app.empresas);
+},20000);
 rutasPrivadas.log = log;
 rutasPrivadas.oracleMongo = oracleMongo;
 rutasPublicas.use('/movil/sincronizacion', rutasPrivadas);

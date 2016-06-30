@@ -46,7 +46,7 @@ var ClienteOracle = function () {this.init();};
             user          : "swissmovi",
             password      : "swissmovi",
             connectString : "swiss01_1_29",
-            poolMax       : 100, // maximum size of the pool
+            poolMax       : 200, // maximum size of the pool
             poolMin       : 10, // let the pool shrink completely
             poolIncrement : 20, // only grow the pool by one connection at a time
             poolTimeout   : 0  // never terminate idle connections
@@ -110,7 +110,7 @@ ClienteOracle.prototype.getPoolClienteConexion = function (sql, parametros, grab
                               function(err, connection)
                               {
                                 if (err) {
-                                  console.log("Error poolConexion.getConnection ",err,"Sql",sql);
+                                  //console.log("Error poolConexion.getConnection ",err,"Sql",sql);
                                   resultado({error:err});
                                   return;
                                 }
