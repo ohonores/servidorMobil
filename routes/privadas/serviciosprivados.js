@@ -41,10 +41,13 @@ sincronizar.get('/inicio/perfil/:coleccion/:index', seguridadEDC.verficarInjecti
             });
 });
 sincronizar.get('/actualizar/perfil-sinc/:coleccion/:index', seguridadEDC.verficarInjections, function(req, res){
-    console.log('/perfil/:coleccion/:index************************');
-        oracleMongo.getDatosPorSincronizarPorPerfilIndex(req.params.coleccion, parseInt(req.datosperfil.perfil), parseInt(req.params.index)).then(function(resultado){
+    console.log('/perfil/:coleccion/:index************************',req.params.coleccion,oracleMongo.isColeccionesTipoDiccionario(req.params.coleccion).length);
+        oracleMongo.getDatosPorSincronizarPorPerfilIndex(req.params.coleccion, oracleMongo.isColeccionesTipoDiccionario(req.params.coleccion).length>0 ? null : parseInt(req.datosperfil.perfil), parseInt(req.params.index)).then(function(resultado){
+            console.log(resultado);
             var respuesta = {sincronizarDatos:resultado};
-            oracleMongo.getTotalRegistrosPorPerfiles(req.datosperfil.identificacion).then(function(validar){
+            oracleMongo.getTotalRegistrosPorIdentificacion(req.datosperfil.identificacion).then(function(validar){
+                    console.log("validar",validar);
+                    try{
                     respuesta.validarSincronizacion = validar.map(function(script){
                         var map = {};
                         for(var key in script){
@@ -52,10 +55,15 @@ sincronizar.get('/actualizar/perfil-sinc/:coleccion/:index', seguridadEDC.verfic
                             map.total = script[key];
                             map.tabla = key.split("FROM")[1].trim();
                         }
+                         console.log("map",map);
                         return map;
                     });
                     respuesta.validarSincronizacion.push({sql:oracleMongo.validarExistenciaPerfilMobil(),total:1, tabla:oracleMongo.validarExistenciaPerfilMobil().split("FROM")[1].trim()});
-                    respuesta.token = token;// envia el token
+                    respuesta.token = oracleMongo.getTokens()[req.datosperfil.perfil];// envia el token
+                    }catch(e){
+                        console.log(e);
+                    }
+                console.log("respuesta",respuesta);
                     res.json(respuesta);
             },function(x){
                 res.json({"error":"validarSincronizacion"});
@@ -80,7 +88,9 @@ sincronizar.get('/actualizar/perfil/urls-para-sincronizar', seguridadEDC.verfica
 });*/
 //Datos diccionarios
 sincronizar.get('/inicio/diccionarios/:coleccion/:index', seguridadEDC.validarIndex, function(req, res){
+    console.log('/inicio/diccionarios/:coleccion/:index');
     oracleMongo.getDatosDinamicamenteDeInicio(req.params.coleccion, null, req.params.index, function(resultado){
+       // console.log(resultado);
         res.json(resultado);
     });
     //Datos diccionarios

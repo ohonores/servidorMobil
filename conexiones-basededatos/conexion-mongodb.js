@@ -238,7 +238,8 @@ function validarDocumentoConRegistroArray(collection, parametros, grabarSinValid
             then(function(r){
                 if(r.encontrado === true && r.sincronizar){
                     console.log("Econtrado listo para actualizar", collection);
-                    parametros.sincronizar = r.sincronizar
+                    parametros.sincronizar = r.sincronizar;
+                    parametros.sincronizar["codigo"] = new Date().getTime();
                 }
                 deferred.resolve({grabar:true,documento:parametros,encontrado:r.encontrado, sincronizado:r.sincronizar?true:false});
             },function(x){
@@ -896,10 +897,13 @@ ClienteMongoDb.prototype.modificar = function (collection, busqueda, actualizar,
        db.collection(collection).updateOne(
              busqueda,
              actualizar, function(err, results) {
-
+             console.log("ClienteMongoDb modificar", err)
              callback(results);
         });
 };
+
+
+
 ClienteMongoDb.prototype.dropCollection = function (collection, callback) {
         console.log(collection);
        db.collection(collection).remove({},function(err, results) {
@@ -910,15 +914,20 @@ ClienteMongoDb.prototype.dropCollection = function (collection, callback) {
 ClienteMongoDb.prototype.getTotalRegistrosPorPerfiles = function (collections, parametros) {
     var deferred = Q.defer();
     var colecciones = [];
-     collections.forEach(function(col){
-         if(!col.espejo && col.coleccion && col.tabla){
-             colecciones.push(getTotalRegistrosPorPerfil(col.coleccion, col.tabla, col.diccionario ? {}:parametros));
+    for(var i=0;i<collections.length;i++){
+         if(!collections[i].espejo && collections[i].coleccion && collections[i].tabla){
+             colecciones.push(getTotalRegistrosPorPerfil(collections[i].coleccion, collections[i].tabla, collections[i].diccionario ? {}:parametros));
          }
+    }
+    /* collections.forEach(function(col){
+        
 
-    });
+    });*/
     Q.all(colecciones).then(function(a){
+         console.log("getTotalRegistrosPorPerfiles--ok--",a)
         deferred.resolve(a);
     },function(x){
+        console.log("getTotalRegistrosPorPerfiles-err---",x)
         deferred.resolve(x);
     });
    return deferred.promise;
@@ -926,9 +935,7 @@ ClienteMongoDb.prototype.getTotalRegistrosPorPerfiles = function (collections, p
 
 function getTotalRegistrosPorPerfil(collection,tabla, parametros){
     var deferred = Q.defer();
-    console.log("collection",collection);
-    console.log("tabla",tabla);
-    console.log("parametros",parametros);
+    
     //db.emcdiccionarios.aggregate([{$project:{_id:"$index", d:{$size:"$registros"}}}])
     var grupo = {_id:"$identificacion"};
         grupo["SELECT COUNT(*) as total FROM "+tabla] ={$sum:{$size:"$registros"}};
@@ -941,7 +948,10 @@ function getTotalRegistrosPorPerfil(collection,tabla, parametros){
                  delete result[0]._id;
                  deferred.resolve(result[0]);
              }else{
-                 deferred.reject(false);
+                 console.log("collection error en ",collection);
+                console.log("tabla error en ",tabla);
+                console.log("parametros error en ",parametros);
+                deferred.reject({colecion:collection, mensaje:"No se econtraron registros relacionado ",parametros:parametros});
              }
 
        });

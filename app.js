@@ -157,15 +157,85 @@ var rule2 = new schedule.RecurrenceRule();
 rule2.dayOfWeek = [0,1,2,3,4,5,6]; //Corre todos los dias
 rule2.hour = 05;//4 de la mañana
 rule2.minute = 07;//Con 06 minutos
-/*var j = schedule.scheduleJob('*5 * * * * *', function(){
-    Entre *5, fala un /
-        console.log("Hola "+new Date());
-});*/
+var urlSincronizarPerifil = "http://documentos.ecuaquimica.com.ec:8080/movil/sincronizacion/actualizar/perfil-sinc/:coleccion/:index";
+var j = schedule.scheduleJob('45 * * * * *', function(){
+    
+        oracleMongo.getTodosLosCambiosPorSincronizarPorPerfil(null,  urlSincronizarPerifil).then(function(resultados){
+            console.log("app.conexiones",app.conexiones);
+            app.empresas.forEach(function(empresa){
+                resultados.forEach(function(resultado){
+                    
+                    if(resultado.urls.NOPERFIL){
+                       
+                       app.periflesConectados.forEach(function(perfil){
+                           resultado.urls[perfil] = resultado.urls.NOPERFIL;
+                       });
+                       delete resultado.urls.NOPERFIL;
+                       console.log("getTodosLosCambiosPorSincronizarPorPerfil",resultado.urls);
+                    }
+                    for(perfil in resultado.urls){
+                       try{
+                            var nuevoResultado = JSON.parse(JSON.stringify(resultado));
+                            nuevoResultado.urls = resultado.urls[perfil];
+                            delete nuevoResultado.perfiles;
+                           //app.conexiones[empresa.ruc].to(perfil).emit('sincronizar',{token:oracleMongo.getTokens()[perfil],sincronizacion:[nuevoResultado]});
+                            
+                            oracleMongo.getTotalRegistrosPorPerfil(perfil, nuevoResultado).then(function(resultadoValidacioes){
+                                if(Array.isArray(resultadoValidacioes.datos)){
+                                    var validarSincronizacion =[];
+                                    try{
+                                        validarSincronizacion = resultadoValidacioes.datos.map(function(script){
+                                            var map = {};
+                                            for(var key in script){
+                                                map.sql = key;
+                                                map.total = script[key];
+                                                map.tabla = key.split("FROM")[1].trim();
+                                            }
 
-var j = schedule.scheduleJob(rule2, function(){
-        //oracleMongo.crearColecciones(true);
+                                            return map;
+                                        });
+                                      
+                                    
+                                        validarSincronizacion.push({sql:oracleMongo.validarExistenciaPerfilMobil(),total:1, tabla:oracleMongo.validarExistenciaPerfilMobil().split("FROM")[1].trim()});
+                                        
+                                        app.conexiones[empresa.ruc].to(resultadoValidacioes.perfil).emit('sincronizar',{token:oracleMongo.getTokens()[resultadoValidacioes.perfil],sincronizacion:[resultadoValidacioes.nuevoResultado],validarSincronizacion:validarSincronizacion,"registroInterno":{perfil:resultadoValidacioes.perfil}});
+
+                                    }catch(er){
+                                           validarSincronizacion=[];
+                                           console.log("getTotalRegistrosPorPerfiles erroiiii ", er);
+                                    }
+                                }else{
+                                    console.log("getTotalRegistrosPorPerfiles error ::validar ",perfil, validar);
+                                }
+                                
+                            },function(x){
+                                console.log("getTotalRegistrosPorPerfiles errro ",x);
+                            });
+                           
+                           
+                        }catch(e){
+                            console.log(e);
+                       
+                        } 
+                    }
+                    
+                })
+                
+            })
+                   
+        });
 });
+
+/*var j = schedule.scheduleJob(rule2, function(){
+        //oracleMongo.crearColecciones(true);
+});*/
 setTimeout(function () {
+    
+    /**************
+    SINCRONIZADOR CADA 
+    **************/
+    
+    
     /*oracleMongo.getTotalRegistrosPorPerfiles("1714417035").then(function(validar){
                                    console.log(validar);
                                });
@@ -228,6 +298,7 @@ setTimeout(function () {
             console.log(resultado);
     });*/
     console.log(app.empresas);
+    rutasPublicas.conexiones = app.conexiones;
 },20000);
 rutasPrivadas.log = log;
 rutasPrivadas.oracleMongo = oracleMongo;

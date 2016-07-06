@@ -544,19 +544,52 @@ function grabarRegistrosRecursivosDesdeUnArraySqls(index, listaSqls, i, callBack
         callBack(i);
     }
 }
-OracleMongo.prototype.autentificacion = function(parametros, callBack){
-	console.log(parametros);
-    var busquedaPerfil = {"registroMovil.identificacion":parametros.identificacion };
+OracleMongo.prototype.getPerfil = function(identificacion, empresa){
+     var deferred = Q.defer();
+     mongodb.getRegistrosCustomColumnas("emcperfiles", {"registroMovil.identificacion":identificacion} , {registroInterno:1}, function(resultado){
+         console.log(resultado);
+         if(resultado && Array.isArray(resultado) && resultado.length>0){
+              deferred.resolve(resultado[0].registroInterno.perfil);
+         }else{
+             deferred.reject(false);
+         }
+        
+     });
+    return  deferred.promise;
+}
+OracleMongo.prototype.getIdentificacion = function(perfil){
+     var deferred = Q.defer();
+     mongodb.getRegistrosCustomColumnas("emcperfiles", {"registroInterno.perfil":parseInt(perfil)} , {"registroMovil.identificacion":1}, function(resultado){
+         console.log(resultado);
+         if(resultado && Array.isArray(resultado) && resultado.length>0){
+              deferred.resolve(resultado[0].registroMovil.identificacion);
+         }else{
+             deferred.reject(false);
+         }
+        
+     });
+    return  deferred.promise;
+}
+OracleMongo.prototype.autentificacion = function(parametros,sincronizacion_inicio, callBack){
+	var busquedaPerfil = {"registroMovil.identificacion":parametros.identificacion };
         if(parseInt(parametros.empresa) !== 0 ){
             busquedaPerfil["infoEmpresa.empresa_id"] = parametros.empresa;
         }
         
         mongodb.getRegistrosCustomColumnas("emcperfiles", {"registroMovil.identificacion":parametros.identificacion} , {registroMovil:1,registroInterno:1}, function(resultado){
-			console.log(resultado);
-            callBack(resultado);
-        /*    mongodb.modificar("emcperfiles", {_id:resultado._id}, {actualizar}, function(){
+			if(resultado && Array.isArray(resultado) && resultado.length>0){
+               
+                mongodb.modificar("emcperfiles", {_id:resultado[0]._id}, {$addToSet:{"registroInterno.dispositivos":parametros.uidd}}, function(resultado){
 
-        })*/
+                    
+                });
+                mongodb.modificar("emcperfiles", {_id:resultado[0]._id}, {$push:{"registroInterno.coordenadas":{x:parametros.x,y:parametros.y,dispositivo:parametros.uidd,fecha:new Date(),sincronizacionInicio:sincronizacion_inicio}}}, function(resultado){
+
+                   
+                });
+            }
+            
+            callBack(resultado);
         });
 };
 
@@ -980,40 +1013,53 @@ OracleMongo.prototype.getDatosDinamicamenteDeInicio = function(coleccion, perfil
     mongodb.getRegistroCustomColumnas(coleccion, parametros, {registros:1,_id:0}, function(respuesta){
             callBack(respuesta);
     });
-
 };
+
+OracleMongo.prototype.elimiarTodosLosCambiosPorSincronizarPorPerfil = function(coleccion, perfil, codigo){
+    var deferred = Q.defer();
+    var parmetrosBusqueda = {"sincronizar.codigo":parseInt(codigo)}
+    if(perfil){
+        parmetrosBusqueda["perfil"] = parseInt(perfil)
+    }
+        mongodb.modificar(coleccion, parmetrosBusqueda,{$unset:{sincronizar:""}},function(r){
+            console.log(r.result);
+            deferred.resolve(r);
+        });
+    return deferred.promise;
+}
 OracleMongo.prototype.getTodosLosCambiosPorSincronizarPorPerfil = function(perfil, url){
     var deferred = Q.defer();
     var resultados = [];
-	console.log("getTodosLosCambiosPorSincronizarPorPerfil inicio");
+	//console.log("getTodosLosCambiosPorSincronizarPorPerfil inicio");
     entidesMonogoDB.getColecciones().forEach(function(c){
-        resultados.push(getDatosDinamicamenteParaActualizar(c.coleccion,c.tabla, perfil, null, {index:1}));
+        resultados.push(getDatosDinamicamenteParaActualizar(c.coleccion,c.tabla, perfil, null, {index:1,perfil:1}));
     });
     Q.all(resultados).then(function(res){
 		if(Array.isArray(res)){
-			console.log("array getTodosLosCambiosPorSincronizarPorPerfil", res)
-		}
-        res = res.filter(function(r){
-			console.log("r******",r);
-            if(r.urls && Array.isArray(r.urls) && r.urls.length>0){
-                r.urls = r.urls.reduce(function(nuevo, z){
-						console.log("z******",z);
-						
-						nuevo.push(url.replace(":coleccion",r.coleccion).replace(":index",z.index));
-						
-                        
+            res = res.filter(function(r){
+                if(r.urls && Array.isArray(r.urls) && r.urls.length>0){
+                    r.urls = r.urls.reduce(function(nuevo, z){
+                        var newUrl = url.replace(":coleccion",r.coleccion).replace(":index",z.index);
+                        if(nuevo[z.perfil ?z.perfil:"NOPERFIL" ] && Array.isArray(nuevo[z.perfil ?z.perfil:"NOPERFIL"])){
+                            if(nuevo[z.perfil ?z.perfil:"NOPERFIL"].indexOf(newUrl)<0){
+                                nuevo[z.perfil ?z.perfil:"NOPERFIL"].push(newUrl);
+                            }
+                        }else{
+                            nuevo[z.perfil ?z.perfil:"NOPERFIL"] = [newUrl];
+                        }
+                       // nuevo.push(url.replace(":coleccion",r.coleccion).replace(":index",z.index));
                         return nuevo;
-                },[]);
-                return true;
-            }else{
-               return false;
+                    },{});
+                    return true;
+                }else{
+                   return false;
 
-			}
-        });
-        console.log("despes getTodosLosCambiosPorSincronizarPorPerfil ",res);
+                }
+            });
+        }
         deferred.resolve(res);
     },function(c){
-		console.log("error en getTodosLosCambiosPorSincronizarPorPerfil",c);
+		
 		 deferred.reject(c);
 	});
     return deferred.promise;
@@ -1021,11 +1067,9 @@ OracleMongo.prototype.getTodosLosCambiosPorSincronizarPorPerfil = function(perfi
 
 OracleMongo.prototype.getDatosPorSincronizarPorPerfilIndex = function(coleccion, perfil, index){
     var deferred = Q.defer();
-    console.log(coleccion);
-        console.log(perfil);
-            console.log(index);
-    getDatosDinamicamenteParaActualizar(coleccion, null, perfil, index, {sincronizar:1,_id:0,perifil:1}).then(function(res){
-        console.log(res);
+    
+    getDatosDinamicamenteParaActualizar(coleccion, null, perfil, index, {sincronizar:1,_id:0}).then(function(res){
+       
         deferred.resolve(res);
     });
 
@@ -1050,18 +1094,12 @@ function getDatosDinamicamenteParaActualizar(coleccion, tabla, perfil, index, mo
         mostrarColumnas = {};
     }
     mostrarColumnas._id=0;
-    console.log(parametros);
-    console.log(mostrarColumnas);
     mongodb.getRegistrosCustomColumnas(coleccion, parametros, mostrarColumnas, function(respuesta){
-        console.log("getRegistrosCustomColumnas ",coleccion,parametros,mostrarColumnas, respuesta);
-      
             if(mostrarColumnas.index){
-				console.log("mostrarColumnas.index resolve ok ",coleccion);
-                deferred.resolve({coleccion:coleccion,tabla:tabla,urls:respuesta});
+	            deferred.resolve({coleccion:coleccion,tabla:tabla,urls:respuesta,perfiles:respuesta});
             }else{
 				if(parametros.index){
 					deferred.resolve(respuesta);
-					console.log("mostrarColumnas.index resolve ok ",coleccion);
 				}else{
 					deferred.resolve([]);
 				}
@@ -1080,7 +1118,8 @@ OracleMongo.prototype.llamarProcedimiento = function(nombre, parametros){
     return deferred.promise;
 }
 var procedimientos_oracle = {
-    pedidos:"cargarpedido(:pvcodret,:pvmsret)"
+    pedidos:"cargarpedido(:pvcodret,:pvmsret)",
+    recibos:"cargarrecibo(:pvcodret,:pvmsret)"
 }
 //Para entregar al restful
 OracleMongo.prototype.setDatosDinamicamente = function(tabla, datos, datosperfil, callBack){
@@ -1093,10 +1132,21 @@ OracleMongo.prototype.setDatosDinamicamente = function(tabla, datos, datosperfil
         mongodb.grabarRegistrosDesdeMovil(coleccion[0].coleccion, documento).then(function(r){
             oracledb.grabarNestedJson(datos, tabla).then(function(r){
 				if(r){
+                    
+                    
                     //Llamar procedimiento almacenado
                     oracledb.llamarProcedimiento(procedimientos_oracle.pedidos,{pvcodret:"out",pvmsret:"out"},function(r){
                         console.log(r);
                     });
+                    
+                    //Llamar procedimiento almacenado
+                    oracledb.llamarProcedimiento(procedimientos_oracle.recibos,{pvcodret:"out",pvmsret:"out"},function(r){
+                        console.log(r);
+                    });
+                    
+                    
+                    
+                    
                 }
                 callBack(r);
             },function(r){
@@ -1109,8 +1159,14 @@ OracleMongo.prototype.setDatosDinamicamente = function(tabla, datos, datosperfil
 
 
 };
+var tokens = {}
+OracleMongo.prototype.setToken = function(perfil, token){
+    tokens[perfil] =token;
+}
 
-
+OracleMongo.prototype.getTokens = function(){
+    return tokens;
+}
 OracleMongo.prototype.getUrlsPorPefil = function(identificacion, perfil, urlPorPefil, urlDiccionario, urlRecpcion, callBack){
     getTotalesParcialesPorPerifil(0, entidesMonogoDB.getColeccionesParaSincronzar(), identificacion, perfil, function(nuevaColeccion){
         nuevaColeccionA = nuevaColeccion.map(function(col){
@@ -1205,15 +1261,34 @@ OracleMongo.prototype.crearTareas = function(){
             padre.crearColecciones(true);
     });
 };
-OracleMongo.prototype.getTotalRegistrosPorPerfiles = function(identificacion){
+
+OracleMongo.prototype.getTotalRegistrosPorIdentificacion = function(identificacion){
     return mongodb.getTotalRegistrosPorPerfiles(entidesMonogoDB.getColecciones(),{identificacion:identificacion});
+     
+};
+OracleMongo.prototype.getTotalRegistrosPorPerfil = function(perfil, nuevoResultado){
+    var deferred = Q.defer();
+    var padre = this;
+    this.getIdentificacion(perfil).then(function(identificacion){
+        mongodb.getTotalRegistrosPorPerfiles(entidesMonogoDB.getColecciones(),{identificacion:identificacion}).then(function(datos){
+            deferred.resolve({perfil:perfil,datos:datos,nuevoResultado:nuevoResultado});
+        },function(x){
+        deferred.reject(false);
+        });
+    },function(x){
+        deferred.reject(false);
+    })
+    return deferred.promise;
 };
 
 OracleMongo.prototype.validarExistenciaPerfilMobil = function(){
     return entidesMonogoDB.getJsonPerfiles().validarExistenciaPerfilMobil;
 };
 
-
+OracleMongo.prototype.isColeccionesTipoDiccionario = function(coleccion){
+    console.log("oracle mongo isColeccionesTipoDiccionario", entidesMonogoDB.isColeccionesTipoDiccionario(coleccion));
+    return entidesMonogoDB.isColeccionesTipoDiccionario(coleccion);
+};
 
 OracleMongo.prototype.testItems = function(){
 

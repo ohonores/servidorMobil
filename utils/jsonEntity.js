@@ -23,6 +23,7 @@ EntidadesMongoOracle.prototype.getJsonPerfiles = function(){
 
                     registroMongo:{
                                 registroMovil:{
+                                    id:"ID",
                                     identificacion:"IDENTIFICACION",
                                     infoEmpresa:{empresa_id:"EMPRESA_ID",empresa_descripcion:"EMPRESA_DESCRIPCION"},
                                     infoPerfil:{
@@ -36,10 +37,14 @@ EntidadesMongoOracle.prototype.getJsonPerfiles = function(){
                                                 avancecobro:"AVANCECOBRO",
                                                 avanceventacomision:"AVANCEVENTACOMISION",
                                                 avancecobrodivision:"AVANCECOBRODIVISION",
+                                                impresora:"IMPRESORA"
                                                 
                                             },
                                     dispositivo:"",
                                     token:"",
+                                    sincronizaciones:"",
+                                    estado:"",
+                                    fecha:"",
                                     bodegas:"",
                                     arrayJson1:{
                                         sqlOrigen:"SELECT B.* FROM SWISSMOVI.EMOVTPERFIL_BODEGA PB JOIN  SWISSMOVI.EMOVVBODEGA B ON B.ID=PB.MBODEGA_ID WHERE PB.MPERFIL_ID=:ID ORDER BY B.ID ASC",
@@ -294,6 +299,7 @@ EntidadesMongoOracle.prototype.getJsonEstadoDeCuenta = function(){
                     parametrosBusquedaValores:[],//Este array indica que se utilizaran paraemtros como el A que es id de donde empezara a leer y B que es la cantidad de registros a traer
                     registroTipoCamposNumericos:{
                         "PERFILESTABLECIMIENTO_ID":"INTEGER",
+                        "ID":"INTEGER",
                         "VALOR":"REAL",
                         "SALDO":"REAL",
                         "RETENCIONIVA":"REAL",
@@ -302,6 +308,7 @@ EntidadesMongoOracle.prototype.getJsonEstadoDeCuenta = function(){
                     },
                     registroMongo:{
                         registroMovil:{
+                            id:"ID",
                             perfilEstablecimiento_id:"MPERFILESTABLECIMIENTO_ID",
                             codigoTipoDocumento:"TIPODOCUMENTO",
                             preimpreso:"PREIMPRESO",
@@ -349,8 +356,7 @@ EntidadesMongoOracle.prototype.getJsonCruce = function(){
                             valor:"VALOR",
                             fechaafecta:"FECHAAFECTA"
                             
-
-                        },
+                     },
                         registroInterno:{
                             emovtcruce:"ID"
 
@@ -666,6 +672,19 @@ EntidadesMongoOracle.prototype.getColeccionesParaSincronzar = function(){
                     },[]);
 
 };
+EntidadesMongoOracle.prototype.isColeccionesTipoDiccionario = function(coleccion, callback){
+    obj = new EntidadesMongoOracle();
+    console.log("isColeccionesTipoDiccionario",coleccion);
+   return Object.getOwnPropertyNames( EntidadesMongoOracle.prototype ).filter(function(a){
+            if(a.indexOf("getJson")>=0 && obj[a]() &&  obj[a]().diccionario===true && obj[a]().coleccion===coleccion){
+               return true;
+            }else{
+                return false;
+            }
+    });
+
+   
+};
 EntidadesMongoOracle.prototype.getColecciones = function(){
     obj = new EntidadesMongoOracle();
     return Object.getOwnPropertyNames( EntidadesMongoOracle.prototype ).reduce(function(res, a){
@@ -683,7 +702,7 @@ EntidadesMongoOracle.prototype.getColecciones = function(){
 function getCamposParaCrearTablaMovil(json){
     var campos = [];
     for(var key in json.registroMongo.registroMovil){
-        if(key != "arrayJson"){
+        if(key.indexOf("arrayJson")<0){
             campos.push(key);
         }
     }
@@ -699,7 +718,7 @@ EntidadesMongoOracle.prototype.getTablaMovil = function(json, utilizarEstosCampo
         }
     }else{
         for(key in json.registroMongo.registroMovil){
-            if(key != "arrayJson" && key != "id"){
+            if(key.indexOf("arrayJson")<0  && key != "id"){
 
                 campos.push(key + (json.registroTipoCamposNumericos && json.registroTipoCamposNumericos[key.toUpperCase()] ?" " + json.registroTipoCamposNumericos[key.toUpperCase()]:" TEXT"));
             }

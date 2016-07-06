@@ -154,7 +154,7 @@ SeguridadEDC.prototype.validarToken = function(req, res, next) {
      }
    });
   }else {
-
+      console.log("Error al leer la pgina ",token?token:"No tiene token");
     // if there is no token
     // return an error
     return res.status(403).send({

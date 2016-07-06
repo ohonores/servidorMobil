@@ -23,7 +23,7 @@ app.set('ipaddr', "0.0.0.0");
 /**
 * CREANDO EL SOCKET
 */
-var empresas = [{ruc:"0990018707001"}, {ruc:"0990018707002"}];
+var empresas = [{ruc:"0990018707001"}, {ruc:"2"}];
 
 //new sockectServidor(http, empresas);
 /**
@@ -37,6 +37,7 @@ var sockectServidor =  new SockectServidorIO(server, empresas);
 app.socket = sockectServidor.getSocket();
 app.conexiones = sockectServidor.getConexiones();
 app.empresas = empresas;
+app.periflesConectados = sockectServidor.getPerfilesConectados();
 /**
  * Listen on provided port, on all network interfaces.
  */

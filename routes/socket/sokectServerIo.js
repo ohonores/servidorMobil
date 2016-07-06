@@ -1,5 +1,12 @@
 var io = require('socket.io');
-conexiones = [];
+/****Cuando es local por favor se debe comentar*/
+var oracledb = require('../../conexiones-basededatos/conexion-oracle.js');
+var mongodb = require('../../conexiones-basededatos/conexion-mongodb.js');
+//var sqllite = require('./conexiones-basededatos/conexion-sqllite.js');
+var OracleMongo = require('../../utils/OracleMongo.js');
+var oracleMongo =  new OracleMongo(oracledb, mongodb);
+var conexiones = [];
+var perfilesConectados = [];
 var socket;
 var SocketIo = function(http, empresas) {
     console.log("entro constructor");
@@ -17,14 +24,18 @@ var SocketIo = function(http, empresas) {
         conexiones[empresa.ruc] = io
         .of('/sincronizar'+empresa.ruc)         //CREANDO NAMESPACES
         .on('connection', function(socket){     //CONEXION CON LOS NAMESPACES
-                console.log("conectaod socket autenficacion");
-                socket.on('autenficacion', function(datos){
-                        console.log("autenficacion");
+                console.log("Conectado ",new Date());
+                
+                socket.on('autentificacion', function(datos){
+                        console.log("autenficacion***************");
                         console.log(datos);
                         if(datos.room){
                             socket.join(datos.room);
                         }
                         socket.room = datos.room;
+                        if(perfilesConectados.indexOf(socket.room)<0){
+                            perfilesConectados.push(socket.room);
+                        }
                         console.log(socket.room);
                         //Validar el usuario
                         //Indicar que ha sido autentificado y esta listo para la comunicacion con el servidor
@@ -44,8 +55,9 @@ var SocketIo = function(http, empresas) {
                     // socket.broadcast.to(room).emit(room, {mensaje:'server solo al room '+room, estado:true,datos:datos});
 
                     //Mensaje individual
-                    socket.emit('respuesta', {mensaje:'server edi solo a ti', estado:true,datos:datos});
+                   // socket.emit('respuesta', {mensaje:'server edi solo a ti', estado:true,datos:datos});
                 });
+            
                 socket.on('sincronizar', function(datos){
                     console.log("sincronizar");
                     console.log("socket.room " + socket.id);
@@ -63,6 +75,26 @@ var SocketIo = function(http, empresas) {
                     //Mensaje individual
                     socket.emit('respuesta', {mensaje:'server edi solo a ti', estado:true,datos:datos});
                 });
+                socket.on('sincronizado', function (datos) {
+                      console.log(datos)
+                      if(oracleMongo.isColeccionesTipoDiccionario(datos.coleccion).length>0){
+                          datos.perfil = null;
+                      }
+                        oracleMongo.elimiarTodosLosCambiosPorSincronizarPorPerfil(datos.coleccion, datos.perfil, datos.codigo).then(function(r){
+                          
+                      });
+                      
+                });
+                socket.on('forzarSincronizacion:resultado', function (datos) {
+                        console.log("forzarSincronizacion:resultado", datos)
+                });
+                socket.on('forzarSincronizacion:error', function (error) {
+                        console.log("forzarSincronizacion:error",error)
+                });
+                socket.on('forzarSincronizacion:notificar', function (notificar) {
+                        console.log("forzarSincronizacion:notificar", notificar)
+                });
+                
                 socket.on('disconnect', function () {
                         socket.leave(socket.room);
                 });
@@ -78,7 +110,11 @@ SocketIo.prototype.getSocket = function(){
     return socket;
 };
 SocketIo.prototype.getConexiones = function(){
+    console.log("SocketIo.prototype.getConexiones",conexiones);
     return conexiones;
+};
+SocketIo.prototype.getPerfilesConectados = function(){
+    return perfilesConectados;
 };
 /**
  * ACCIONES

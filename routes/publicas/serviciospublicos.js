@@ -40,14 +40,8 @@ router.get('/datos',function(req, res, next){
                 res.send(body);
            });
 });
-// =====================================
-    // REGISTRAR USUARIO DEVICE
-    //  Esta url permite la autenficacion y registro del device
-    //  Grabando cada peticion en la base de mongo
-    // =====================================
-router.get('/movil/autentificacion/:identificacion/:empresa/:uidd/:x/:y/:token', seguridadEDC.validarIdentificacion, function(req, res) {
-    console.log('/movil/autentificacion/:identificacion/:empresa/:uidd/:x/:y/:token');
-    oracleMongo.autentificacion(req.params, function(respuesta){
+router.get('/movil/autentificacion-getToken/:identificacion/:empresa/:uidd/:x/:y/:token', seguridadEDC.validarIdentificacion, function(req, res) {
+    oracleMongo.autentificacion(req.params, false, function(respuesta){
         //Verifica si existe mas de una empresa
         switch (respuesta.length) {
             case 0:
@@ -56,21 +50,59 @@ router.get('/movil/autentificacion/:identificacion/:empresa/:uidd/:x/:y/:token',
             case 1:
                 respuesta = respuesta[0];
                 // creacion del token
-                var token = jwt.sign({identificacion:req.params.identificacion,perfil:respuesta.registroInterno.perfil,empresa:req.params.uidd}, tokens.secret, {
+                var token = jwt.sign({identificacion:req.params.identificacion,perfil:respuesta.registroInterno.perfil,empresa:respuesta.registroMovil.infoEmpresa.empresa_id}, tokens.secret, {
                   expiresInMinutes: 11520 //1440 expira en 24 hours
                 });
                 tokenAix = token;
-                console.log(token);
+                oracleMongo.setToken(respuesta.registroInterno.perfil,token);
+                console.log(oracleMongo.getTokens());
+                respuesta.token = token;// envia el token
+                res.json({token:token});
+                break;
+            default:
+                res.send(mensajes.errorIdentificacionNoExiste.identificacion);
+                break;
+                
+        }
+    });
+});
+// =====================================
+    // REGISTRAR USUARIO DEVICE
+    //  Esta url permite la autenficacion y registro del device
+    //  Grabando cada peticion en la base de mongo
+    // =====================================
+router.get('/movil/autentificacion/:identificacion/:empresa/:uidd/:x/:y/:token', seguridadEDC.validarIdentificacion, function(req, res) {
+    console.log('/movil/autentificacion/:identificacion/:empresa/:uidd/:x/:y/:token');
+    oracleMongo.autentificacion(req.params, true, function(respuesta){
+        //Verifica si existe mas de una empresa
+        switch (respuesta.length) {
+            case 0:
+                res.send(mensajes.errorIdentificacionNoExiste.identificacion);
+                break;
+            case 1:
+                respuesta = respuesta[0];
+                // creacion del token
+                var token = jwt.sign({identificacion:req.params.identificacion,perfil:respuesta.registroInterno.perfil,empresa:respuesta.registroMovil.infoEmpresa.empresa_id}, tokens.secret, {
+                  expiresInMinutes: 11520 //1440 expira en 24 hours
+                });
+                tokenAix = token;
+                oracleMongo.setToken(respuesta.registroInterno.perfil,token);
+                console.log(oracleMongo.getTokens());
                 oracleMongo.getUrlsPorPefil(respuesta.registroMovil.identificacion, respuesta.registroInterno.perfil, urlMatriz+urlPefil, urlMatriz+urlDiccionario, urlRecpcion, function(total){
-                     console.log("token*****", total);
+                    // console.log("token*****", total);
                     oracleMongo.getTablasScript(function(script){
                             //console.log("token*****", script);
                             respuesta.scriptsDrops = oracleMongo.getTablasScriptDrop();
                             respuesta.scripts = script;
                             respuesta.scriptsUniqueKeys = oracleMongo.getTablasScriptUniqueKey();
                             respuesta.sincronizacion = total;
-                            oracleMongo.getTotalRegistrosPorPerfiles(respuesta.registroMovil.identificacion).then(function(validar){
+                            oracleMongo.getTotalRegistrosPorIdentificacion(respuesta.registroMovil.identificacion).then(function(validar){
                                 console.log("getTotalRegistrosPorPerfiles", validar);
+                                if(!validar){
+                                    
+                                    res.json({error:"No existen registros"});
+                                    return;
+                                }
                                 respuesta.validarSincronizacion = validar.map(function(script){
                                     var map = {};
                                     for(var key in script){
@@ -84,8 +116,10 @@ router.get('/movil/autentificacion/:identificacion/:empresa/:uidd/:x/:y/:token',
                                 respuesta.token = token;// envia el token
                                 res.json(respuesta);
                             },function(x){
-                                respuesta.token = token;// envia el token
-                                res.json(respuesta);
+                                //respuesta.token = token;// envia el token
+                                console.log("error en getTotalRegistrosPorPerfiles",x);
+                                res.json(x);
+                                return;
                             });
 
                     });
@@ -156,4 +190,23 @@ router.get('/movil/iniciar/cargar-datos-iniciales', function(req, res) {
     }
        
 });
+
+router.get('/movil/iniciar/forzarSincronizacion/:identificacion/:empresa/:notificar', function(req, res) {
+   
+    console.log('/movil/iniciar/forzarSincronizacion/:identificacion/:empresa',new Date());
+    oracleMongo.getPerfil(req.params.identificacion, req.params.empresa).then(function(perfil){
+        console.log("req.app.conexiones",req.app.conexiones);
+        console.log("req.params.empresa",req.params.empresa);
+        console.log("perfil",perfil);
+        req.app.conexiones[req.params.empresa].to(perfil).emit("forzarSincronizacion",{identificacion:req.params.identificacion,empresa:req.params.empresa,notificar:req.params.notificar});
+        res.send("Listo");
+    },function(error){
+        res.send(mensajes.errorIdentificacionNoExiste.identificacion);
+    });
+    
+       
+});
+
+
+
 module.exports = router;

@@ -8,7 +8,7 @@ var Labels = function() {
         "noresponde":{tipo:"error",mensaje:"SERVIDOR WS NO ESTA DANDO RESPUESTA POR FAVOR VERIFIQUE Q ESTE ARRIBA"}
     };
     this.errorIdentificacion = {
-        "identificacion":{tipo:"error",mensaje:"LA IDENTIFICACION o EMPRESA INGRESADA NO ES ACEPTADA"},
+        "identificacion":{tipo:"error",mensaje:"LA IDENTIFICACION, EMPRESA INGRESADA NO ES ACEPTADA, RECUERDE QUE EL UIDD DEBE SER MAYOR QUE 10 DIGITOS"},
         "perfil":{tipo:"error",mensaje:"EL PERIFL INGRESADO NO ES ACEPTADO"},
     };
     this.errorIdentificacionNoExiste = {
