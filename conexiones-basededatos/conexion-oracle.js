@@ -96,11 +96,12 @@ ClienteOracle.prototype.llamarProcedimiento = function (nombre, parametros, resu
                                         }
                                       
                                   }
-                                  console.log("iniciarProcedimiento", parametros);
+                                 
                                  connection.execute(iniciarProcedimiento,parametros, function(err, result) {
-                                        console.log(err);
-                                        console.log(result);
-                                        resultado(true);
+                                     if(err){
+                                        console.log("Error::llamarProcedimiento  ",nombre,err);   
+                                     }
+                                     resultado(result);
                                  });
                               });
 }

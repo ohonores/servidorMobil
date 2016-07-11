@@ -53,11 +53,16 @@ router.get('/movil/autentificacion-getToken/:identificacion/:empresa/:uidd/:x/:y
                 var token = jwt.sign({identificacion:req.params.identificacion,perfil:respuesta.registroInterno.perfil,empresa:respuesta.registroMovil.infoEmpresa.empresa_id}, tokens.secret, {
                   expiresInMinutes: 11520 //1440 expira en 24 hours
                 });
+                req.session.toke = token;
+                req.session.datosperfil ={identificacion:req.params.identificacion,perfil:respuesta.registroInterno.perfil,empresa:respuesta.registroMovil.infoEmpresa.empresa_id};
+                
                 tokenAix = token;
                 oracleMongo.setToken(respuesta.registroInterno.perfil,token);
+                router.client.set(respuesta.registroInterno.perfil,"edi"+req.session.id);
+                router.client.expire(respuesta.registroInterno.perfil,432000);
                 console.log(oracleMongo.getTokens());
-                respuesta.token = token;// envia el token
-                res.json({token:token});
+                respuesta.token = "edi"+req.session.id;// envia el token
+                res.json({token:"edi"+req.session.id});
                 break;
             default:
                 res.send(mensajes.errorIdentificacionNoExiste.identificacion);
@@ -85,6 +90,15 @@ router.get('/movil/autentificacion/:identificacion/:empresa/:uidd/:x/:y/:token',
                 var token = jwt.sign({identificacion:req.params.identificacion,perfil:respuesta.registroInterno.perfil,empresa:respuesta.registroMovil.infoEmpresa.empresa_id}, tokens.secret, {
                   expiresInMinutes: 11520 //1440 expira en 24 hours
                 });
+                req.session.toke = token;
+                req.session.datosperfil ={identificacion:req.params.identificacion,perfil:respuesta.registroInterno.perfil,empresa:respuesta.registroMovil.infoEmpresa.empresa_id};
+                
+                
+                 //console.log(req)
+                console.log("idsesion ",req.session.id)
+                router.client.set(respuesta.registroInterno.perfil,"edi"+req.session.id);
+                router.client.expire(respuesta.registroInterno.perfil,432000);
+               // consol.log()
                 tokenAix = token;
                 oracleMongo.setToken(respuesta.registroInterno.perfil,token);
                 console.log(oracleMongo.getTokens());
@@ -113,7 +127,7 @@ router.get('/movil/autentificacion/:identificacion/:empresa/:uidd/:x/:y/:token',
                                     return map;
                                 });
                                 respuesta.validarSincronizacion.push({sql:oracleMongo.validarExistenciaPerfilMobil(),total:1, tabla:oracleMongo.validarExistenciaPerfilMobil().split("FROM")[1].trim()});
-                                respuesta.token = token;// envia el token
+                                respuesta.token = "edi"+req.session.id;// envia el token
                                 res.json(respuesta);
                             },function(x){
                                 //respuesta.token = token;// envia el token
@@ -206,6 +220,29 @@ router.get('/movil/iniciar/forzarSincronizacion/:identificacion/:empresa/:notifi
     
        
 });
+
+router.get('/movil/iniciar/socket-notificar/:pefil/:nombre/:estado', function(req, res) {
+    var sockectNotificaciones = {
+      tryAndCatch:{estado:false, nombre:"tryAndCatch"},
+      notificar:{estado:false, nombre:"notificar"},
+      notificaesCrud:{estado:false, nombre:"notificaesCrud"},
+      erroresCrud:{estado:false, nombre:"erroresCrud"},
+      reject:{estado:false, nombre:"refect"},
+      autentificacion:{mensaje:"Inicio de conexion, validacion de existencia de perfil y comunicacion con el socket.io"}
+    }
+    if(sockectNotificaciones[req.nombre]){
+        sockectNotificaciones[req.nombre] = req.estado ==="true" ? true:false; 
+        oracleMongo.socketEmit(req.app.conexiones[req.app.empresas[0].ruc], req.params.perfil, "sockectActivarNotificaciones", sockectNotificaciones,function(resultado){
+            res.send("Activado");
+        });
+        
+    }else{
+        res.json({error:"Error al activar el servicio de notificacones, por favor seleccione una de los siguientes servicios",servcioPorNotificar:sockectNotificaciones,ejemplo:"/movil/iniciar/socket-notificar/139/tryAndCatch/true"});
+    }
+       
+});
+
+
 
 
 

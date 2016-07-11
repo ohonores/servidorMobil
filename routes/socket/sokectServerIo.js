@@ -7,10 +7,10 @@ var OracleMongo = require('../../utils/OracleMongo.js');
 var oracleMongo =  new OracleMongo(oracledb, mongodb);
 var conexiones = [];
 var perfilesConectados = [];
+var dispositivosConectados = {};
 var socket;
 var SocketIo = function(http, empresas) {
     console.log("entro constructor");
-
     io = new io(http,{ pingTimeout: 60000});
 //    app.timeout = 0 ;
 //    io.set('transports', ['websocket']) ;//Transporte
@@ -25,17 +25,40 @@ var SocketIo = function(http, empresas) {
         .of('/sincronizar'+empresa.ruc)         //CREANDO NAMESPACES
         .on('connection', function(socket){     //CONEXION CON LOS NAMESPACES
                 console.log("Conectado ",new Date());
+                    try{
+                        console.log(socket.handshake.headers['x-forwarded-for'] || socket.handshake.address.address);
+                        
+                    }catch(error){
+                        console.log(error);
+                    }
                 
+                    try{
+                         console.log("Object.keys(io.engine.clients)");
+                        console.log(Object.keys(io.engine));
+                        
+                    }catch(error){
+                        console.log(error);
+                    }
+            try{
+                console.log(socket.rooms);
+            }catch(error){
+                console.log(error);
+            }
                 socket.on('autentificacion', function(datos){
-                        console.log("autenficacion***************");
-                        console.log(datos);
+                        console.log("autenficacion***************",datos);
                         if(datos.room){
                             socket.join(datos.room);
                         }
                         socket.room = datos.room;
+                        socket.uidd = datos.uidd;
                         if(perfilesConectados.indexOf(socket.room)<0){
                             perfilesConectados.push(socket.room);
                         }
+                        if(!dispositivosConectados[socket.room]){
+                            dispositivosConectados[socket.room] = {};
+                        }
+                        dispositivosConectados[socket.room][datos.uidd] = socket.id;
+                        
                         console.log(socket.room);
                         //Validar el usuario
                         //Indicar que ha sido autentificado y esta listo para la comunicacion con el servidor
@@ -76,13 +99,17 @@ var SocketIo = function(http, empresas) {
                     socket.emit('respuesta', {mensaje:'server edi solo a ti', estado:true,datos:datos});
                 });
                 socket.on('sincronizado', function (datos) {
-                      console.log(datos)
+                      console.log('sincronizado ***********',datos)
                       if(oracleMongo.isColeccionesTipoDiccionario(datos.coleccion).length>0){
                           datos.perfil = null;
                       }
-                        oracleMongo.elimiarTodosLosCambiosPorSincronizarPorPerfil(datos.coleccion, datos.perfil, datos.codigo).then(function(r){
+                    
+                    oracleMongo.agregarDispositivoSincronizadoPorPerfil(datos.coleccion, datos.perfil, datos.codigo, datos.dispositivo).then(function(r){
                           
-                      });
+                    });
+                      /*  oracleMongo.elimiarTodosLosCambiosPorSincronizarPorPerfil(datos.coleccion, datos.perfil, datos.codigo).then(function(r){
+                          
+                      });*/
                       
                 });
                 socket.on('forzarSincronizacion:resultado', function (datos) {
@@ -97,6 +124,11 @@ var SocketIo = function(http, empresas) {
                 
                 socket.on('disconnect', function () {
                         socket.leave(socket.room);
+                        //Eliminando la referencia
+                        if(dispositivosConectados[socket.room] && dispositivosConectados[socket.uidd]){
+                           delete dispositivosConectados[socket.room][datos.uidd];
+                        }
+                        
                 });
         });
     });
@@ -116,6 +148,10 @@ SocketIo.prototype.getConexiones = function(){
 SocketIo.prototype.getPerfilesConectados = function(){
     return perfilesConectados;
 };
+SocketIo.prototype.getDispositivosConectados = function(){
+    return dispositivosConectados;
+};
+
 /**
  * ACCIONES
  */

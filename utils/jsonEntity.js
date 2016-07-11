@@ -494,6 +494,7 @@ EntidadesMongoOracle.prototype.getJsonPromocionVenta = function(){
                                     id:"ID",
                                     mitem_id:"MITEM_ID",
                                     bonificacion:"BONIFICACION",
+                                    descripcion:"INFOITEM",
                                     lineal:"LINEAL"
                                 }
                             }
@@ -578,6 +579,7 @@ EntidadesMongoOracle.prototype.getJsonOrden = function(){
                     referencias:[{tabla:"emovtorden_detalle",campofk:"MORDEN_ID"},{tabla:"emovtorden_condicion",campofk:"MORDEN_ID"}],
                     registroTipoCamposNumericos:{
                         "MPERFILESTABLECIMIENTO_ID":"INTEGER",
+                        "DIRECCION":"INTEGER",
                         "MTIPOPAGODETALLE_ID":"INTEGER",
                         "ORDEN_ID":"INTEGER",
                         "MBODEGA_ID":"INTEGER"
@@ -674,7 +676,7 @@ EntidadesMongoOracle.prototype.getColeccionesParaSincronzar = function(){
 };
 EntidadesMongoOracle.prototype.isColeccionesTipoDiccionario = function(coleccion, callback){
     obj = new EntidadesMongoOracle();
-    console.log("isColeccionesTipoDiccionario",coleccion);
+   
    return Object.getOwnPropertyNames( EntidadesMongoOracle.prototype ).filter(function(a){
             if(a.indexOf("getJson")>=0 && obj[a]() &&  obj[a]().diccionario===true && obj[a]().coleccion===coleccion){
                return true;

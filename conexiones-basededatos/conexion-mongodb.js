@@ -836,7 +836,6 @@ function grabarQ(collection, parametros, grabarSinValidarExistencia) {
               if(resultado && resultado.grabar === true ){
                   db.collection(collection).insertOne(resultado.documento, function(err, docs) {
                     if(err){
-                        console.log("validarDocumentoConRegistroArray insertOne",err);
                          //deferred.notify({mensaje:err});
                         deferred.reject({error:true,mensaje:err});
                      }else{
@@ -897,7 +896,7 @@ ClienteMongoDb.prototype.modificar = function (collection, busqueda, actualizar,
        db.collection(collection).updateOne(
              busqueda,
              actualizar, function(err, results) {
-             console.log("ClienteMongoDb modificar", err)
+            
              callback(results);
         });
 };
@@ -905,7 +904,6 @@ ClienteMongoDb.prototype.modificar = function (collection, busqueda, actualizar,
 
 
 ClienteMongoDb.prototype.dropCollection = function (collection, callback) {
-        console.log(collection);
        db.collection(collection).remove({},function(err, results) {
            callback(results);
         });
@@ -924,10 +922,8 @@ ClienteMongoDb.prototype.getTotalRegistrosPorPerfiles = function (collections, p
 
     });*/
     Q.all(colecciones).then(function(a){
-         console.log("getTotalRegistrosPorPerfiles--ok--",a)
         deferred.resolve(a);
     },function(x){
-        console.log("getTotalRegistrosPorPerfiles-err---",x)
         deferred.resolve(x);
     });
    return deferred.promise;

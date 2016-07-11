@@ -42,9 +42,9 @@ app.engine('html', require('ejs').renderFile);
 //app.use(favicon(__dirname + '/public/favicon.ico'));
 //pp.use(logger('dev'));
 app.use(methodOverride());
-app.use(session({ resave: true,
+/*app.use(session({ resave: true,
                   saveUninitialized: true,
-                  secret: 'alien200525' }));
+                  secret: 'alien200525' }));*/
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -57,28 +57,33 @@ app.use('/socket',express.static(path.join(__dirname, 'node_modules')));
 app.use('/sincronizador',express.static(path.join(__dirname, 'sincronizador')));
 var client;
 var redisStore;
-if(process.env.REDIS == 1){
+//if(process.env.REDIS == 1){
     log.info("Entro a redis");
     /***********
     	CONFIGURACION DE REDIS, SI NO TIENE LA BASE DE REDIS POR FAVOR COMENTAR HASTA "FIN REDIS"
     *************/
 
-    client = require("redis").createClient(6379,"localhost");
+    client = require("ioredis").createClient();
     redisStore = require('connect-redis')(session);
     client.on("error", function (err) {
         log.info("Error " + err);
     });
+     client.on("connect", function () {
+        log.info("Conectado ::",client.options.host, client.options.port,client.status);
+         rutasPrivadas.client = client;
+         rutasPublicas.client = client;
+    });
     /*********FIN REDIS**************/
     app.use(session({
         secret: 'alien200525',
-        store: new redisStore({ host: "localhost", port: 6379,prefix:'edi', client: client,ttl :120}),
+        store: new redisStore({ host: "localhost", port: 6379, prefix:'edi', client: client,ttl :432000}),
         saveUninitialized: true,
         resave: false
     }));
-}else{
+/*}else{
     //app.use(express.session({ secret: 'alien' }));
 
-}
+}*/
 /*
 app.use(passport.initialize());
 app.use(passport.session());
@@ -158,23 +163,34 @@ rule2.dayOfWeek = [0,1,2,3,4,5,6]; //Corre todos los dias
 rule2.hour = 05;//4 de la mañana
 rule2.minute = 07;//Con 06 minutos
 var urlSincronizarPerifil = "http://documentos.ecuaquimica.com.ec:8080/movil/sincronizacion/actualizar/perfil-sinc/:coleccion/:index";
-var j = schedule.scheduleJob('45 * * * * *', function(){
+
+
+
+var cronOrdenes = schedule.scheduleJob('10 * * * * *', function(){
+    if(app.dispositivosConectados  && app.empresas[0] && app.empresas[0].ruc && app.conexiones[app.empresas[0].ruc]){
+        oracleMongo.revisarEstadosDeOrdenesEnviadasDesdeMovil(app.conexiones[app.empresas[0].ruc], app.dispositivosConectados);
+    }
     
-        oracleMongo.getTodosLosCambiosPorSincronizarPorPerfil(null,  urlSincronizarPerifil).then(function(resultados){
-            console.log("app.conexiones",app.conexiones);
-            app.empresas.forEach(function(empresa){
+});
+
+var j = schedule.scheduleJob('59 * * * * *', function(){
+        if(Array.isArray(app.periflesConectados) && app.periflesConectados.length>0){
+            
+        
+        oracleMongo.getTodosLosCambiosPorSincronizarPorPerfil(app.periflesConectados,  urlSincronizarPerifil).then(function(resultados){
+           // app.empresas.forEach(function(empresa){
+            var empresa = app.empresas[0];
                 resultados.forEach(function(resultado){
-                    
                     if(resultado.urls.NOPERFIL){
-                       
                        app.periflesConectados.forEach(function(perfil){
                            resultado.urls[perfil] = resultado.urls.NOPERFIL;
                        });
                        delete resultado.urls.NOPERFIL;
-                       console.log("getTodosLosCambiosPorSincronizarPorPerfil",resultado.urls);
+                      
                     }
                     for(perfil in resultado.urls){
-                       try{
+                        console.log("PERFIL **************** ",perfil);
+                        try{
                             var nuevoResultado = JSON.parse(JSON.stringify(resultado));
                             nuevoResultado.urls = resultado.urls[perfil];
                             delete nuevoResultado.perfiles;
@@ -191,14 +207,57 @@ var j = schedule.scheduleJob('45 * * * * *', function(){
                                                 map.total = script[key];
                                                 map.tabla = key.split("FROM")[1].trim();
                                             }
-
                                             return map;
                                         });
                                       
                                     
                                         validarSincronizacion.push({sql:oracleMongo.validarExistenciaPerfilMobil(),total:1, tabla:oracleMongo.validarExistenciaPerfilMobil().split("FROM")[1].trim()});
                                         
-                                        app.conexiones[empresa.ruc].to(resultadoValidacioes.perfil).emit('sincronizar',{token:oracleMongo.getTokens()[resultadoValidacioes.perfil],sincronizacion:[resultadoValidacioes.nuevoResultado],validarSincronizacion:validarSincronizacion,"registroInterno":{perfil:resultadoValidacioes.perfil}});
+                                        /**
+                                            Se obtiene los dispositivos que fueron sincronizados
+                                            Se hace un cruce con aquellos que hace falta por sincronizar
+                                            Ejemplo.
+                                                Un perfil puede tener varios dispositivos:
+                                                1 samsung
+                                                1 ipod
+                                                1 tablet
+                                                Los tres iniciarion sesion con el perfil 101, pero con diferente dispositivo
+                                                Es decir se creó un room que tiene tres usuarios.
+                                                El objetivo es sincrinizar a los tres:
+                                                    1. Opción se envia una sincronizacion a los tres, una vez realizado se adjunta el uidd registro que se actualizara
+                                                        con el objetivo de no volverlo a sincronizar
+                                                    2.  
+                                                
+                                        */
+                                       
+                                        oracleMongo.getDispositivosYaSincronizados(resultado.coleccion, resultadoValidacioes.perfil).then(function(dispositivos){
+                                           console.log("getDispositivosYaSincronizados",resultado.coleccion,dispositivos)
+                                           console.log("getDispositivosYaSincronizados app.dispositivosConectados[resultadoValidacioes.perfil]",app.dispositivosConectados[resultadoValidacioes.perfil])
+                                            if(dispositivos.length>0){
+                                               
+                                                for(dispositivoIniciado  in app.dispositivosConectados[resultadoValidacioes.perfil] ){
+                                                    if(dispositivos.indexOf(dispositivoIniciado)<0){
+                                                        if(app.dispositivosConectados[resultadoValidacioes.perfil][dispositivoIniciado]){
+                                                                   console.log("notificando a ", d, app.dispositivosConectados[resultadoValidacioes.perfil][dispositivoIniciado]);
+                                                                    client.get(resultadoValidacioes.perfil).then(function(token){
+                                                                        app.conexiones[empresa.ruc].to(app.dispositivosConectados[resultadoValidacioes.perfil][dispositivoIniciado]).emit('sincronizar',{token:token,sincronizacion:[resultadoValidacioes.nuevoResultado],validarSincronizacion:validarSincronizacion,"registroInterno":{perfil:resultadoValidacioes.perfil}});
+                                                                    });
+                                                                }
+                                                    }
+                                                    
+                                                    
+                                                }
+                                               
+                                            }else{
+                                                console.log("notificando a todos del room",resultadoValidacioes.perfil)
+                                                client.get(resultadoValidacioes.perfil).then(function(token){
+                                                    app.conexiones[empresa.ruc].to(resultadoValidacioes.perfil).emit('sincronizar',{token:token,sincronizacion:[resultadoValidacioes.nuevoResultado],validarSincronizacion:validarSincronizacion,"registroInterno":{perfil:resultadoValidacioes.perfil}});
+                                                });
+                                                
+                                            }
+                                            
+                                        });
+                                        
 
                                     }catch(er){
                                            validarSincronizacion=[];
@@ -221,9 +280,10 @@ var j = schedule.scheduleJob('45 * * * * *', function(){
                     
                 })
                 
-            })
+           // })
                    
         });
+        }
 });
 
 /*var j = schedule.scheduleJob(rule2, function(){
@@ -302,7 +362,9 @@ setTimeout(function () {
 },20000);
 rutasPrivadas.log = log;
 rutasPrivadas.oracleMongo = oracleMongo;
+
 rutasPublicas.use('/movil/sincronizacion', rutasPrivadas);
+
 app.use('/', rutasPublicas);
 app.oracleMongo = oracleMongo;
 //The 404 Route (ALWAYS Keep this as the last route)

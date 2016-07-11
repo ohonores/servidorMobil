@@ -9,6 +9,7 @@ var mongodb = require('../../conexiones-basededatos/conexion-mongodb.js');
 var OracleMongo = require('../../utils/OracleMongo.js');
 var oracleMongo =  new OracleMongo(oracledb, mongodb);
 var urlSincronizarPerifil = "http://documentos.ecuaquimica.com.ec:8080/movil/sincronizacion/actualizar/perfil-sinc/:coleccion/:index";
+var client = require("ioredis").createClient();
 /**************
 Logger
 ********************/
@@ -34,8 +35,6 @@ sincronizar.all("/*", seguridadEDC.validarToken, function(req, res, next) {
 
 sincronizar.get('/inicio/perfil/:coleccion/:index', seguridadEDC.verficarInjections, seguridadEDC.validarIndex, function(req, res){
         //Datos por Perfil
-        console.log('/perfil/:coleccion/:index************************');
-        console.log(req.params);
             oracleMongo.getDatosDinamicamenteDeInicio(req.params.coleccion, parseInt(req.datosperfil.perfil), req.params.index, function(resultado){
                     res.json(resultado);
             });
@@ -43,10 +42,9 @@ sincronizar.get('/inicio/perfil/:coleccion/:index', seguridadEDC.verficarInjecti
 sincronizar.get('/actualizar/perfil-sinc/:coleccion/:index', seguridadEDC.verficarInjections, function(req, res){
     console.log('/perfil/:coleccion/:index************************',req.params.coleccion,oracleMongo.isColeccionesTipoDiccionario(req.params.coleccion).length);
         oracleMongo.getDatosPorSincronizarPorPerfilIndex(req.params.coleccion, oracleMongo.isColeccionesTipoDiccionario(req.params.coleccion).length>0 ? null : parseInt(req.datosperfil.perfil), parseInt(req.params.index)).then(function(resultado){
-            console.log(resultado);
+            
             var respuesta = {sincronizarDatos:resultado};
             oracleMongo.getTotalRegistrosPorIdentificacion(req.datosperfil.identificacion).then(function(validar){
-                    console.log("validar",validar);
                     try{
                     respuesta.validarSincronizacion = validar.map(function(script){
                         var map = {};
@@ -55,16 +53,23 @@ sincronizar.get('/actualizar/perfil-sinc/:coleccion/:index', seguridadEDC.verfic
                             map.total = script[key];
                             map.tabla = key.split("FROM")[1].trim();
                         }
-                         console.log("map",map);
                         return map;
                     });
                     respuesta.validarSincronizacion.push({sql:oracleMongo.validarExistenciaPerfilMobil(),total:1, tabla:oracleMongo.validarExistenciaPerfilMobil().split("FROM")[1].trim()});
-                    respuesta.token = oracleMongo.getTokens()[req.datosperfil.perfil];// envia el token
+                    
                     }catch(e){
                         console.log(e);
                     }
-                console.log("respuesta",respuesta);
-                    res.json(respuesta);
+                    client.get(req.datosperfil.perfil).then(function(token){
+                        respuesta.token = token ;// envia el token
+                        res.json(respuesta);    
+                    },function(){
+                        respuesta.token = "Error al generar el token"
+                         res.json(respuesta);  
+                    });
+                        
+                    
+                    
             },function(x){
                 res.json({"error":"validarSincronizacion"});
             });
@@ -101,7 +106,7 @@ sincronizar.all('/recepcion/:tabla/',  function(req, res){
         console.log("/recepcion/:tabla/");
         oracleMongo.setDatosDinamicamente(req.params.tabla, req.body, req.datosperfil, function(resultado){
             if(resultado === true){
-                res.json({estado:"R"});
+                res.json({estado:"MR"});
             }else{
                 res.json({error:"Error al grabar",tabla:req.params.tabla,mensaje:resultado});
             }

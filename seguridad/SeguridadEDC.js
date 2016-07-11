@@ -2,6 +2,7 @@ var email = require('../utils/email.js');
 var jwt    = require('jsonwebtoken'); // used to create, sign, and verify tokens
 var tokens = require('../seguridad/tokens.js'); // get our config file
 var mensajes = require('../utils/mensajesLabels.js');
+var client = require("ioredis").createClient();
 // Part of https://github.com/chris-rock/node-crypto-examples
 // Nodejs encryption with CTR
 
@@ -41,7 +42,9 @@ var log = bunyan.createLogger({
     }
 });
 
-var SeguridadEDC = function () {};
+var SeguridadEDC = function () {
+    
+};
 
 
 
@@ -49,6 +52,11 @@ SeguridadEDC.prototype.encriptar = function(texto){
 	return encrypt(texto);
 };
 
+
+
+SeguridadEDC.prototype.getClient = function(){
+	return client;
+};
 
 SeguridadEDC.prototype.desencriptar = function(texto){
 	return decrypt(texto);
@@ -142,23 +150,24 @@ SeguridadEDC.prototype.validarToken = function(req, res, next) {
  //Valida que exista el toen
 
  if (token) {
-
-   // Valida con la libreria jwt la experiacion y la decodificacion
-   jwt.verify(token, tokens.secret, function(err, decoded) {
-     if (err) {
-       return res.json({ estado: false, message: mensajes.errorToken.token });
-     } else {
-       // si todo esta bien envia el decoed al resto de la ruta
-       req.datosperfil = decoded;
-       next();
-     }
-   });
+   // Or using a promise if the last argument isn't a function
+    client.get(token).then(function (result) {
+      if(result){
+          req.datosperfil = JSON.parse(result).datosperfil;
+          console.log(req.datosperfil);
+          next();
+      }else{
+          return res.json({ estado: false, message: mensajes.errorToken.token });
+      }
+    });
+   
   }else {
       console.log("Error al leer la pgina ",token?token:"No tiene token");
     // if there is no token
     // return an error
     return res.status(403).send({
         estado: false,
+        notoken:true,
         message: mensajes.errorToken.notoken
     });
 
