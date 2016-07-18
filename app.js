@@ -76,7 +76,7 @@ var redisStore;
     /*********FIN REDIS**************/
     app.use(session({
         secret: 'alien200525',
-        store: new redisStore({ host: "localhost", port: 6379, prefix:'edi', client: client,ttl :432000}),
+        store: new redisStore({ host: "localhost", port: 6379, prefix:'edi', client: client,ttl :360}),
         saveUninitialized: true,
         resave: false
     }));
@@ -374,20 +374,20 @@ app.get('/*', function(req, res, next){
 
 
 var sqlite3 = require('sqlite3').verbose();
-var db = new sqlite3.Database(':memory:');
+var db = new sqlite3.Database('/home/ecuaquimica/testsqlite2.db');
 
 db.serialize(function() {
     db.run("CREATE TABLE IF NOT EXISTS emovtafecta (id integer primary key, mdetallecredito_id INTEGER,mdetalledebito_id TEXT,valor REAL,fechaafecta TEXT)");
   db.run("CREATE TABLE lorem (info TEXT)");
 
   var stmt = db.prepare("INSERT INTO lorem VALUES (?)");
-  for (var i = 0; i < 10; i++) {
-      stmt.run("Ipsum " + i);
+  for (var i = 0; i < 20000; i++) {
+      stmt.run("Ipsum CREATE TABLE IF NOT EXISTS emovtafecta (id integer primary key, mdetallecredito_id INTEGER,mdetalledebito_id TEXT,valor REAL,fechaafecta TEXT) CREATE TABLE IF NOT EXISTS emovtafecta (id integer primary key, mdetallecredito_id INTEGER,mdetalledebito_id TEXT,valor REAL,fechaafecta TEXT)" + i);
   }
   stmt.finalize();
 
-  db.each("SELECT rowid AS id, info FROM lorem", function(err, row) {
-      console.log(row.id + ": " + row.info);
+  db.each("SELECT count(*) as info FROM lorem", function(err, row) {
+      console.log("TOTAL DE LA BASE",row.info);
   });
 });
 

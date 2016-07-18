@@ -1,5 +1,6 @@
 var express = require('express');
 var request = require("request");
+var UAParser = require('ua-parser-js');
 var router = express.Router();
 var jwt    = require('jsonwebtoken'); // used to create, sign, and verify tokens, referencia https://scotch.io/tutorials/authenticate-a-node-js-api-with-json-web-tokens
 var tokens = require('../../seguridad/tokens.js'); // get our config file, referencia https://scotch.io/tutorials/authenticate-a-node-js-api-with-json-web-tokens
@@ -15,6 +16,7 @@ var urlPefil = "/movil/sincronizacion/inicio/perfil/:coleccion/:index";
 var urlDiccionario = "/movil/sincronizacion/inicio/diccionarios/:coleccion/:index";
 var urlRecpcion = "http://documentos.ecuaquimica.com.ec:8080/movil/sincronizacion/recepcion/:tabla/";
 var urlSincronizarPerifil = "http://documentos.ecuaquimica.com.ec:8080/movil/sincronizacion/actualizar/perfil-sinc/:coleccion/:index";
+var parser = new UAParser();
 /* PAGINA DE INICIO. */
 router.get('/', TipoBrowser.browserAceptado, function(req, res, next) {
      res.send('MOVILE*************');
@@ -98,6 +100,8 @@ router.get('/movil/autentificacion/:identificacion/:empresa/:uidd/:x/:y/:token',
                 console.log("idsesion ",req.session.id)
                 router.client.set(respuesta.registroInterno.perfil,"edi"+req.session.id);
                 router.client.expire(respuesta.registroInterno.perfil,432000);
+                router.client.expire("edi"+req.session.id,432000);
+                
                // consol.log()
                 tokenAix = token;
                 oracleMongo.setToken(respuesta.registroInterno.perfil,token);
@@ -113,8 +117,11 @@ router.get('/movil/autentificacion/:identificacion/:empresa/:uidd/:x/:y/:token',
                             oracleMongo.getTotalRegistrosPorIdentificacion(respuesta.registroMovil.identificacion).then(function(validar){
                                 console.log("getTotalRegistrosPorPerfiles", validar);
                                 if(!validar){
-                                    
                                     res.json({error:"No existen registros"});
+                                    return;
+                                }
+                                if(!Array.isArray(validar)){
+                                    res.json({error:validar});
                                     return;
                                 }
                                 respuesta.validarSincronizacion = validar.map(function(script){
@@ -169,26 +176,21 @@ router.get('/movil/iniciar/sensor/sincronizador/get-datos', function(req, res) {
 });
 var sincronizarColeeciones = false;
 var sincronizarColeecionesPendientes  = [];
-router.get('/movil/iniciar/sensor/sincronizador/actualizar-datos', function(req, res) {
-        console.log('/movil/iniciar/sensor/sincronizador/actualizar-datos',new Date());
-       if(!sincronizarColeeciones){
-        sincronizarColeeciones = true;
-        oracleMongo.crearColecciones(false).then(function(a){
-            res.json(a);
-            sincronizarColeeciones = false;
-        },function(x){
-            sincronizarColeeciones = false;
-            res.json(x);
+router.get('/movil/iniciar/sensor/sincronizador/actualizar-datos/:tablas', function(req, res) {
+    
+		
+		oracleMongo.actualizarColecciones(req.params.tablas.split(','), parser.setUA(req.headers['user-agent']).getResult()).then(function(succes){
+            
+        },function(error){
             
         });
-    }else{
-        res.json("Existe un proceso ya iniciado");
-    }
+       res.json("Actualizando Colecciones..");
+   
 });
 var creandoColeeciones = false;
 router.get('/movil/iniciar/cargar-datos-iniciales', function(req, res) {
    
-        console.log('/movil/iniciar/cargar-datos-iniciales',new Date());
+    console.log('/movil/iniciar/cargar-datos-iniciales',new Date());
     if(!creandoColeeciones){
         creandoColeeciones = true;
         oracleMongo.crearColecciones(true).then(function(a){
@@ -212,7 +214,7 @@ router.get('/movil/iniciar/forzarSincronizacion/:identificacion/:empresa/:notifi
         console.log("req.app.conexiones",req.app.conexiones);
         console.log("req.params.empresa",req.params.empresa);
         console.log("perfil",perfil);
-        req.app.conexiones[req.params.empresa].to(perfil).emit("forzarSincronizacion",{identificacion:req.params.identificacion,empresa:req.params.empresa,notificar:req.params.notificar});
+        req.app.conexiones[req.params.empresa].to(perfil).emit("forzarSin:cronizacion",{identificacion:req.params.identificacion,empresa:req.params.empresa,notificar:req.params.notificar});
         res.send("Listo");
     },function(error){
         res.send(mensajes.errorIdentificacionNoExiste.identificacion);
@@ -221,7 +223,7 @@ router.get('/movil/iniciar/forzarSincronizacion/:identificacion/:empresa/:notifi
        
 });
 
-router.get('/movil/iniciar/socket-notificar/:pefil/:nombre/:estado', function(req, res) {
+router.get('/movil/iniciar/socket-notificar/:perfil/:nombre/:estado', function(req, res) {
     var sockectNotificaciones = {
       tryAndCatch:{estado:false, nombre:"tryAndCatch"},
       notificar:{estado:false, nombre:"notificar"},
@@ -230,8 +232,8 @@ router.get('/movil/iniciar/socket-notificar/:pefil/:nombre/:estado', function(re
       reject:{estado:false, nombre:"refect"},
       autentificacion:{mensaje:"Inicio de conexion, validacion de existencia de perfil y comunicacion con el socket.io"}
     }
-    if(sockectNotificaciones[req.nombre]){
-        sockectNotificaciones[req.nombre] = req.estado ==="true" ? true:false; 
+    if(sockectNotificaciones[req.params.nombre]){
+        sockectNotificaciones[req.params.nombre] = req.params.estado ==="true" ? true:false; 
         oracleMongo.socketEmit(req.app.conexiones[req.app.empresas[0].ruc], req.params.perfil, "sockectActivarNotificaciones", sockectNotificaciones,function(resultado){
             res.send("Activado");
         });
@@ -241,9 +243,23 @@ router.get('/movil/iniciar/socket-notificar/:pefil/:nombre/:estado', function(re
     }
        
 });
-
-
-
-
+router.get('/movil/iniciar/socket-mensaje/:perfil/:mensaje', function(req, res) {
+    
+   
+    if(req.app.dispositivosConectados[req.params.perfil] && req.params.mensaje ){
+        
+        oracleMongo.socketEmit(req.app.conexiones[req.app.empresas[0].ruc], req.params.perfil, "socket:eval", req.params.mensaje,function(resultado){
+            res.send("mensaje "+req.params.mensaje);
+        });
+    }else{
+        if(!req.app.dispositivosConectados[req.params.perfil]){
+            res.json({error:"Error al activar el servicio de mensajes, el perfil no esta conectado"});
+        }else{
+            res.json({error:"Error al activar el servicio de mensajes, debe ingresar un pefil y el mensaje"});
+        }
+        
+    }
+       
+});
 
 module.exports = router;

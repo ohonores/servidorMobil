@@ -803,6 +803,21 @@ function grabarErrores(error){
      });
      return deferred.promise;
 }
+ClienteMongoDb.prototype.grabarRegistro = function (collection, documento) {
+    var deferred = Q.defer();
+      if(!documento.fechaDocumento){
+        documento.fechaDocumento = new Date();
+      }
+      db.collection(collection).insertOne(documento, function(err, docs) {
+          if(err){
+            deferred.reject(err);
+         }else {
+             deferred.resolve(true);
+         }
+       });
+     return deferred.promise;
+};
+
 ClienteMongoDb.prototype.grabarRegistrosDesdeMovil = function (collection, documento, resultado) {
     var deferred = Q.defer();
       if(!documento.fechaDocumento){
@@ -825,6 +840,8 @@ ClienteMongoDb.prototype.grabarRegistrosDesdeMovil = function (collection, docum
        });
      return deferred.promise;
 };
+
+
 
 function grabarQ(collection, parametros, grabarSinValidarExistencia) {
     var deferred = Q.defer();
@@ -896,7 +913,7 @@ ClienteMongoDb.prototype.modificar = function (collection, busqueda, actualizar,
        db.collection(collection).updateOne(
              busqueda,
              actualizar, function(err, results) {
-            
+            console.log("error ",err, "usqueda",busqueda, actualizar);
              callback(results);
         });
 };
@@ -947,7 +964,7 @@ function getTotalRegistrosPorPerfil(collection,tabla, parametros){
                  console.log("collection error en ",collection);
                 console.log("tabla error en ",tabla);
                 console.log("parametros error en ",parametros);
-                deferred.reject({colecion:collection, mensaje:"No se econtraron registros relacionado ",parametros:parametros});
+                deferred.reject({colecion:collection, mensaje:"No se econtraron registros relacionados",parametros:parametros});
              }
 
        });
