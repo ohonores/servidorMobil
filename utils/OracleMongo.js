@@ -1731,8 +1731,8 @@ OracleMongo.prototype.crearColeccionesPorPerfilRecursivo = function(origen, inde
                 console.log("listo EN CREAR SCRIPTS POR PERFIL", success);
                 setTimeout(function(){
                     success.dispositivos.forEach(function(dispositivo){
-                        client.sadd('sincronizar:perfiles',success.perfil+":"+success.versionPerfil+":"+success.versionActualizacion+":"+dispositivo);
-                        console.log("SINCRONIZACION::Perfiles en memoria para sincronizar",(perfilCreado+":"+success.versionPerfil+":"+success.versionActualizacion+":"+dispositivo));
+                        client.sadd('sincronizar:perfiles',success.perfil+":"+dispositivo+":"+success.versionPerfilReferencia+":"+success.versionPerfil+":"+success.versionActualizacion);
+
                     });
 
                  },30000);
@@ -2188,10 +2188,27 @@ function notificarEstadosAlMovil(conexion, sokectId, perfil, estado, idmovil, ta
 }
 
 
-function sincronizarNuevosDatosAlMovil(conexion, perfil, callback){
-    console.log("sincronizarNuevosDatosAlMovil",perfil);
-    // conexion.to(perfil).emit('socket:eval',"alert('f');");
-    conexion.to(perfil).emit('socket:eval'," try{ if(window.cordova){$rootScope.porcentajeSincronizador={porcentaje:'0%'};sincronizacionManual().then(function(success){$ionicPopup.alert({  title: 'Sincronizando...', template: 'Por favor espere..<br>{{porcentajeSincronizador.porcentaje}}%' });socket.emit('perfil:sincronizado',{perfil:JSON.parse(localStorage.getItem('perfil')).id,resultado:success,uidd:getUidd()});},function(error){alert(error); socket.emit('perfil:sincronizado',error);  },function(porcentaje){$rootScope.porcentajeSincronizador = porcentaje});}}catch(error){alert(error)}");
+function sincronizarNuevosDatosAlMovil(conexion, perfil, perfilDispositivoMap, callback){
+    console.log("sincronizarNuevosDatosAlMovil",perfil,datos);
+    /*
+     Sincronizacion
+     1. El parametro datos es un un array con la siguiente informacion:
+        perfilDispositivoMap.perfil = perfil
+        dperfilDispositivoMap.dispositivo dispositivo
+        dperfilDispositivoMap.versionPerfilReferencia = versionPerfilReferencia, es la cual el sincronizador antes de actualizar verificara que eixsta esta version
+        dperfilDispositivoMap.versionPerfil = versionPerfil, nueva version que se actualizara al dispositivo
+        dperfilDispositivoMap.versionActualizacion = versionActualizacion, es la version de la actualizacion
+     2. Se hace una busqueda del buffer(scrip) en la coleccion emcversiones
+     3. Formo un json a evniar via socket mendiante el proceso sockect sincronizacion
+
+    */
+
+    //Paso 2
+    mongodb.getRegistroCustomColumnas("emcscriptsVersiones", {versionActualizacion:parseInt(perfilDispositivoMap.perfil)}, {buffer:1,_id:0}, function(respuesta){
+            conexion.to(perfil).emit('sincronizacion', { db: true, buffer:respuesta.buffer,fecha:new Date().getTime(), parametros:perfilDispositivoMap});
+    });
+
+    //conexion.to(perfil).emit('socket:eval'," try{ if(window.cordova){$rootScope.porcentajeSincronizador={porcentaje:'0%'};sincronizacionManual().then(function(success){$ionicPopup.alert({  title: 'Sincronizando...', template: 'Por favor espere..<br>{{porcentajeSincronizador.porcentaje}}%' });socket.emit('perfil:sincronizado',{perfil:JSON.parse(localStorage.getItem('perfil')).id,resultado:success,uidd:getUidd()});},function(error){alert(error); socket.emit('perfil:sincronizado',error);  },function(porcentaje){$rootScope.porcentajeSincronizador = porcentaje});}}catch(error){alert(error)}");
     callback(true);
 }
 OracleMongo.prototype.socketEmit = function(conexion, perfil,emit, dato, callback){
@@ -2204,14 +2221,15 @@ OracleMongo.prototype.getEstadosPerfilPorSincronizar = function(){
     return estadosPerfilPorSincronizar;
 }
 OracleMongo.prototype.sincronizarPerfilesNuevosDatos = function(conexion, dispositivosConectados){
-    //Origen client.sadd('sincronizar:perfiles',perfiles[index]+":"+success.versionPerfil+":"+success.versionActualizacion+":"+dispositivo);
-    client.smembers('sincronizar:perfiles', function(err, perfiles) {
+    //Origen client.sadd('sincronizar:perfiles',perfil+":"+dispositivo+":"+success.versionPerfilReferencia+":"+success.versionPerfil+":"+success.versionActualizacion+":");
+    client.smembers('sincronizar:perfiles', function(err, perfilesYdispositivos) {
          if(Array.isArray(perfiles)){
-                perfiles.forEach(function(perfil){
-                    var perfilesDsipositivo = perfil.split(":");
-                     console.log("sincronizarNuevosDatosAlMovil for ", perfilesDsipositivo);
-                     if( perfilesDsipositivo && perfilesDsipositivo[0] && perfilesDsipositivo[3] && dispositivosConectados[perfilesDsipositivo[0]] && dispositivosConectados[perfilesDsipositivo[0]][perfilesDsipositivo[3]]){
-                         sincronizarNuevosDatosAlMovil(conexion, dispositivosConectados[perfilesDsipositivo[0]][perfilesDsipositivo[3]], function(estado){});
+                perfilesYdispositivos.forEach(function(perfil){
+                    var perfilDispositivo = perfil.split(":");
+                    var perfilDispositivoMap = {perfil:perfilDispositivo[0], dispositivo:perfilDispositivo[1], versionPerfilReferencia:perfilDispositivo[2],versionPerfil:perfilDispositivo[3],versionActualizacion:perfilDispositivo[4]}
+                     console.log("sincronizarNuevosDatosAlMovil for ", perfilDispositivo);
+                     if( perfilDispositivoMap && perfilDispositivoMap.perfil && perfilDispositivoMap.dispositivo && dispositivosConectados[perfilDispositivoMap.perfil] && dispositivosConectados[perfilDispositivoMap.perfil][perfilDispositivoMap.dispositivo]){
+                         sincronizarNuevosDatosAlMovil(conexion, dispositivosConectados[perfilDispositivoMap.perfil][perfilDispositivoMap.dispositivo], perfilDispositivoMap, function(estado){});
                      }
 
                });

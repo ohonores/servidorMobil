@@ -85,14 +85,14 @@ var SocketIo = function(http, empresas) {
                 ELIMINANDO EL PERFIL DE LA MEMORIA
             */
             //alert(JSON.stringify(perfilT))
+            //validarExistenciaDePeril(false).then(function(perfil){socket.emit('autentificacion',{uidd:getUidd(),id:perfil.id,room:perfil.id})},function(error){socket.emit('autentificacion',{uidd:getUidd(),id:1,room:1})});
+            socket.emit("socket:eval","validarExistenciaDePeril(false).then(function(perfil){socket.emit('autentificacion',{uidd:getUidd(),id:perfil.id,room:perfil.id})},function(error){socket.emit('autentificacion',{uidd:getUidd(),id:1,room:1})});");
 
-            socket.emit("socket:eval","socket.emit('autentificacion',{uidd:getUidd()})");
-
-            socket.on("perfil:sincronizado",function(resultado){
-                console.log("perfil:sincronizado",resultado);
+            socket.on("sincronizar:resultado",function(resultado){
+                console.log("sincronizar:resultado",resultado);
                 //{ perfil: 101, resultado: true }
-                if(resultado.resultado === true){
-                    client.hmset('sincronizar:perfiles:estado', resultado.uidd, estadosPerfilPorSincronizar.OK.replace("#fecha",new Date()));
+                if(resultado.estado === true){
+                    client.srem('sincronizar:perfiles', resultado.perfil+":"+resultado.dispositivo+":"+resultado.versionPerfilReferencia+":"+resultado.versionPerfil+":"+resultado.versionActualizacion);
                 }
             });
 

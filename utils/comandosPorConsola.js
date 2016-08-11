@@ -104,7 +104,7 @@ ComandosPorConsola.prototype.crearScriptsPorPerfil = function(pefilDestino, orig
                         resultadoVersionesEntregadas.forEach(function(resultado){
                             if(resultado && resultado.ubicacion && resultado.nombreBackupSql && resultado.versionPerfil){
                                 var ubicacionArchivoSqliteActual = resultado.ubicacion + resultado.nombreBackupSql;
-                                crearArchivoSqlParaActualizacion(ubicacionArchivoSqliteActual, ubicacionArchivoSqlite, res[0].versionPerfil, pefilDestino, origen, resultado.dispositivos).then(function(success){
+                                crearArchivoSqlParaActualizacion(ubicacionArchivoSqliteActual, ubicacionArchivoSqlite, res[0].versionPerfil, pefilDestino, origen, resultado.dispositivos, resultado.versionPerfil).then(function(success){
                                     deferred.resolve(success);
                                 },function(error){
                                     deferred.reject(error);
@@ -122,7 +122,7 @@ ComandosPorConsola.prototype.crearScriptsPorPerfil = function(pefilDestino, orig
     });
     return deferred.promise;
 }
-function crearArchivoSqlParaActualizacion(actual, nuevo, versionPerfil, perfil, origen, dispositivos){
+function crearArchivoSqlParaActualizacion(actual, nuevo, versionPerfil, perfil, origen, dispositivos, referencia){
     var deferred = Q.defer();
     //Primero se copia la db actual al area de trabajo
     console.log(actual,nuevo,versionPerfil,perfil);
@@ -155,7 +155,8 @@ function crearArchivoSqlParaActualizacion(actual, nuevo, versionPerfil, perfil, 
                             {versionPerfil:versionPerfil,
                              versionActualizacion:versionActualizacion,
                              ubicacionScripTemp:areaTrabajo,
-                             nombreScriptTemp:nombreScript
+                             nombreScriptTemp:nombreScript,
+                             versionPerfilReferencia:referencia
                             }, origen, perfil,dispositivos
                         ).then(function(success){
                             deferred.resolve(success);
@@ -183,6 +184,7 @@ function leerArchivoSqlParaInsertarloEnMongo(t, consoleSuccess, origen, perfil, 
                         datos:{
                                 tipo:"actualizaciones",
                                 versionPerfil:consoleSuccess.versionPerfil,
+                                versionPerfilReferencia:consoleSuccess.versionPerfilReferencia,
                                 versionActualizacion:consoleSuccess.versionActualizacion,
                                 nombreScriptTemp:consoleSuccess.nombreScriptTemp,
                                 ubicacionScripTemp:consoleSuccess.ubicacionScripTemp,
@@ -213,7 +215,7 @@ function leerArchivoSqlParaInsertarloEnMongo(t, consoleSuccess, origen, perfil, 
 
                     mongodb.modificarOinsertar("emcversiones", {versionPerfil:consoleSuccess.versionPerfil, tipo:"zip"}, {$pushAll:{"dispositivos":dispositivosFiltradosParaActualizacionEnVersiones}}, function(resultadoD1){});
                     mongodb.modificarOinsertar("emcversiones", {versionPerfil:consoleSuccess.versionPerfil, tipo:"perfiles"}, {$pushAll:{"dispositivos":dispositivosFiltradosParaActualizacionEnVersiones}}, function(resultadoD1){});
-                    deferred.resolve({perfil:perfil, versionPerfil:consoleSuccess.versionPerfil,versionActualizacion:consoleSuccess.versionActualizacion,dispositivos:dispositivosFiltrados});
+                    deferred.resolve({perfil:perfil, versionPerfil:consoleSuccess.versionPerfil,versionPerfilReferencia:consoleSuccess.versionPerfilReferencia,versionActualizacion:consoleSuccess.versionActualizacion,dispositivos:dispositivosFiltrados});
 
                 },function(error){
                         deferred.reject(error);
