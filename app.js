@@ -55,6 +55,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/recursos',express.static(path.join(__dirname, 'bower_components')));
 app.use('/socket',express.static(path.join(__dirname, 'node_modules')));
 app.use('/sincronizador',express.static(path.join(__dirname, 'sincronizador')));
+app.use('/zipsSqls',express.static(path.join(__dirname, 'public/zipsSqls/')));
+
 var client;
 var redisStore;
 //if(process.env.REDIS == 1){
@@ -119,8 +121,8 @@ app.use(function(err, req, res, next) {
 app.use(function(req, res, next) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,accept,x-requested-with,Authorization,x-access-token');
-    res.setHeader('Access-Control-Request-Headers', 'X-Requested-With,content-type, authorization, x-access-token');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,accept,x-requested-with,Authorization,x-access-token,autentificacion-ps');
+    res.setHeader('Access-Control-Request-Headers', 'X-Requested-With,content-type, authorization, x-access-token,autentificacion-ps');
     if ('OPTIONS' == req.method) {
       res.send(200);
     }
@@ -172,6 +174,18 @@ var cronOrdenes = schedule.scheduleJob('10 * * * * *', function(){
     }
     
 });
+
+var sincronizarPerfilesConNuevosDatos = schedule.scheduleJob('5 * * * * *', function(){
+    if(app.dispositivosConectados  && app.empresas[0] && app.empresas[0].ruc && app.conexiones[app.empresas[0].ruc]){
+        oracleMongo.sincronizarPerfilesNuevosDatos(app.conexiones[app.empresas[0].ruc], app.dispositivosConectados);
+        //sincronizar:perfiles
+        client.del("sincronizar:perfiles:estado");
+
+    }
+
+});
+
+
 
 var j = schedule.scheduleJob('59 * * * * *', function(){
         if(Array.isArray(app.periflesConectados) && app.periflesConectados.length>0){
@@ -369,29 +383,14 @@ app.use('/', rutasPublicas);
 app.oracleMongo = oracleMongo;
 //The 404 Route (ALWAYS Keep this as the last route)
 app.get('/*', function(req, res, next){
-   res.render("404/404.html");
+      res.status(400);
+     res.render("404/404.html", {title: '404: File Not Found'});
+   // res.render('404', { status: 404, url: "404/404.html" });
+    //res.render("404/404.html",404);
 });
 
 
-var sqlite3 = require('sqlite3').verbose();
-var db = new sqlite3.Database('/home/ecuaquimica/testsqlite2.db');
 
-db.serialize(function() {
-    db.run("CREATE TABLE IF NOT EXISTS emovtafecta (id integer primary key, mdetallecredito_id INTEGER,mdetalledebito_id TEXT,valor REAL,fechaafecta TEXT)");
-  db.run("CREATE TABLE lorem (info TEXT)");
-
-  var stmt = db.prepare("INSERT INTO lorem VALUES (?)");
-  for (var i = 0; i < 20000; i++) {
-      stmt.run("Ipsum CREATE TABLE IF NOT EXISTS emovtafecta (id integer primary key, mdetallecredito_id INTEGER,mdetalledebito_id TEXT,valor REAL,fechaafecta TEXT) CREATE TABLE IF NOT EXISTS emovtafecta (id integer primary key, mdetallecredito_id INTEGER,mdetalledebito_id TEXT,valor REAL,fechaafecta TEXT)" + i);
-  }
-  stmt.finalize();
-
-  db.each("SELECT count(*) as info FROM lorem", function(err, row) {
-      console.log("TOTAL DE LA BASE",row.info);
-  });
-});
-
-db.close();
 
 
 

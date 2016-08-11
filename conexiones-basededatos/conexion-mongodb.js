@@ -20,8 +20,8 @@ ClienteMongoDb.prototype.Binary = function () {
         return Binary;
 }
 ClienteMongoDb.prototype.init = function () {
-    // Initialize connection once
-    MongoClient.connect("mongodb://"+localhost+":27017/movilesTest", function(err, database) {
+    // Initialize connection once  movilesTestBackSqlite  movilesDB
+    MongoClient.connect("mongodb://"+localhost+":27017/movilesTestBackSqlite", function(err, database) {
       if(err) { console.log("Error en MongoDb al iniciar la based de datos");throw err;}
 
       db = database;
@@ -137,20 +137,16 @@ function existenciaDocumentoConRegistrosArray(collection, parametros, new_regist
    
     db.collection(collection).findOne(parametros.buscar, parametros.columnas, function(err, registroEncontrado) {
          if(!registroEncontrado){
-             console.log("No encontrados", parametros.buscar, collection, "total " ,new_registros.length);
              //Si el registro no es encontrado con el perfil, hash e index, se hace una nueva busqueda pero solo con el index u perfil
              delete parametros.buscar.hash;
              delete parametros.columnas.hash;
-             console.log("nueva busqueda", parametros.buscar, collection);
              db.collection(collection).findOne(parametros.buscar, parametros.columnas, function(err, registroB) {
                  if(registroB && registroB._id){
-                     
-                    console.log("2 si  econtrado", parametros.buscar, collection, "total q ya existe ",registroB.registros.length," contra nuevo ", new_registros.length);
+
                     //console.log(" grabado ",registroB.registros[0]," contra nuevo ", new_registros[0]);
                       //console.log(registroEncontrado.hash);
                     var sincronizar = getRegistrosPorSincronizarPorArrays(registroB.registros, new_registros);
                     if(!(sincronizar && sincronizar.eliminar && sincronizar.eliminar.length==0 &&  sincronizar.agregar && sincronizar.agregar.length==0)){
-                        console.log(" sincronizar ",sincronizar);
                         db.collection(collection).remove({_id:registroB._id,}, function(err, registroEliminado) {
                             
                             if(registroEliminado){
@@ -796,6 +792,13 @@ ClienteMongoDb.prototype.grabarRegistroGrupo = function (collection, parametros)
      });
      return deferred.promise;
 };
+ClienteMongoDb.prototype.grabarErroresMobiles = function (error) {
+   var deferred = Q.defer();
+    db.collection(collectionErroresAlGrabar).insertOne(error, function(err, docs) {
+            deferred.resolve();
+     });
+     return deferred.promise;
+};
 function grabarErrores(error){
     var deferred = Q.defer();
     db.collection(collectionErroresAlGrabar).insertOne(error, function(err, docs) {
@@ -824,13 +827,13 @@ ClienteMongoDb.prototype.grabarRegistrosDesdeMovil = function (collection, docum
         documento.fechaDocumento = new Date();
       }
       if(documento.registroMovil){
-          documento.hash = hash({a:documento.registroMovil,b:documento.perfil,c:documento.empresa});
+          documento.hash = hash({a:documento.registroMovil,b:documento.perfil,c:documento.empresa,idmovil:documento.registroMovil.id,dispositivo:documento.registroMovil.dispositivo});
      }
       db.collection(collection).insertOne(documento, function(err, docs) {
           if(err){
              grabarErrores({fecha:new Date(), metodo:"grabarRegistrosDesdeMovil", error:err, documento:documento});
              if(err.message  && err.message.indexOf("duplicate key")){
-                 deferred.reject("Registro duplicado");
+                 deferred.reject({duplicado:true,mensaje:"Registro duplicado"});
              }else{
                  deferred.reject(err);
              }
@@ -853,7 +856,7 @@ function grabarQ(collection, parametros, grabarSinValidarExistencia) {
               if(resultado && resultado.grabar === true ){
                   db.collection(collection).insertOne(resultado.documento, function(err, docs) {
                     if(err){
-                         //deferred.notify({mensaje:err});
+                        console.log(err);
                         deferred.reject({error:true,mensaje:err});
                      }else{
                          // console.log("grabarQ", collection,grabarSinValidarExistencia);
@@ -861,6 +864,7 @@ function grabarQ(collection, parametros, grabarSinValidarExistencia) {
                      }
                    });
               }else{
+                  console.log(resultado);
                    deferred.resolve({estado:false,mensaje:resultado});
               }
           },function(x){
@@ -903,25 +907,50 @@ ClienteMongoDb.prototype.grabarArrayQ = function(collection, arrayJson){
         },{grabados:0,nograbados:0});
         deferred.resolve(nuevo);
     },function(x){
-        deferred.reject("No se grabaron todos los registros");
+        deferred.reject("No se grabaron todos los registros",x);
     },function(x){
         deferred.notify(x);
     });
     return deferred.promise;
 };
 ClienteMongoDb.prototype.modificar = function (collection, busqueda, actualizar, callback) {
-       db.collection(collection).updateOne(
+    db.collection(collection).updateOne(
              busqueda,
              actualizar, function(err, results) {
-            console.log("error ",err, "usqueda",busqueda, actualizar);
+           if(err){
+                console.log("error ",err, "usqueda",busqueda, actualizar);
+            }
              callback(results);
         });
+
+
+};
+
+ClienteMongoDb.prototype.modificarOinsertar = function (collection, busqueda, actualizar, callback) {
+
+         db.collection(collection).updateOne(
+             busqueda,
+             actualizar,{ upsert: true }, function(err, results) {
+            if(err){
+                console.log("error ",err, "usqueda",busqueda, actualizar);
+            }
+
+             callback(results);
+        });
+
+
+
 };
 
 
 
 ClienteMongoDb.prototype.dropCollection = function (collection, callback) {
        db.collection(collection).remove({},function(err, results) {
+           callback(results);
+        });
+};
+ClienteMongoDb.prototype.dropCollectionElemento = function (collection, parametro, callback) {
+       db.collection(collection).remove(parametro,function(err, results) {
            callback(results);
         });
 };
@@ -961,10 +990,13 @@ function getTotalRegistrosPorPerfil(collection,tabla, parametros){
                  delete result[0]._id;
                  deferred.resolve(result[0]);
              }else{
+                  var dd={};
+                 dd["SELECT COUNT(*) as total FROM "+tabla] = 0;
+                 deferred.resolve(dd);
                  console.log("collection error en ",collection);
                 console.log("tabla error en ",tabla);
                 console.log("parametros error en ",parametros);
-                deferred.reject({colecion:collection, mensaje:"No se econtraron registros relacionados",parametros:parametros});
+               // deferred.reject({colecion:collection, mensaje:"No se econtraron registros relacionados",parametros:parametros});
              }
 
        });

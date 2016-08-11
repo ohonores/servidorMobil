@@ -1,6 +1,7 @@
 var express = require('express');
 var request = require("request");
 var UAParser = require('ua-parser-js');
+var ubicacion = require("../../utils/ubicacion.js");
 var router = express.Router();
 var jwt    = require('jsonwebtoken'); // used to create, sign, and verify tokens, referencia https://scotch.io/tutorials/authenticate-a-node-js-api-with-json-web-tokens
 var tokens = require('../../seguridad/tokens.js'); // get our config file, referencia https://scotch.io/tutorials/authenticate-a-node-js-api-with-json-web-tokens
@@ -42,9 +43,11 @@ router.get('/datos',function(req, res, next){
                 res.send(body);
            });
 });
-router.get('/movil/autentificacion-getToken/:identificacion/:empresa/:uidd/:x/:y/:token', seguridadEDC.validarIdentificacion, function(req, res) {
-    oracleMongo.autentificacion(req.params, false, function(respuesta){
-        //Verifica si existe mas de una empresa
+router.get('/movil/autentificacion-getToken/:identificacion/:empresa/:uidd/:x/:y/:token',  function(req, res) {
+
+    oracleMongo.autentificacionMongo(req).then(function(respuesta){
+
+       //Verifica si existe mas de una empresa
         switch (respuesta.length) {
             case 0:
                 res.send(mensajes.errorIdentificacionNoExiste.identificacion);
@@ -71,6 +74,8 @@ router.get('/movil/autentificacion-getToken/:identificacion/:empresa/:uidd/:x/:y
                 break;
                 
         }
+    },function(error){
+         res.json({error:true,mensaje:error});
     });
 });
 // =====================================
@@ -78,84 +83,114 @@ router.get('/movil/autentificacion-getToken/:identificacion/:empresa/:uidd/:x/:y
     //  Esta url permite la autenficacion y registro del device
     //  Grabando cada peticion en la base de mongo
     // =====================================
-router.get('/movil/autentificacion/:identificacion/:empresa/:uidd/:x/:y/:token', seguridadEDC.validarIdentificacion, function(req, res) {
-    console.log('/movil/autentificacion/:identificacion/:empresa/:uidd/:x/:y/:token');
-    oracleMongo.autentificacion(req.params, true, function(respuesta){
-        //Verifica si existe mas de una empresa
-        switch (respuesta.length) {
-            case 0:
-                res.send(mensajes.errorIdentificacionNoExiste.identificacion);
-                break;
-            case 1:
-                respuesta = respuesta[0];
-                // creacion del token
-                var token = jwt.sign({identificacion:req.params.identificacion,perfil:respuesta.registroInterno.perfil,empresa:respuesta.registroMovil.infoEmpresa.empresa_id}, tokens.secret, {
-                  expiresInMinutes: 11520 //1440 expira en 24 hours
-                });
-                req.session.toke = token;
-                req.session.datosperfil ={identificacion:req.params.identificacion,perfil:respuesta.registroInterno.perfil,empresa:respuesta.registroMovil.infoEmpresa.empresa_id};
-                
-                
-                 //console.log(req)
-                console.log("idsesion ",req.session.id)
-                router.client.set(respuesta.registroInterno.perfil,"edi"+req.session.id);
-                router.client.expire(respuesta.registroInterno.perfil,432000);
-                router.client.expire("edi"+req.session.id,432000);
-                
-               // consol.log()
-                tokenAix = token;
-                oracleMongo.setToken(respuesta.registroInterno.perfil,token);
-                console.log(oracleMongo.getTokens());
-                oracleMongo.getUrlsPorPefil(respuesta.registroMovil.identificacion, respuesta.registroInterno.perfil, urlMatriz+urlPefil, urlMatriz+urlDiccionario, urlRecpcion, function(total){
-                    // console.log("token*****", total);
-                    oracleMongo.getTablasScript(function(script){
-                            //console.log("token*****", script);
-                            respuesta.scriptsDrops = oracleMongo.getTablasScriptDrop();
-                            respuesta.scripts = script;
-                            respuesta.scriptsUniqueKeys = oracleMongo.getTablasScriptUniqueKey();
-                            respuesta.sincronizacion = total;
-                            oracleMongo.getTotalRegistrosPorIdentificacion(respuesta.registroMovil.identificacion).then(function(validar){
-                                console.log("getTotalRegistrosPorPerfiles", validar);
-                                if(!validar){
-                                    res.json({error:"No existen registros"});
-                                    return;
+var coleccion = {nombre:"emcversiones",datos:{tipo:"diccionarios",version:"",nombreBackupSql:"",ubicacion:"/home/ecuaquimica/sqlite/bds/", origen:"",resultado:{}}};
+router.get('/movil/autentificacion/:tipo/:identificacion/:empresa/:uidd/:x/:y/:token', seguridadEDC.validarIdentificacion, function(req, res) {
+    oracleMongo.autentificacionOracle(req).
+    then(oracleMongo.autentificacionMongo).
+    then(function(respuesta){
+      //oracleMongo.autentificacion(req.params, true, function(respuesta){
+            //Verifica si existe mas de una empresa
+              console.log("autentificacion",respuesta);
+            switch (respuesta.length) {
+                case 0:
+                    res.send({error:true,mensaje:mensajes.errorIdentificacionNoExiste.identificacion});
+                    break;
+                case 1:
+                    respuesta = respuesta[0];
+
+                    req.session.datosperfil ={identificacion:req.params.identificacion,perfil:respuesta.registroInterno.perfil,empresa:respuesta.registroMovil.infoEmpresa.empresa_id};
+                    router.client.set(respuesta.registroInterno.perfil,"edi"+req.session.id);
+                    router.client.expire(respuesta.registroInterno.perfil,432000);
+                    router.client.expire("edi"+req.session.id,432000);
+                    respuesta.token = "edi"+req.session.id;// envia el token
+                    respuesta.perfil = respuesta.registroInterno.perfil;
+                    respuesta.emisor = respuesta.registroMovil.emisor;
+
+                    console.log("herxxxxxxxxxxxxxxxxxSDDDDDDDDDDDDDDDDD",respuesta.emisor,respuesta.registroMovil.emisor);
+                    //Buscano la url del archivo zip
+                    switch(req.params.tipo){
+                        case "device":
+                             mongodb.getRegistrosCustomColumnasOrdenLimite(coleccion.nombre, {tipo:"zip",estado:true,perfil:respuesta.registroInterno.perfil.toString()}, {nombreBackupZip:1,ubicacion:1,version:1,versionPerfil:1}, {versionPerfil:-1}, 1, function(resMDB){
+                                if(resMDB && resMDB[0] && resMDB[0].nombreBackupZip){
+                                    respuesta.zipUrl = "http://documentos.ecuaquimica.com.ec:8080/zipsSqls/#archivo".replace("#archivo",resMDB[0].nombreBackupZip);
+                                    respuesta.versionPerfil = resMDB[0].versionPerfil;
+                                    console.log("respuesta",respuesta);
+                                    /**MODIFICANDO LA COLECCION VERSIONES CON LOS DISPOSITIVOS**/
+                                    ubicacion.getUbicacionIp(req.header('x-forwarded-for') || req.connection.remoteAddress, function(resultadoIp, ip){
+                                         console.log("getUbicacionIp",resultadoIp)
+                                         mongodb.modificarOinsertar(coleccion.nombre, {versionPerfil:resMDB[0].versionPerfil, tipo:"zip"}, {$push:{"dispositivos":{uidd:req.params.uidd, fecha:new Date(),ip:ip,origen:resultadoIp}}}, function(resultadoD1){});
+                                         mongodb.modificarOinsertar(coleccion.nombre, {versionPerfil:resMDB[0].versionPerfil, tipo:"perfiles"}, {$push:{"dispositivos":{uidd:req.params.uidd, fecha:new Date(),ip:ip,origen:resultadoIp}}}, function(resultadoD1){});
+                                    });
+
+                                    res.json(respuesta);
+                                }else{
+                                    respuesta.zipUrl = "Backup de slqlite no encontrado";
+                                    console.log("respuesta",respuesta);
+                                    res.json(respuesta);
                                 }
-                                if(!Array.isArray(validar)){
-                                    res.json({error:validar});
-                                    return;
-                                }
-                                respuesta.validarSincronizacion = validar.map(function(script){
-                                    var map = {};
-                                    for(var key in script){
-                                        map.sql = key;
-                                        map.total = script[key];
-                                        map.tabla = key.split("FROM")[1].trim();
-                                    }
-                                    return map;
+
+                            });
+                            break;
+                        default :
+                            console.log("respuesta.registroMovil.identificacion, respuesta.registroInterno.perfil,",respuesta.registroMovil.identificacion, respuesta.registroInterno.perfil)
+                            oracleMongo.getUrlsPorPefil(respuesta.registroMovil.identificacion, respuesta.registroInterno.perfil, urlMatriz+urlPefil, urlMatriz+urlDiccionario, urlRecpcion, function(total){
+                                oracleMongo.getTablasScript(function(script){
+                                        respuesta.scripts = [];
+                                        respuesta.scripts = respuesta.scripts.concat(oracleMongo.getScripts_(oracleMongo.getTablasScriptDrop()));
+                                        respuesta.scripts = respuesta.scripts.concat(oracleMongo.getScripts_(script));
+                                        respuesta.scripts = respuesta.scripts.concat(oracleMongo.getScripts_(oracleMongo.getTablasScriptUniqueKey()));
+                                        respuesta.sincronizacion = total;
+                                        console.log("scripts", respuesta.scripts);
+                                        oracleMongo.getTotalRegistrosPorIdentificacion(respuesta.registroMovil.identificacion).then(function(validar){
+                                            console.log("getTotalRegistrosPorPerfiles", validar);
+                                            if(!validar){
+                                                res.json({error:"No existen registros"});
+                                                return;
+                                            }
+                                            if(!Array.isArray(validar)){
+                                                res.json({error:validar});
+                                                return;
+                                            }
+                                            respuesta.validarSincronizacion = validar.map(function(script){
+                                                var map = {};
+                                                for(var key in script){
+                                                    map.sql = key;
+                                                    map.total = script[key];
+                                                    map.tabla = key.split("FROM")[1].trim();
+                                                }
+                                                return map;
+                                            });
+
+                                            respuesta.validarSincronizacion.push({sql:oracleMongo.validarExistenciaPerfilMobil(),total:1, tabla:oracleMongo.validarExistenciaPerfilMobil().split("FROM")[1].trim()});
+                                            respuesta.token = "edi"+req.session.id;// envia el token
+                                            res.json(respuesta);
+                                        },function(x){
+                                            //respuesta.token = token;// envia el token
+                                            console.log("error en getTotalRegistrosPorPerfiles",x);
+                                            res.json(x);
+                                            return;
+                                        });
+
                                 });
-                                respuesta.validarSincronizacion.push({sql:oracleMongo.validarExistenciaPerfilMobil(),total:1, tabla:oracleMongo.validarExistenciaPerfilMobil().split("FROM")[1].trim()});
-                                respuesta.token = "edi"+req.session.id;// envia el token
-                                res.json(respuesta);
-                            },function(x){
-                                //respuesta.token = token;// envia el token
-                                console.log("error en getTotalRegistrosPorPerfiles",x);
-                                res.json(x);
-                                return;
+
                             });
 
-                    });
-
-                });
-                break;
-            default:
-            res.json(respuesta.map(function(a){ return a.infoEmpresa;}));
-
-        }//fin switch
+                    }
 
 
+                    break;
+                default:
+                res.json(respuesta.map(function(a){ return a.infoEmpresa;}));
 
+            }//fin switch
+
+
+    },function(errorAutentificacionOracle){
+        res.json({error:true,mensaje:errorAutentificacionOracle});
     });
 });
+
+
 /*router.get('/movil/iniciar/sensor/sincronizador/:perfil', function(req, res) {
         console.log('/movil/iniciar/sensor/sincronizador');
         oracleMongo.crearColecciones(false);
@@ -172,40 +207,45 @@ router.get('/movil/iniciar/sensor/sincronizador/get-datos', function(req, res) {
      console.log('/movil/iniciar/sensor/sincronizador/get-datos',new Date());
     oracleMongo.getTodosLosCambiosPorSincronizarPorPerfil(null,  urlSincronizarPerifil).then(function(resultado){
                     res.json({sincronizacion:resultado});
-        });
+    });
 });
 var sincronizarColeeciones = false;
 var sincronizarColeecionesPendientes  = [];
 router.get('/movil/iniciar/sensor/sincronizador/actualizar-datos/:tablas', function(req, res) {
     
-		
-		oracleMongo.actualizarColecciones(req.params.tablas.split(','), parser.setUA(req.headers['user-agent']).getResult()).then(function(succes){
+		oracleMongo.crearBackupsSqliteAutomatica(parser.setUA(req.headers['user-agent']).getResult());
+		/*oracleMongo.actualizarColecciones(req.params.tablas.split(','), parser.setUA(req.headers['user-agent']).getResult()).then(function(succes){
             
         },function(error){
             
-        });
+        });*/
        res.json("Actualizando Colecciones..");
    
 });
 var creandoColeeciones = false;
-router.get('/movil/iniciar/cargar-datos-iniciales', function(req, res) {
-   
-    console.log('/movil/iniciar/cargar-datos-iniciales',new Date());
-    if(!creandoColeeciones){
-        creandoColeeciones = true;
-        oracleMongo.crearColecciones(true).then(function(a){
-            res.json(a);
-            creandoColeeciones = false;
-        },function(x){
-             creandoColeeciones = false;
-             res.json(x);
-           
-        });
-    }else{
-        res.json("Existe un proceso ya iniciado");
-    }
-       
+router.get('/movil/iniciar/cargar-datos-diccionarios', function(req, res) {
+     console.log('/movil/iniciar/cargar-datos-diccionarios',new Date());
+    oracleMongo.crearColeccionesBdSqliteTipoDiccionarios(parser.setUA(req.headers['user-agent']).getResult()).then(function(success){
+        console.log("crearColeccionesBdSqliteTipoDiccionarios",success);
+    },function(error){
+        console.log("crearColeccionesBdSqliteTipoDiccionarios",success);
+    });
+    res.send("Listo diccionarios");
 });
+router.get('/movil/iniciar/cargar-datos-iniciales/:perfil', function(req, res) {
+
+    if(req.params.perfil === "todos"){
+        oracleMongo.crearColeccionesPorPerfilRecursivo(parser.setUA(req.headers['user-agent']).getResult(), 0, [140,101,123]);
+    }else{
+        oracleMongo.crearColeccionesPorPerfil(parser.setUA(req.headers['user-agent']).getResult(), req.params.perfil);
+    }
+    res.send("Listo perfil");
+});
+router.get('/movil/actualizar/impresora/:perfil/:impresora', function(req, res) {
+    oracleMongo.actualizarImpresora( req.params.perfil, req.params.impresora);
+    res.send("Listo perfil actualizado");
+});
+
 
 router.get('/movil/iniciar/forzarSincronizacion/:identificacion/:empresa/:notificar', function(req, res) {
    
@@ -222,6 +262,16 @@ router.get('/movil/iniciar/forzarSincronizacion/:identificacion/:empresa/:notifi
     
        
 });
+router.get('/movil/procesar/pedidos', function(req, res) {
+        oracleMongo.procesarPedidos();
+    res.send("Proceso enviado");
+});
+router.get('/movil/procesar/cartera', function(req, res) {
+        oracleMongo.procesarCartera();
+        res.send("Proceso enviado");
+});
+
+
 
 router.get('/movil/iniciar/socket-notificar/:perfil/:nombre/:estado', function(req, res) {
     var sockectNotificaciones = {

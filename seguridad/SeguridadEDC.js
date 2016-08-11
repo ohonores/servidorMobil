@@ -143,11 +143,14 @@ SeguridadEDC.prototype.validarTokenCors = function(req, callback) {
 
 }
 SeguridadEDC.prototype.validarToken = function(req, res, next) {
+
+  console.log("validarToken *********************************");
     //Extrae el token de la cabecera
  //console.log(req);
  var token = req.get("x-access-token");
+ console.log("validarToken *********************************TOKEN ",token);
 
- //Valida que exista el toen
+    //Valida que exista el toen
 
  if (token) {
    // Or using a promise if the last argument isn't a function
@@ -157,7 +160,10 @@ SeguridadEDC.prototype.validarToken = function(req, res, next) {
           console.log(req.datosperfil);
           next();
       }else{
-          return res.json({ estado: false, message: mensajes.errorToken.token });
+          req.datosperfil={};
+          next();
+          //console.log("validarToken ***********no tiene**********************TOKEN ",token);
+          //return res.json({ estado: false, message: mensajes.errorToken.token });
       }
     });
    

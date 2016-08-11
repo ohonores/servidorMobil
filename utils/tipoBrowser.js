@@ -31,16 +31,22 @@ TipoBrowser.prototype.getDevice = function(user_agent, resultado){
          converter.fromFile("/home/ecuaquimica/servidores/servidorMobil/utils/devicesPlay.csv",function(err,result){
              
              devices = result;
-             console.log("devicesPlay",result.length);
-             resultado(
-              result.filter(function(a){
-                var d=false;
-                user_agent.forEach(function(model){
-                    if(a.Model === model){d=true}
-                });
-                if(d){ return true; }
-                })[0]
-            );
+             console.log("devicesPlay",result ? result.length:0);
+             if(Array.isArray(result)){
+                 resultado(
+
+                  result.filter(function(a){
+                    var d=false;
+                    user_agent.forEach(function(model){
+                        if(a.Model === model){d=true}
+                    });
+                    if(d){ return true; }
+                    })[0]
+                );
+             }else{
+                 resultado([]);
+             }
+
         });
         
      }

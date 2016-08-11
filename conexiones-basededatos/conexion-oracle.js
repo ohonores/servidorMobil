@@ -85,7 +85,6 @@ ClienteOracle.prototype.llamarProcedimiento = function (nombre, parametros, resu
                                   return;
                                 }
                                 var iniciarProcedimiento =  "BEGIN :nombre; END;".replace(":nombre",nombre)
-                                 console.log("iniciarProcedimiento", iniciarProcedimiento);
                                   /**
                                   Verificar parametros de salida
                                   
@@ -99,9 +98,12 @@ ClienteOracle.prototype.llamarProcedimiento = function (nombre, parametros, resu
                                  
                                  connection.execute(iniciarProcedimiento,parametros, function(err, result) {
                                      if(err){
-                                        console.log("Error::llamarProcedimiento  ",nombre,err);   
+                                        console.log("Error::llamarProcedimiento  ",nombre,err);
+                                         resultado(err);
+                                     }else{
+                                        resultado(result);
                                      }
-                                     resultado(result);
+
                                  });
                               });
 }
@@ -273,15 +275,19 @@ function commitTransaccion(connection) {
       var indice = 1;
       //Se hace un recorrido al json para obtener las columnas y valores
       for(var key in datos){
-          //valores.push(datos[key])
-          if(key.toLowerCase().indexOf("fecha")>=0){
+
+          if(key.toLowerCase().indexOf("fecha")>=0 && datos[key]){
               if(isNaN(datos[key])){
+                  valores.push("Entro ************* en fecha es nan");
                   valoresJson[key] = new Date(datos[key]);
               }else{
+
+                  valores.push("Entro ************* en fecha no es nan");
                   valoresJson[key] = new Date(parseInt(datos[key]));
               }
-
+              valores.push("fecha ",valoresJson[key], datos[key])
           }else{
+               valores.push("Entro ************* no fecha");
               valoresJson[key] = datos[key];
           }
 
@@ -313,8 +319,18 @@ ClienteOracle.prototype.grabarNestedJson  = function(datos, tabla){
     return deferred.promise;
 
 };
-function grabarMovilJson(parametrosJson){
+function validarRepetidosMovilJson(parametrosJson){
+    var deferred = Q.defer();
+    var datos = parametrosJson.datos;
+    var tabla = parametrosJson.tabla;
+    var conexion = parametrosJson.conexion;
+    getPoolClienteConexionCommit(conexion, "SELECT ESTADO FROM #TABLA WHERE PREIMPRESO".replace("#TABLA",tabla), scriptInsert.valoresJson, false, function(resultado){
 
+    });
+    return deferred.promise;
+}
+function grabarMovilJson(parametrosJson){
+      console.log("grabarMovilJson",parametrosJson)
       var datos = parametrosJson.datos;
       var tabla = parametrosJson.tabla;
       var conexion = parametrosJson.conexion;
@@ -339,6 +355,7 @@ function grabarMovilJson(parametrosJson){
       delete datos.REGISTROSASOCIADOS;
       delete datos.registrosasociados;
    	  var scriptInsert = getScriptInsert(datos, tabla, secuencia);
+    console.log("scriptInsert",scriptInsert)
       scriptInsert.valoresJson.IDVALOR={type:oracledb.NUMBER,dir:oracledb.BIND_OUT};
       getPoolClienteConexionCommit(conexion, scriptInsert.sqlInsert, scriptInsert.valoresJson, false, function(resultado){
                 if(resultado  && resultado.rowsAffected >= 1 && resultado.outBinds && resultado.outBinds.IDVALOR[0]){
