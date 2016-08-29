@@ -1,29 +1,43 @@
 var sqlite3 = require('sqlite3').verbose();
+var TransactionDatabase = require("sqlite3-transactions").TransactionDatabase;
 var Q = require('q');
 
 var directorio = "";
-var SqliteCliente = function(directorio_){
+var mongodb;
+var SqliteCliente = function(directorio_, mongodb_){
     directorio = directorio_;
+    mongodb = mongodb_;
 }
 SqliteCliente.prototype.crearTablas = function(nombreBaseDatos, scriptsTablas){
     var deferred = Q.defer();
-    console.log("crearTablas",nombreBaseDatos);
     try{
+        // Wrap sqlite3 database
+        /*var db = new TransactionDatabase(
+            new sqlite3.Database(directorio+nombreBaseDatos, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE)
+        );*/
         var db = new sqlite3.Database(directorio+nombreBaseDatos);
+        //Estableciendo modo timeout,synchronous y WAL, con el objetivo de aumentar el performnce
+      //  db.configure("busyTimeout", 30000);
+        db.run('PRAGMA busy_timeout = 5000');
+       // db.run('PRAGMA synchronous=OFF');
+     // //  db.run('PRAGMA journal_mode = WAL');
+        
         try{
             db.serialize(function() {
-
+                db.exec('BEGIN IMMEDIATE');
                 scriptsTablas.forEach(function(scriptTabla){
-                    db.run(scriptTabla);
-                })
-
-
+                        db.run(scriptTabla);
+                });
+                 db.exec("COMMIT")
+                .close(function(){
+                     deferred.resolve(true);
+                });
             });
         }catch(error){
             deferred.reject(error);
         }
-        db.close();
-        deferred.resolve(true);
+       
+       
     }catch(error){
         deferred.reject(error);
     }
@@ -76,10 +90,15 @@ SqliteCliente.prototype.insertarRegistros = function(nombre, tabla, arrayDeRegis
     try{
         if(!db[nombre]){
 
-             db[nombre] = new sqlite3.Database(directorio+nombre);
+            db[nombre] = new sqlite3.Database(directorio+nombre);
+           // db[nombre].configure("busyTimeout", 30000);
+            db[nombre].run('PRAGMA busy_timeout = 20000');
+          //  db[nombre].run('PRAGMA synchronous=OFF');
+        //    db[nombre].run('PRAGMA journal_mode = WAL');
         }
         try{
             db[nombre].serialize(function() {
+                 db[nombre].exec('BEGIN IMMEDIATE');
                 var stmt = db[nombre].prepare(padre.getSqlInsercion(arrayDeRegistros[0].registroMovil, tabla));
 
 
@@ -87,21 +106,25 @@ SqliteCliente.prototype.insertarRegistros = function(nombre, tabla, arrayDeRegis
 
                     stmt.run(padre.getValoresPorInsertar(registro.registroMovil),function(error, resultado){
                         if(error){
-                            console.log("insertarRegistros",error)
+                            console.log("SQLITE: insertarRegistros ", error, " Registro --> ", registro.registroMovil)
+                             mongodb.grabarErroresMobiles({fecha:new Date(), tipo:"sqlite", metodo:"insertarRegistros", error:error, referencia:{nombre:nombre, tabla:tabla, length:arrayDeRegistros.length}});
                         }
 
                     });
                 })
                 stmt.finalize();
+                db[nombre].exec("COMMIT",function(d){
+                    deferred.resolve(true);
+                });
 
             });
         }catch(error){
             // db[nombre].close();
             deferred.reject(error);
         }
-        waitSeconds(1000);
-
-        deferred.resolve(true);
+        //waitSeconds(1000);
+        //deferred.resolve(true);
+       
 
     }catch(error){
          //db[nombre].close();
@@ -232,38 +255,32 @@ SqliteCliente.prototype.grabar = function(nombre, base , scripts){
      }
     // return deferred.promise;
 }
-SqliteCliente.prototype.comporarRegistros = function(nombreActual, nombreNueva, tabla){
+SqliteCliente.prototype.compararRegistros = function(nombre, sql){
     var deferred = Q.defer();
-    var padre = this;
     try{
-       var actual = new sqlite3.Database(nombreActual);
-       var nueva = new sqlite3.Database(nombreNueva);
-
+       if(!db[nombre]){
+            db[nombre] = new sqlite3.Database(directorio+nombre);
+           // db[nombre].configure("busyTimeout", 30000);
+            db[nombre].run('PRAGMA busy_timeout = 20000');
+          //  db[nombre].run('PRAGMA synchronous=OFF');
+        //    db[nombre].run('PRAGMA journal_mode = WAL');
+        }
         try{
-            actual.serialize(function() {
-
-             actual.each("SELECT hash FROM #tabla".replace("#tabla",tabla), function(err, row) {
-                  console.log(row.id + ": " + row.info);
-
-                     nueva.serialize(function() {
-                         nueva.each("SELECT id FROM #tabla WHERE hash=?1".replace("#tabla",tabla),[] , function(err, row) {
-                              console.log(row.id + ": " + row.info);
-                          });
-                     });
-
-
-              });
-
-
+            db[nombre].serialize(function() {
+                db[nombre].each(sql, function(err, row) {
+                    if(row && row.TOTAL){
+                        deferred.resolve(row.TOTAL);
+                    }else{
+                        console.log("row.TOTAL sql ", sql, nombre);
+                        deferred.reject(0);
+                    }
+                    
+                });
             });
         }catch(error){
             // db[nombre].close();
             deferred.reject(error);
         }
-        waitSeconds(1000);
-
-        deferred.resolve(true);
-
     }catch(error){
          //db[nombre].close();
         deferred.reject(error);

@@ -1,0 +1,47 @@
+/* 
+Max width before this PARTICULAR table gets nasty
+This query will take effect for any screen smaller than 760px
+and also iPads specifically.
+*/
+@media only screen and (max-width: 200px)  {
+   /* .hide1 { display: none; }*/
+}
+@media only screen and (min-width:200px) and (max-width:700px)   {
+    /* Force table to not be like tables anymore */
+	table, thead, tbody, th, td, tr { 
+		display: block; 
+	}
+	
+	/* Hide table headers (but not display: none;, for accessibility) */
+	thead tr { 
+		display: none;
+	}
+	
+	
+	
+	td { 
+		/* Behave  like a "row" */
+		border: none;
+		/*border-bottom: 1px solid #eee; */
+		position: relative;
+		 
+	}
+	
+	td:before { 
+		display: none;
+	}
+	/* Zebra striping */
+	tr:nth-of-type(odd) { 
+	  background: white; 
+	}
+}
+
+@media only screen and (min-width:710px) and (max-width:900px) {
+    .hide4 { display: none; }
+}
+@media only screen and (min-width:910px) and (max-width:1000px)  {
+    .hide5 { display: none; }
+}
+@media only screen and (min-width:1100px) and (max-width:2000px) {
+    .hide6 { display: none; }
+}

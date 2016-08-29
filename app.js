@@ -54,6 +54,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 //app.use(express.session({ secret: 'alien' }));
 app.use('/recursos',express.static(path.join(__dirname, 'bower_components')));
 app.use('/socket',express.static(path.join(__dirname, 'node_modules')));
+app.use('/pnotify',express.static(path.join(__dirname, 'bower_components/pnotify/dist')));
 app.use('/sincronizador',express.static(path.join(__dirname, 'sincronizador')));
 app.use('/zipsSqls',express.static(path.join(__dirname, 'public/zipsSqls/')));
 
@@ -175,16 +176,24 @@ var cronOrdenes = schedule.scheduleJob('10 * * * * *', function(){
     
 });
 
-var sincronizarPerfilesConNuevosDatos = schedule.scheduleJob('5 * * * * *', function(){
+var sincronizarPerfilesConNuevosDatos = schedule.scheduleJob('10 * * * * *', function(){
     if(app.dispositivosConectados  && app.empresas[0] && app.empresas[0].ruc && app.conexiones[app.empresas[0].ruc]){
         oracleMongo.sincronizarPerfilesNuevosDatos(app.conexiones[app.empresas[0].ruc], app.dispositivosConectados);
         //sincronizar:perfiles
-        client.del("sincronizar:perfiles:estado");
+       
+    }
+
+});
+/*var sincronizarPerfilesConNuevosDatosEnviarBackup = schedule.scheduleJob('5 * * * * *', function(){
+    if(app.dispositivosConectados  && app.empresas[0] && app.empresas[0].ruc && app.conexiones[app.empresas[0].ruc]){
+        oracleMongo.sincronizarPerfilesNuevosDatosEnvioBackup(app.conexiones[app.empresas[0].ruc], app.dispositivosConectados);
+        //sincronizar:perfiles
+       // client.del("sincronizarbackup:perfiles:estado");
 
     }
 
 });
-
+*/
 
 
 var j = schedule.scheduleJob('59 * * * * *', function(){

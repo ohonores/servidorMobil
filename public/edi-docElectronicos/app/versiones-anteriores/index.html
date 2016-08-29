@@ -1,0 +1,290 @@
+<html style="overflow: hidden; height: 100%; border: medium none; padding: 0px; margin: 0px;" xmlns="http://www.w3.org/1999/xhtml"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>SwisSystem :: Ingreso al Sistema</title>
+
+	
+		
+	
+		
+		
+		
+    	<style type="text/css">
+		/**
+ * Footer
+ */
+div.tfooterPanel {
+bottom:0;
+left:0;
+position:fixed;
+width:100%;
+z-index:200; /* (ltw) para que rich:suggestionbox (z-index:201) esten encima del footer */
+/*_position: absolute;
+_top: expression(eval((document.body.clientHeight+document.body.scrollTop-22)));*/
+}
+		table.footer {
+border-top:2px solid #005C9D;
+}
+table.footer tbody td {
+font-family:Arial, Helvetica, sans-serif;
+font-size:10px;
+font-weight:bold;
+padding:4px;
+}
+table.footer tbody td select {
+font-size:10px;
+}
+table.footer tbody td.logoswissystem {
+background-color:#CE0000;
+
+background-repeat:no-repeat;
+border:0;
+height:26px;
+min-width:138px;
+padding:0;
+}
+img.logoswissystem {
+border:0;
+max-height:24px;
+max-width:150px;
+}
+table.footer tbody td.sistemaLogo {
+padding:0;
+}
+
+		
+		.width100 {
+width:100% !important;
+}
+		table.loginHeader td,
+table.loginFooter td {
+-webkit-user-select: none;
+-khtml-user-select: none;
+-moz-user-select: none;
+-o-user-select: none;
+user-select: none;
+}
+table.loginHeader td.sistemaLogo {
+padding:0;
+vertical-align:top;
+}
+table.loginHeader td.tabPanelEmpty {
+border-left-width:0;
+border-right-width:0;
+line-height:2px;
+}
+		
+	#content-area {
+		display:none;
+		height:200px;
+		overflow:auto;
+		margin-bottom:1.5em;
+		padding:10px;
+		border:solid 1px #d7d7d7;
+		color:#505050;
+		background-color:#ffffff;
+		font-size:90%;
+	}
+</style>
+    	
+    	<style type="text/css">
+.classname {
+	-moz-box-shadow:inset 0px 1px 0px 0px #cae3fc;
+	-webkit-box-shadow:inset 0px 1px 0px 0px #cae3fc;
+	box-shadow:inset 0px 1px 0px 0px #cae3fc;
+	background:-webkit-gradient( linear, left top, left bottom, color-stop(0.05, #79bbff), color-stop(1, #4197ee) );
+	background:-moz-linear-gradient( center top, #79bbff 5%, #4197ee 100% );
+	filter:progid:DXImageTransform.Microsoft.gradient(startColorstr='#79bbff', endColorstr='#4197ee');
+	background-color:#79bbff;
+	-webkit-border-top-left-radius:5px;
+	-moz-border-radius-topleft:5px;
+	border-top-left-radius:5px;
+	-webkit-border-top-right-radius:5px;
+	-moz-border-radius-topright:5px;
+	border-top-right-radius:5px;
+	-webkit-border-bottom-right-radius:5px;
+	-moz-border-radius-bottomright:5px;
+	border-bottom-right-radius:5px;
+	-webkit-border-bottom-left-radius:5px;
+	-moz-border-radius-bottomleft:5px;
+	border-bottom-left-radius:5px;
+	text-indent:0;
+	border:1px solid #469df5;
+	display:inline-block;
+	color:#ffffff;
+	font-family:Trebuchet MS;
+	font-size:15px;
+	font-weight:bold;
+	font-style:normal;
+	height:29px;
+	line-height:29px;
+	width:100px;
+	text-decoration:none;
+	text-align:center;
+	text-shadow:1px 1px 0px #287ace;
+}
+.classname:hover {
+	background:-webkit-gradient( linear, left top, left bottom, color-stop(0.05, #4197ee), color-stop(1, #79bbff) );
+	background:-moz-linear-gradient( center top, #4197ee 5%, #79bbff 100% );
+	filter:progid:DXImageTransform.Microsoft.gradient(startColorstr='#4197ee', endColorstr='#79bbff');
+	background-color:#4197ee;
+}.classname:active {
+	position:relative;
+	top:1px;
+}</style>
+/* This button was generated using CSSButtonGenerator.com */
+
+<style type="text/css">
+.botonCancelar {
+	-moz-box-shadow:inset 0px 1px 0px 0px #f5978e;
+	-webkit-box-shadow:inset 0px 1px 0px 0px #f5978e;
+	box-shadow:inset 0px 1px 0px 0px #f5978e;
+	background:-webkit-gradient( linear, left top, left bottom, color-stop(0.05, #f24537), color-stop(1, #c62d1f) );
+	background:-moz-linear-gradient( center top, #f24537 5%, #c62d1f 100% );
+	filter:progid:DXImageTransform.Microsoft.gradient(startColorstr='#f24537', endColorstr='#c62d1f');
+	background-color:#f24537;
+	-webkit-border-top-left-radius:5px;
+	-moz-border-radius-topleft:5px;
+	border-top-left-radius:5px;
+	-webkit-border-top-right-radius:5px;
+	-moz-border-radius-topright:5px;
+	border-top-right-radius:5px;
+	-webkit-border-bottom-right-radius:5px;
+	-moz-border-radius-bottomright:5px;
+	border-bottom-right-radius:5px;
+	-webkit-border-bottom-left-radius:5px;
+	-moz-border-radius-bottomleft:5px;
+	border-bottom-left-radius:5px;
+	text-indent:0;
+	border:1px solid #d02718;
+	display:inline-block;
+	color:#ffffff;
+	font-family:Trebuchet MS;
+	font-size:15px;
+	font-weight:bold;
+	font-style:normal;
+	height:29px;
+	line-height:29px;
+	width:100px;
+	text-decoration:none;
+	text-align:center;
+	text-shadow:1px 1px 0px #810e05;
+}
+.botonCancelar:hover {
+	background:-webkit-gradient( linear, left top, left bottom, color-stop(0.05, #c62d1f), color-stop(1, #f24537) );
+	background:-moz-linear-gradient( center top, #c62d1f 5%, #f24537 100% );
+	filter:progid:DXImageTransform.Microsoft.gradient(startColorstr='#c62d1f', endColorstr='#f24537');
+	background-color:#c62d1f;
+}.botonCancelar:active {
+	position:relative;
+	top:1px;
+}
+
+img.logoempresa {
+    border: 0 none;
+    display: block;
+    max-height: 50px;
+    max-width: 250px;
+    padding: 5px;
+}
+table.cabecera {
+   background-image:url('/cabecera/0990018707001/CABECERA_PORTAL_PRODUCCION/gradient.png');
+    background-repeat: repeat-x;
+    border: 0 none;
+	height:50px;
+}
+
+/**
+ * Login Header & Footer
+ */
+table.loginHeader td,
+table.loginFooter td {
+-webkit-user-select: none;
+-khtml-user-select: none;
+-moz-user-select: none;
+-o-user-select: none;
+user-select: none;
+}
+table.loginHeader td.sistemaLogo {
+padding:0;
+vertical-align:top;
+}
+table.loginHeader td.tabPanelEmpty {
+border-left-width:0;
+border-right-width:0;
+line-height:2px;
+}
+
+</style>
+/* This button was generated using CSSButtonGenerator.com */
+    	
+		
+		
+		
+		
+		
+<body style="overflow: hidden; width: auto; height: auto; margin: 0px; position: absolute; top: 0px; bottom: 0px; left: 0px; right: 0px;" class="ui-layout-container" leftmargin="0" topmargin="0" rightmargin="0" bottommargin="0" bgcolor="#FFFCFF" marginheight="0" marginwidth="0">
+		<div style="position: absolute; margin: 0px; top: 0px; bottom: auto; left: 0px; right: 0px; width: auto; z-index: 0; padding: 0px; background: none repeat scroll 0% 0% rgb(255, 255, 255); border: 1px solid rgb(187, 187, 187); overflow: auto; height: 63px; display: block; visibility: visible;" class="ui-layout-north ui-layout-pane ui-layout-pane-north">
+
+
+	<table class="loginHeader cabecera width100 ambiente_P" border="0" cellpadding="0" cellspacing="0">
+		<tbody>
+			<tr>
+				<td class="sistemaLogo rich-tab-bottom-line width100" style="color:white;">
+					SwisSystem, Documentos Electronicos
+				</td>
+			</tr>
+			<tr>
+				<td class="tabPanelEmpty rich-tabpanel-content" colspan="4">&nbsp;</td>
+			</tr>
+		</tbody>
+	</table>
+</div>
+		
+		<center>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			<br/>
+			
+			<p>Lo sentimos pero la versi&#243;n del browser no es aceptada</p>
+			<p>Versi&#243;n aceptada desde la 10 en adelante.</p>
+
+
+</center>
+<div style="position: absolute; margin: 0px; top: auto; bottom: 0px; left: 0px; right: 0px; width: auto; z-index: 0; padding: 0px; background: none repeat scroll 0% 0% rgb(255, 255, 255); border: 1px solid rgb(187, 187, 187); overflow: auto; height: 0.76666px; display: block; visibility: visible;" class="ui-layout-south ui-layout-pane ui-layout-pane-south">
+
+<div id="loginFooter" class="tfooterPanel">
+
+	<table class="loginFooter rich-table-subheader footer width100" border="0" cellpadding="0" cellspacing="0">
+		<tbody>
+			<tr>
+				<td class="sistemaLogo" >
+					<table class="cabecera ambiente_P" border="0" cellpadding="0" cellspacing="0">
+						<tbody><tr><td class="sistemaLogo"><img width="150" height="26" title="" alt="" src="/img/logo_swiss_footer.png" /></td></tr>
+					</tbody></table>
+				</td>
+				<td class="rich-table-cell width100 pad0" align="center">
+					<table border="0" cellpadding="0" cellspacing="0">
+						<tbody><tr><td class="bg copyright">SwisSystem 2015</td></tr>
+					</tbody></table>
+				</td>
+				<td class="rich-table-cell bg network"></td>
+
+			</tr>
+		</tbody>
+	</table>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+	</body></html>

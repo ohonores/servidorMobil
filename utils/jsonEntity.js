@@ -16,7 +16,7 @@ EntidadesMongoOracle.prototype.getScriptB = function(){
 };
 
 EntidadesMongoOracle.prototype.getStripValidacionUsuarioOracle = function(){
-    return "SELECT count(*) as ENCONTRADO from ecortpersona p JOIN ecortempresa_persona ep ON p.id=ep.persona_id JOIN esegtusuario u ON u.empresapersona_id=ep.id where identificacion=:IDENTIFICACION AND clave =:CLAVE";
+    return "SELECT CLAVE from ecortpersona p JOIN ecortempresa_persona ep ON p.id=ep.persona_id JOIN esegtusuario u ON u.empresapersona_id=ep.id where identificacion=:IDENTIFICACION";
 };
 
 
@@ -58,6 +58,7 @@ EntidadesMongoOracle.prototype.getJsonPerfiles = function(){
                                     fecha:"",
                                     bodegas:"",
                                     cambiaprecio:"",
+                                    url:"",
                                     arrayJson1:{
                                         sqlOrigen:"SELECT B.* FROM SWISSMOVI.EMOVTPERFIL_BODEGA PB JOIN  SWISSMOVI.EMOVVBODEGA B ON B.ID=PB.MBODEGA_ID WHERE PB.MPERFIL_ID=:ID ORDER BY B.ID ASC",
                                         parametrosBusqueda:["registroInterno.perfil"],
@@ -96,6 +97,7 @@ EntidadesMongoOracle.prototype.getJsonEstablecimientos = function(){
                     diccionario:false,
                     iteracionPorPerfil:true,
                     movil:{tabla:"emovtperfil_establecimiento", crear:true},
+                    validacionSql:{sqlEsperados:"SELECT COUNT(*) as TOTAL  FROM SWISSMOVI.EMOVTPERFIL_ESTABLECIMIENTO  WHERE MPERFIL_ID =:ID",sqlEncontrados:"SELECT COUNT(*) AS TOTAL FROM emovtperfil_establecimiento"},
                     sqlOrigen:"SELECT * FROM (SELECT * FROM SWISSMOVI.EMOVTPERFIL_ESTABLECIMIENTO  WHERE MPERFIL_ID =:ID ORDER BY ID ASC) PE WHERE  PE.ID>=:A AND ROWNUM<=:B",
 
                     parametrosBusqueda:["registroInterno.perfil"],
@@ -227,7 +229,7 @@ EntidadesMongoOracle.prototype.getJsonDiccionarioBanco = function(){
     return {
                     coleccion:"emcdiccionarios",
                     diccionario:true,
-                    validacionSql:{sqlEsperados:"SELECT SUM(TOTAL) AS TOTAL FROM ( SELECT COUNT(*) AS TOTAL FROM emovvcuenta_bancaria union SELECT COUNT(*) AS TOTAL FROM emovvbanco union SELECT COUNT(*) AS TOTAL FROM EMOVVFORMA_PAGO union SELECT COUNT(*) AS TOTAL FROM emovvlinea_negocio)",sqlEncontrados:"SELECT COUNT(*) AS TOTAL FROM emovtdiccionarios"},
+                    validacionSql:{sqlEsperados:"SELECT SUM(TOTAL) AS TOTAL FROM ( SELECT COUNT(*) AS TOTAL FROM SWISSMOVI.emovvcuenta_bancaria union SELECT COUNT(*) AS TOTAL FROM SWISSMOVI.emovvbanco union SELECT COUNT(*) AS TOTAL FROM SWISSMOVI.EMOVVFORMA_PAGO union SELECT COUNT(*) AS TOTAL FROM SWISSMOVI.emovvlinea_negocio union (SELECT COUNT(*) AS TOTAL  FROM SWISSMOVI.EMOVTPERFIL_BODEGA PB JOIN  SWISSMOVI.EMOVVBODEGA B ON B.ID=PB.MBODEGA_ID WHERE PB.MPERFIL_ID=:ID))",sqlEncontrados:"SELECT COUNT(*) AS TOTAL FROM emovtdiccionarios"},
                     movil:{tabla:"emovtdiccionarios", crear:true},
                     sqlOrigen:"SELECT * FROM (SELECT * FROM SWISSMOVI.EMOVVBANCO ORDER BY ID ASC) PE WHERE  PE.ID>=:A AND ROWNUM<=:B",
                     parametrosBusquedaValores:[],//Este array indica que se utilizaran paraemtros como el A que es id de donde empezara a leer y B que es la cantidad de registros a traer
@@ -357,6 +359,7 @@ EntidadesMongoOracle.prototype.getJsonEstadoDeCuenta = function(){
                     diccionario:false,
                     iteracionPorPerfil:true,
                     movil:{tabla:"emovtestadoscuenta", crear:true},
+                    validacionSql:{sqlEsperados:"SELECT COUNT(*) AS TOTAL FROM (SELECT EC.* FROM SWISSMOVI.EMOVTESTADO_CUENTA EC JOIN SWISSMOVI.EMOVTPERFIL_ESTABLECIMIENTO PE  ON PE.ID=EC.MPERFILESTABLECIMIENTO_ID WHERE PE.MPERFIL_ID=:ID)",sqlEncontrados:"SELECT COUNT(*) AS TOTAL FROM emovtestadoscuenta"},
                     sqlOrigen:"SELECT * FROM (SELECT EC.* FROM SWISSMOVI.EMOVTESTADO_CUENTA EC JOIN SWISSMOVI.EMOVTPERFIL_ESTABLECIMIENTO PE  ON PE.ID=EC.MPERFILESTABLECIMIENTO_ID WHERE PE.MPERFIL_ID=:ID ORDER BY EC.ID ASC) PA WHERE  PA.ID>=:A AND ROWNUM<=:B",
                     parametrosBusqueda:["registroInterno.perfil"],
                     parametrosBusquedaValores:[],//Este array indica que se utilizaran paraemtros como el A que es id de donde empezara a leer y B que es la cantidad de registros a traer
@@ -457,7 +460,7 @@ EntidadesMongoOracle.prototype.getJsonItems = function(){
                     diccionario:false,
                     iteracionPorPerfil:true,
                     //iterarPorEmpresa:true,
-                    validacionSql : {sqlEsperados:"SELECT count(*) as TOTAL FROM SWISSMOVI.EMOVTITEM",sqlEncontrados:"SELECT COUNT(*) AS TOTAL FROM emovtitems"},
+                    validacionSql : {sqlEsperados:"SELECT COUNT(*) AS TOTAL FROM (SELECT DISTINCT I.*  FROM SWISSMOVI.EMOVTITEM I JOIN SWISSMOVI.EMOVVLINEA_NEGOCIO LN  ON I.LINEANEGOCIO_ID=LN.ID JOIN SWISSMOVI.EMOVTPERFIL P ON P.DIVISION_ID = LN.PADRE_ID AND P.ID=:ID)",sqlEncontrados:"SELECT COUNT(*) AS TOTAL FROM emovtitems"},
                     movil:{tabla:"emovtitems", crear:true},
                     //sqlOrigen:"SELECT * FROM (SELECT * FROM SWISSMOVI.EMOVTITEM ORDER BY ID ASC)  PE WHERE  PE.ID>=:A AND ROWNUM<=:B",
                     sqlOrigen:"SELECT * FROM (SELECT DISTINCT I.* FROM EMOVTITEM I JOIN EMOVVLINEA_NEGOCIO LN  ON I.LINEANEGOCIO_ID=LN.ID JOIN EMOVTPERFIL P ON P.DIVISION_ID = LN.PADRE_ID AND P.ID=:ID ORDER BY I.ID ASC ) PEA WHERE  PEA.ID>=:A AND ROWNUM<=:B",
@@ -551,7 +554,7 @@ EntidadesMongoOracle.prototype.getJsonPromocionVenta = function(){
                     sqlOrigen:"SELECT * FROM (SELECT * FROM SWISSMOVI.EMOVTITEM_PROMOCIONVENTA ORDER BY ID ASC)  PE WHERE  PE.ID>=:A AND ROWNUM<=:B",
                     parametrosBusquedaValores:[],//Este array indica que se utilizaran paraemtros como el A que es id de donde empezara a leer y B que es la cantidad de registros a traer
                     registroTipoCamposNumericos:{
-                        "ID":"REAL",
+                        "ID":"INTEGER",
                         "ITEM_ID":"INTEGER",
                         "DIAS":"INTEGER",
                         "VENTA":"REAL",
@@ -561,6 +564,7 @@ EntidadesMongoOracle.prototype.getJsonPromocionVenta = function(){
                     },
                     registroMongo:{
                         registroMovil:{
+                            id:"ID",
                             promocionventa_id:"PROMOCIONVENTA_ID",
                             item_id:"MITEM_ID",
                             dias:"DIAS",
@@ -780,6 +784,7 @@ EntidadesMongoOracle.prototype.getJsonOrdenDetalle = function(){
                             mitem_id:"MITEM_ID",
                             mpromocionventa_id:"MPROMOCIONVENTA_ID",
                             precio:"PRECIO",
+                            descuento:"DESCUENTO",
                             impuesto1:"IMPUESTO1",
                             impuesto2:"IMPUESTO2",
                             impuesto3:"IMPUESTO3",
@@ -812,8 +817,7 @@ EntidadesMongoOracle.prototype.getJsonOrdenCondicion = function(){
                     updateOrigen:"",
                     registroMongo:{
                         registroMovil:{
-
-
+                            
                         }
                     }
                 };//Fin del json
@@ -956,6 +960,23 @@ EntidadesMongoOracle.prototype.getSecuenciaOracle = function(tabla){
 
 };
 
+
+EntidadesMongoOracle.prototype.getValidacionesSql = function(){
+    entidesMonogoDB = new EntidadesMongoOracle();
+    return Object.getOwnPropertyNames( EntidadesMongoOracle.prototype ).reduce(function(res, a){
+                        if(a.indexOf("getJson")>=0 && entidesMonogoDB[a]() &&  (entidesMonogoDB[a]().validacionSql)){
+                            console.log(entidesMonogoDB[a]().movil);
+                            var validacionSql = entidesMonogoDB[a]().validacionSql;
+                            if(entidesMonogoDB[a]().movil && entidesMonogoDB[a]().movil.tabla){
+                                console.log("getValidacionesSql entro");
+                                validacionSql.tabla = entidesMonogoDB[a]().movil.tabla;
+                            }
+                            console.log(validacionSql);
+                            res.push(validacionSql);
+                        }
+                        return res;
+                    },[]);
+};
 
 EntidadesMongoOracle.prototype.getReferenciaFkOracle = function(tablaA, tablaB){
     entidesMonogoDB = new EntidadesMongoOracle();

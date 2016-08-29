@@ -81,13 +81,20 @@ ClienteMongoDb.prototype.getRegistrosCustomColumnas = function (collection, para
 };
 ClienteMongoDb.prototype.getRegistrosCustomColumnasOrdenLimite = function (collection, parametros, customColumnas, sort, limite, resultado) {
        if(customColumnas && sort && limite){
-
            db.collection(collection).find(parametros, customColumnas).sort(sort).limit(limite).toArray(function(err, docs) {
 
                 resultado(docs);
            });
+       }else  if(customColumnas && sort && !limite){
+           db.collection(collection).find(parametros, customColumnas).sort(sort).toArray(function(err, docs) {
+               resultado(docs);
+           });
+       }else if(customColumnas && sort && !limite){
+            db.collection(collection).find(parametros, customColumnas).limit(limite).toArray(function(err, docs) {
+               resultado(docs);
+           });
        }else{
-           db.collection(collection).find(parametros).toArray(function(err, docs) {
+            db.collection(collection).find(parametros).toArray(function(err, docs) {
                 resultado(docs);
            });
        }

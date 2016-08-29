@@ -1,0 +1,75 @@
+<span  class="titulo_14">Asistente Virtual</span>
+							<hr>
+							
+							<form id="asistente-virtual" ng-submit="getValidarInforacionAsistentVirtual()">
+								<div class="input-group">
+									<span class="input-group-addon" style="background-color:#fff" id="sizing-addon30"><i class="icon-fixed-width icon-user"></i></span>
+									<input name="identificacion" ng-click="formDatosVirtual.msg001 =true;" id="identificacion" class="form-control" ng-keyup="enviarDatos();" ng-disabled="formDatosVirtual.ingresarclave" ng-model="formDatosVirtual.identificacion" ng-enter="getInfoIdentificacion();formDatosVirtual.msg001 =false;" ng-blur="getInfoIdentificacion();formDatosVirtual.msg001 =false;"  class="tooltip-bottom"  size="100" title="Ingrese su Ingrese su ruc/cédula y presione enter"  type="text" autocomplete="off" placeholder="Ingrese su ruc/cédula y enter" required />
+								</div>
+								<div class="alert alert-success" ng-show="formDatosVirtual.msg001" role="alert">Por favor presione enter una vez ingresada su identificación, luego le pediremos que confirme sus datos</div>
+								</br>
+								<div  id="infoIdentificacion" ng-show="formDatosVirtual.respuesta">
+
+										<div class="input-group">
+											<span class="input-group-addon" style="background-color:#fff" id="sizing-addon31"><input ng-keyup="enviarDatos();" type="checkbox" name="confirmacion" ng-model="formDatosVirtual.confirmacion" id="confirmacion" value="false" ng-required="formDatosVirtual.respuesta"/></span>
+											<label class="form-control" style="font-size:10px">{{formDatosVirtual.respuesta.razonsocial}}</label>
+										</div>
+										<div class="alert alert-warning" ng-hide="formDatosVirtual.confirmacion"  role="alert">Por favor confirme sus datos &#187; <input ng-keyup="enviarDatos();" type="checkbox" name="confirmacion" ng-model="formDatosVirtual.confirmacion" id="confirmacionAb" value="false" ng-required="formDatosVirtual.respuesta"/></div>
+										<div class="input-group">
+											<span class="input-group-addon" style="background-color:#fff" id="sizing-addon32"><i class="icon-fixed-width icon-file-text"></i></span>
+											<input class="form-control" ng-click="formDatosVirtual.msg003 = true;"  name="cs_anchor1" ng-keyup="enviarDatos();" id="cs_slide1_0e" ng-disabled="formDatosVirtual.ingresarclave" type="text" ng-model="formDatosVirtual.docelectronico" ng-blur="validarDoc();formDatosVirtual.msg003=false"  placeholder="Ejemplo: 001-002-000000020 ó   001-001-20" class="cs_anchor slide" ng-required="formDatosVirtual.respuesta">
+										</div>
+										<div class="alert alert-warning" ng-show="formDatosVirtual.msg003" role="alert">Debe ingresar un documento entregado a partir del 2015 Ejemplo: 001-002-000000020 ó   001-001-20</div>
+
+								</div>
+								<br>
+								<div class="input-group">
+									<span class="input-group-addon" style="background-color:#fff" id="sizing-addon33"><i class="icon-fixed-width icon-envelope"></i></span>
+									<input class="form-control" ng-click="formDatosVirtual.msg0041=true;" type="email" ng-keyup="enviarDatos();" name="emailvirtual" ng-model="formDatosVirtual.email" ng-disabled="formDatosVirtual.ingresarclave" id="emailvirtual" ng-blur="formDatosVirtual.msg0041=false"  value="" placeholder="Email para el envío de documentos" autocomplete="off" required/>
+								</div>
+								<div class="alert alert-warning" ng-show="formDatosVirtual.msg0041" role="alert">El email ingresado será actualizado en su cuenta, es decir se lo añade al resto de email ya ingresados.</div>
+								<div id="cambiarClave" ng-show="formDatosVirtual.cambiarClaveD" style="background-color:rgb(102, 100, 100);padding:10px 10px 10px 10px;"  >
+										<div class="alert alert-success"  role="alert">Por favor ingrese su nueva clave y luego presion nuevamente el botón &#187; Aceptar</div>
+										<div class="input-group">
+											<span class="input-group-addon" style="background-color:#fff" id="sizing-addon34"><i class="icon-fixed-width icon-lock"></i></span>
+											<input class="form-control" ng-keyup="enviarDatos();" type="password" name="cs_anchor11"  ng-model="formDatosVirtual.nuevaclave"  value="" placeholder="Nueva clave" autocomplete="off" ng-required="cambiarClaveD"/>
+										</div>
+										<div class="input-group">
+											<span class="input-group-addon" style="background-color:#fff" id="sizing-addon35"><i class="icon-fixed-width icon-lock"></i></span>
+											<input class="form-control" ng-keyup="enviarDatos();" type="password" name="cs_anchor12" ng-model="formDatosVirtual.renuevaclave"  value="" placeholder="Confirme su nueva clave" autocomplete="off" ng-required="cambiarClaveD"/>
+										</div>
+
+
+								</div>
+								<br />
+								<div class="input-group">
+										  <span class="input-group-addon" style="background-color:#fff"  id="sizing-addon44"><input type="checkbox" ng-click="enviarDatos();" onclick="enviarTerminosRP()" ng-model="formDatosVirtual.condic"  id="terminosC1" /></span>
+										  <label type="text" class="form-control"  for="terminosC" aria-describedby="sizing-addon2" ><span style="font-weight:normal">Acepto las condiciones</span></label>
+								</div>
+								<a href="#"   aria-describedby="sizing-addon2" ui-sref="ingreso.condiciones" ng-click="formDatosVirtual.formularioB=false;formDatosVirtual.formularioD=false;enviarDatos();"><span style="font-size:14px !important;">Ver Condiciones</span></a>
+								<div>
+									<br>
+									<button type="submit"  class="btn btn-primary "><span class="icon-download-alt"></span> Aceptar</button>
+
+								</div>
+							</form>
+
+							<hr>
+
+							<div class="list-group" id="mensajesCliente" style="height:150px;overflow:auto" ng-show="formDatosVirtual.mensajesEnviados">
+							  <a href="#" class="list-group-item active">
+								<p class="list-group-item-text" >
+
+									<ul>
+										<li ng-repeat="msg in historialMensajes">
+											{{msg.usuario}} &#187 <span title="{{msg.fecha|date:'yyyy-MM-dd HH:mm:ss' }}" style="color:rgb(225, 231, 143);">{{msg.mensaje}}</span>
+										</li>
+									</ul>
+								</p>
+							  </a>
+							</div>
+							<div class="input-group">
+								<input name="mensajeChat" id="mensajeChat" class="form-control" ng-keyup="enviarDatos();"   ng-enter="enviarMensaje();"  ng-model="formDatosVirtual.mensajeChat"    type="text"  placeholder="Ingrese su mensaje aqui"  />
+								<span class="input-group-addon" id="basic-addon2"><a href="" ng-click="enviarMensaje(formDatosVirtual.mensajeChat);"  >Enviar</a></span>
+							</div>
+							<span><a href="" ng-click="!formDatosVirtual.mensajesEnviados?formDatosVirtual.mensajesEnviados=true:formDatosVirtual.mensajesEnviados=false;" > Ver/Ocultar mensajes enviados</a></span>

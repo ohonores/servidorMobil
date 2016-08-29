@@ -1,0 +1,8 @@
+<div class="col-sm-5 col-md-5 ">
+    <h4 class="sub-header">Documentos Electrónicos </h4>
+    <div class="table-responsive" ng-show="!mostrartabla" >
+        <table class="table table-striped">
+            <TR ng-repeat="doc in documentos | orderBy:'orden'"><TD><a ui-sref="menu.registros"  ng-click="fmostrartabla(true,doc.id);"   ><i class="icon-fixed-width icon-folder-close-alt"></i> <span  style="font-size:12px !important;color:rgb(19, 98, 50)">{{doc.descripcion}}</span></a></TD></TR>
+        </table>
+    </div>
+</div>

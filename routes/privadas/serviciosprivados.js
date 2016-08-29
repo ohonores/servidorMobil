@@ -8,8 +8,11 @@ var oracledb = require('../../conexiones-basededatos/conexion-oracle.js');
 var mongodb = require('../../conexiones-basededatos/conexion-mongodb.js');
 var OracleMongo = require('../../utils/OracleMongo.js');
 var oracleMongo =  new OracleMongo(oracledb, mongodb);
-var urlSincronizarPerifil = "http://documentos.ecuaquimica.com.ec:8080/movil/sincronizacion/actualizar/perfil-sinc/:coleccion/:index";
+var urlSincronizarPerifil = process.env.DOMINIO + "/movil/sincronizacion/actualizar/perfil-sinc/:coleccion/:index";
 var client = require("ioredis").createClient();
+var UAParser = require('ua-parser-js');
+var parser = new UAParser();
+
 /**************
 Logger
 ********************/
@@ -179,7 +182,7 @@ sincronizar.get('/sincronizacion-manual/:tipo/:perfil/:version/:x/:y/:uidd/', se
                 mongodb.getRegistrosCustomColumnasOrdenLimite(coleccion.nombre, {tipo:"zip",estado:true,perfil:(req.params.perfil+"")}, {nombreBackupZip:1,ubicacion:1,version:1,versionPerfil:1}, {versionPerfil:-1}, 1, function(resMDB){
                     console.log(resMDB[0].nombreBackupZip);
                     if(resMDB && resMDB[0] && resMDB[0].nombreBackupZip && resMDB[0].version !== req.params.version){
-                        respuesta.zipUrl = "http://documentos.ecuaquimica.com.ec:8080/zipsSqls/#archivo".replace("#archivo",resMDB[0].nombreBackupZip);
+                        respuesta.zipUrl = process.env.DOMINIO + "/zipsSqls/#archivo".replace("#archivo",resMDB[0].nombreBackupZip);
                         respuesta.versionPerfil = resMDB[0].versionPerfil;
                         respuesta.token = "edi"+req.session.id;
                         respuesta.emisor = respuesta.registroMovil.emisor;
@@ -201,7 +204,24 @@ sincronizar.get('/sincronizacion-manual/:tipo/:perfil/:version/:x/:y/:uidd/', se
 
 });
 
+sincronizar.get('/sincronizacion-manual-sql/:versionEncontrada/:versionAnterior/:versionActualizacion/:perfil/:dispositivo/:forzar', seguridadEDC.verficarInjections, function(req, res){
+    try{
+        var resAux= setTimeout(function(){
+           res.json("Por favor vuelva a intentarlo en unos minutos");
+        },10000);
+        console.log('/sincronizacion-manual-sql/:versionEncontrada/:versionAnterior/:versionActualizacion/:perfil/:dispositivo',req.params);
 
+        oracleMongo.getVersionDeActualizacion(req.params.versionEncontrada, req.params.versionAnterior, req.params.versionActualizacion, req.params.perfil, req.params.dispositivo,req.params.forzar, parser.setUA(req.headers['user-agent']).getResult()).then(function(success){
+            clearTimeout(resAux);
+            res.json(success);
+        });
+    }catch(error){
+        console.log(error);
+        clearTimeout(resAux);
+        res.json("Por favor vuelva a intentarlo en unos minutos");
+    }
+   
+});
 //The 404 Route (ALWAYS Keep this as the last route)
 /*sincronizar.get('/*', function(req, res, next){
    res.render("404/404.html");

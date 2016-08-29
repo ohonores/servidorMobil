@@ -1,0 +1,15 @@
+<div ui-view="dialogos"></div>
+    <div class="row">
+
+        <div class="col-sm-3 col-md-2 escondeme" >
+          <ul class="nav nav-sidebar heavymenu">
+            <li ng-repeat="menu in menus |filter:{estado:'true'}"  >
+                <a ui-sref="menu.documentos({empresa_id:empresa.nombre})" ><i class="icon-fixed-width {{menu.icono}}"></i>
+                    <span >{{menu.nombre}}</span>
+                </a>
+            </li>
+          </ul>
+        </div>
+        <div ui-view ></div>
+
+    </div>

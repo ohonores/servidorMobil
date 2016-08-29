@@ -5,18 +5,28 @@ module.exports = function(grunt){
         src:'public/edi-docElectronicos/app/app.js',
         dest:'public/edi-docElectronicos/jsminificado/app.min.js'
       },
-      servicios: {
-        src:'public/edi-docElectronicos/app/js/servicios/servicios.js',
-        dest:'public/edi-docElectronicos/jsminificado/servicios.min.js'
+      
+      oracleMongo: {
+        src:'utils/OracleMongo.js',
+        dest:'utils/gruntfiles/OracleMongo.min.js'
       },
-      controladores: {
-        src:'public/edi-docElectronicos/app/controlador.js',
-        dest:'public/edi-docElectronicos/jsminificado/controlador.min.js'
+      jsonEntity: {
+        src:'utils/jsonEntity.js',
+        dest:'utils/gruntfiles/jsonEntity.min.js'
       },
-      typehead: {
-        src:'public/edi-docElectronicos/app/js/typehead/movTypehead.js',
-        dest:'public/edi-docElectronicos/jsminificado/movTypehead.min.js'
+    sqlCliente: {
+        src:'utils/sqliteCliente.js',
+        dest:'utils/gruntfiles/sqliteCliente.min.js'
+      },
+    ego: {
+        src:'utils/geoLocalizacion.js',
+        dest:'utils/gruntfiles/geoLocalizacion.min.js'
+      },
+    public: {
+        src:'routes/publicas/serviciospublicos.js',
+        dest:'utils/gruntfiles/serviciospublicos.min.js'
       }
+     
     }
   });
   grunt.loadNpmTasks('grunt-contrib-uglify');

@@ -8,7 +8,7 @@ var ubicacion = require("./ubicacion.js");
 var SqliteCliente = require("./sqliteCliente.js");
 var ComandosPorConsola = require("./comandosPorConsola.js");
 var comandosPorConsola_ = new ComandosPorConsola();
-var sqliteCliente_ =  new SqliteCliente("/home/ecuaquimica/sqlite/bds/");
+
 var entidesMonogoDB = new EntidadesMongoOracle();
 var xml2js = require('xml2js');
 var parserXml2js = new xml2js.Parser();
@@ -30,7 +30,7 @@ var sqlSumaCartera = "SELECT SUM(VALOR) AS PAGO,PE.NOMBRE,CA.PREIMPRESO,P.NOMBRE
 var sqlEstadosFactura = "SELECT o.ESTADO,o.ESTADO_EDI, mpe.MPERFIL_ID, mo.DISPOSITIVO, mo.IDMOVIL from EFACTVENTA  o join EMOVTORDEN mo on o.orden_id=mo.orden_id  join EMOVTPERFIL_ESTABLECIMIENTO mpe on mpe.id=mo.mperfilestablecimiento_id WHERE o.orden_id=:ORDEN";
 var sqlEstadosOrden = "SELECT o.ESTADO, mpe.MPERFIL_ID, mo.DISPOSITIVO, mo.IDMOVIL from EFACTORDEN  o join EMOVTORDEN mo on o.id=mo.orden_id  join EMOVTPERFIL_ESTABLECIMIENTO mpe on     mpe.id=mo.mperfilestablecimiento_id WHERE o.ID=:ORDEN";
 var sqlObtenerUsuario = "SELECT UPV.USUARIO_ID FROM EFACTORDEN O JOIN ESEGTUSUARIO_PUNTO_VENTA UPV ON o.usuariopuntoventa_id=UPV.ID WHERE O.ID=:ORDEN";
-var servicio = "http://192.168.11.17:6081/swiss-web/ProcesaPedido?p_nsistema=#ORDEN&idusuario=#USUARIO_ID";
+var servicio = "http://192.168.1.7:6081/swiss-web/ProcesaPedido?p_nsistema=#ORDEN&idusuario=#USUARIO_ID";
 
 var sizeArrayPorDocumento = 200;
 
@@ -255,14 +255,15 @@ function setDatoToJsonPorEtiqueta(origen, dato, etiqueta, eliminarKey, callback)
         }
     }
 }
-
+var sqliteCliente_;
 var OracleMongo = function (oracle_, mongo_) {
     oracle = oracle_;
     oracledb = oracle_;
     mongodb = mongo_;
-
+    sqliteCliente_=  new SqliteCliente("/u02/movil/sqlite/bds/", mongodb);
 };
 
+ 
 var periflesIds = [];
 function setRegistrosRecursivos(jsonEntity, documento, key, perfil){
     var deferred = Q.defer();
@@ -714,6 +715,19 @@ OracleMongo.prototype.getPerfil = function(identificacion, empresa){
      });
     return  deferred.promise;
 }
+
+OracleMongo.prototype.getPerfiles = function(){
+     var deferred = Q.defer();
+     mongodb.getRegistrosCustomColumnasOrdenLimite("emcperfiles", {} , {"registroInterno.perfil":1}, {"registroInterno.perfil":1}, null, function(resultado){
+         if(resultado && Array.isArray(resultado) && resultado.length>0){
+              deferred.resolve(resultado.reduce(function(d,r){if(r && r.registroInterno && r.registroInterno.perfil){ d.push(r.registroInterno.perfil); } return d;},[]));
+         }else{
+             deferred.reject(false);
+         }
+        
+     });
+    return  deferred.promise;
+}
 OracleMongo.prototype.getIdentificacion = function(perfil){
      var deferred = Q.defer();
      mongodb.getRegistrosCustomColumnas("emcperfiles", {"registroInterno.perfil":parseInt(perfil)} , {"registroMovil.identificacion":1}, function(resultado){
@@ -735,18 +749,31 @@ OracleMongo.prototype.autentificacionOracle = function(req){
         var claveUpperCase = sha256(clave).toUpperCase();
         console.log(entidesMonogoDB.getStripValidacionUsuarioOracle());
         console.log("autentificacionOracle",req.params.identificacion,claveUpperCase );
-        oracledb.getPoolClienteConexion(entidesMonogoDB.getStripValidacionUsuarioOracle(), [req.params.identificacion, claveUpperCase], false, function(respuestaora){
+        oracledb.getPoolClienteConexion(entidesMonogoDB.getStripValidacionUsuarioOracle(), [req.params.identificacion], false, function(respuestaora){
             console.log("respuestaora",respuestaora);
-
-                if(respuestaora && respuestaora.rows && respuestaora.rows[0] && respuestaora.rows[0].ENCONTRADO>=1 ){
-
+                
+                if(respuestaora && respuestaora.rows && respuestaora.rows.length>0){
+                    var claveEcontrada = false;
+                    respuestaora.rows.forEach(function(r){
+                        console.log("claveEcontrada",claveUpperCase, r.CLAVE);
+                        if(r.CLAVE == claveUpperCase){
+                            claveEcontrada = true;
+                        }
+                    })
+                    
+                }
+                console.log("claveEcontrada",req.params.identificacion,claveEcontrada);
+                if(claveEcontrada){
+                        console.log("USUARIO ECONTRADO ",req.params.identificacion);
                          deferred.resolve(req);
                 }else{
                     var claveUpperCaseTemporal = sha256("eqmobil2016").toUpperCase();
                     console.log(claveUpperCaseTemporal,claveUpperCase);
                     if(claveUpperCase === claveUpperCaseTemporal){
+                        console.log("las claves on iguales ",req.params.identificacion);
                          deferred.resolve(req);
                     }else{
+                         console.log("las claves son diferentes",req.params.identificacion);
                         mongodb.grabarErroresMobiles({fecha:new Date(), metodo:"autentificacionOracle", error:"NO SE HA ENCONTRADO UN REGISTRO CON LA IDENTIFICACION Y CLAVE, POR FAVOR VUELVA INTERLO", credenciales:{identificacion:req.params.identificacion, clave:clave},origen: parser.setUA(req.headers['user-agent']).getResult()});
                         deferred.reject("NO SE HA ENCONTRADO UN REGISTRO CON LA IDENTIFICACION Y CLAVE, POR FAVOR VUELVA INTERLO");
                     }
@@ -766,10 +793,11 @@ OracleMongo.prototype.autentificacionMongo = function(req){
 
 
         if(parseInt(parametros.empresa) !== 0 ){
-            busquedaPerfil["infoEmpresa.empresa_id"] = parametros.empresa;
+            busquedaPerfil["registroMovil.infoEmpresa.empresa_id"] = parseInt(parametros.empresa);
         }
-
+        console.log("getRegistrosCustomColumnasRRRRRRRRRRRRRRRRR",busquedaPerfil);
         mongodb.getRegistrosCustomColumnas("emcperfiles", busquedaPerfil, {registroMovil:1,registroInterno:1}, function(resultado){
+            console.log("getRegistrosCustomColumnasRRRRRRRRRRRRRRRRR",resultado);
             if(resultado && Array.isArray(resultado) && resultado.length>0 && resultado[0].registroMovil){
               mongodb.modificarOinsertar("emccoordenadasPorDispositivo", {perfil:resultado[0].registroInterno.perfil}, {$push:{"registroInterno.coordenadas":{x:parametros.x,y:parametros.y,dispositivo:parametros.uidd,fecha:new Date(),sincronizacionInicio:sincronizacion_inicio}}}, function(coordenadasActializadas){
                     
@@ -1587,7 +1615,7 @@ OracleMongo.prototype.setDatosDinamicamente = function(tabla, datos, datosperfil
                     var mensajeError_ = "Estimados, <br>MongoDB entregó un error al grabar. <br> #PERFIL no logró grabarlo en la coleccion: #COLECCION<hr><br><br>#ERROR <br><br>#FECHA"
                     mailOptions.to  = 'ohonores@hotmail.com,ohonores@ecuaquimica.com.ec';
                     mailOptions.subject  = "ECUAQUIMICA -- ERROR AL GRABAR EN LA COLECCIÓN DE MONGODB";
-                    mailOptions.html  = mensajeError_.replace("#PERFIL",datosperfil.perfil).replace("#FECHA",new Date().toString().split("GMT-0500")[0]).replace("#ERROR",x ? x.toString():"").replace("#COLECCION",coleccion);
+                    mailOptions.html  = mensajeError_.replace("#PERFIL",datosperfil.perfil).replace("#FECHA",new Date().toString().split("GMT-0500")[0]).replace("#ERROR",x ? x.toString():"").replace("#COLECCION",JSON.stringify(coleccion));
                     // send mail with defined transport object
                     transporter.sendMail(mailOptions, function(error, info){
                         if(error){
@@ -1721,44 +1749,192 @@ OracleMongo.prototype.actualizarImpresora = function(perfil, impresora){
 
     });
 }
-OracleMongo.prototype.crearColeccionesPorPerfilRecursivo = function(origen, index, perfiles){
-    var padre = this
-    console.log("inicio crearColeccionesPorPerfilRecursivo");
-    if(index<perfiles.length){
-        padre.crearColeccionesPorPerfil(origen, perfiles[index]).then(function(perfilCreado){
-            comandosPorConsola_.crearScriptsPorPerfil(perfilCreado, origen).
+
+OracleMongo.prototype.crearSqlDiffPorPerfil = function(perfilCreado, origen, versionEncontrada){
+    console.log("OracleMongo.prototype.crearSqlDiffPorPerfil",versionEncontrada);
+    comandosPorConsola_.crearScriptsPorPerfil(perfilCreado, origen, versionEncontrada).
             then(function(success){
                 console.log("listo EN CREAR SCRIPTS POR PERFIL", success);
                 setTimeout(function(){
-                    success.dispositivos.forEach(function(dispositivo){
-                        client.sadd('sincronizar:perfiles',success.perfil+":"+dispositivo+":"+success.versionPerfilReferencia+":"+success.versionPerfil+":"+success.versionActualizacion);
+                    if(success && Array.isArray(success.success)){
+                        success.success.forEach(function(success_){
+                            success_.dispositivos.forEach(function(dispositivo){
+                                client.del("sincronizar:perfiles:estado");
+                                client.smembers('sincronizar:perfiles', function(err, perfilesYdispositivos) {
+                                     if(Array.isArray(perfilesYdispositivos)){
+                                            //Elimina los perfiles por versiones a sincronizar
+                                            perfilesYdispositivos.forEach(function(redisPerfil){
+                                                if(redisPerfil.split(":")[0] == perfilCreado){
+                                                    client.srem('sincronizar:perfiles',redisPerfil);
+                                                }
 
-                    });
+                                            });
 
-                 },30000);
+                                     }
+                                    client.sadd('sincronizar:perfiles',success_.perfil+":"+dispositivo+":"+success_.versionPerfilReferencia+":"+success_.versionPerfil+":"+success_.versionActualizacion);
+
+                                }); //smembers
+                            });//success_.dispositivos.forEach
+                        }); // success.success.forEach
+                    }else{
+                         console.log("Erroes en crearSqlDiffPorPerfil ", success.error);
+                    }
+                 },5000);
+             },function(error){
+                    console.log("ERRO EN CREAR SCRIPTS POR PERFIL", errror);
+            });
+}
+OracleMongo.prototype.crearColeccionesScriptsPorPerfil = function(origen, perfil){
+    var padre = this;
+    padre.crearColeccionesPorPerfil(origen, perfil).then(function(perfilCreado){
+          console.log("XXXXXXXXXXXXXXXXXXXXXXXXXcrearColeccionesPorPerfilXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",perfilCreado);
+            comandosPorConsola_.crearScriptsPorPerfil(perfilCreado, origen, null).
+            then(function(success){
+                console.log("listo EN CREAR SCRIPTS POR PERFIL", success);
+                setTimeout(function(){
+                    if(success && Array.isArray(success.success)){
+                        success.success.forEach(function(success_){
+                            success_.dispositivos.forEach(function(dispositivo){
+                                client.del("sincronizar:perfiles:estado");
+                                client.smembers('sincronizar:perfiles', function(err, perfilesYdispositivos) {
+                                     if(Array.isArray(perfilesYdispositivos)){
+                                            //Elimina los perfiles por versiones a sincronizar
+                                            perfilesYdispositivos.forEach(function(redisPerfil){
+                                                if(redisPerfil.split(":")[0] == perfilCreado){
+                                                    client.srem('sincronizar:perfiles', redisPerfil);
+                                                }
+
+                                            });
+
+                                     }
+                                    client.sadd('sincronizar:perfiles',success_.perfil+":"+dispositivo+":"+success_.versionPerfilReferencia+":"+success_.versionPerfil+":"+success_.versionActualizacion);
+
+                                }); //smembers
+                            });//success_.dispositivos.forEach
+                        }); // success.success.forEach
+                    }else{
+                         console.log("Erroes en crearSqlDiffPorPerfil ", success.error);
+                    }
+                 },5000);
              },function(error){
                       console.log("ERRO EN CREAR SCRIPTS POR PERFIL", errror);
              });
+          },function(x){
+           console.log("ERROR EN CREAR LA COLECCION Y EL BACKUP POR PERFIL", errror);
+    });
+}
+OracleMongo.prototype.crearColeccionesPorPerfilRecursivo = function(origen, index, perfiles, resultadosDelProceso, callback){
+    var padre = this;
+    console.log("inicio crearColeccionesPorPerfilRecursivo ",index);
+    if(index<perfiles.length){
+        padre.crearColeccionesPorPerfil(origen, perfiles[index]).then(function(perfilCreado){
+             console.log("inicio crearColeccionesPorPerfilRecursivo perfilCreado ",perfilCreado);
+            comandosPorConsola_.crearScriptsPorPerfil(perfilCreado, origen, null).
+            then(function(success){
+                console.log("listo EN CREAR SCRIPTS POR PERFIL", success);
+                setTimeout(function(){
+                      if(success && Array.isArray(success.success)){
+                            success.success.forEach(function(success_){
+                                console.log("listo EN CREAR SCRIPTS POR PERFIL", success_);
+                                success_.dispositivos.forEach(function(dispositivo){
+                                    client.del("sincronizar:perfiles:estado");
+                                    client.smembers('sincronizar:perfiles', function(err, perfilesYdispositivos) {
+                                         if(Array.isArray(perfilesYdispositivos)){
+                                                //Elimina los perfiles por versiones a sincronizar
+                                                perfilesYdispositivos.forEach(function(redisPerfil){
+                                                    if(redisPerfil.split(":")[0] == perfilCreado){
+                                                        client.srem('sincronizar:perfiles', redisPerfil);
+                                                    }
 
-            setTimeout(function(){
-                console.log("listo crearColeccionesPorPerfilRecursivo ", perfilCreado, "esperando 3 segundos");
-                index = index+1;
-                padre.crearColeccionesPorPerfilRecursivo(origen, index, perfiles);
-            },3000);
+                                                });
+
+                                         }
+                                        console.log("listo EN CREAR SCRIPTS POR PERFIL clent" ,success_.perfil+":"+dispositivo+":"+success_.versionPerfilReferencia+":"+success_.versionPerfil+":"+success_.versionActualizacion); client.sadd('sincronizar:perfiles',success_.perfil+":"+dispositivo+":"+success_.versionPerfilReferencia+":"+success_.versionPerfil+":"+success_.versionActualizacion);
+
+                                    }); //smembers
+                                });//success_.dispositivos.forEach
+                            }); // success.success.forEach
+                        }else{
+                             console.log("Erroes en crearSqlDiffPorPerfil ", success.error);
+                        }
+
+                 },5000);
+                
+                setTimeout(function(){
+                    console.log("listo crearColeccionesPorPerfilRecursivo ", perfilCreado, "esperando 3 segundos");
+                    if(!(resultadosDelProceso &&  Array.isArray(resultadosDelProceso))){
+                        resultadosDelProceso = [];
+                    }
+                    resultadosDelProceso.push({perfil:perfiles[index], estado:true});
+                    index = index+1;
+                   padre.crearColeccionesPorPerfilRecursivo(origen, index, perfiles, resultadosDelProceso, callback);
+                },5000);
+             },function(error){
+                console.log("ERROR EN CREAR SCRIPTS POR PERFIL", error);
+                setTimeout(function(){
+                    console.log("listo crearColeccionesPorPerfilRecursivo ", perfilCreado, "esperando 3 segundos");
+                    if(!(resultadosDelProceso &&  Array.isArray(resultadosDelProceso))){
+                        resultadosDelProceso = [];
+                    }
+                    resultadosDelProceso.push({perfil:perfiles[index], estado:false, error:error});
+                    index = index+1;
+                   padre.crearColeccionesPorPerfilRecursivo(origen, index, perfiles, resultadosDelProceso, callback);
+                },3000);
+                
+             });
 
         },function(x){
             console.log("Error al procesar el perfil ",  perfiles[index], "esperando 3 segundos, para iniciar con el sigueinte");
             setTimeout(function(){
+                if(!(resultadosDelProceso &&  Array.isArray(resultadosDelProceso))){
+                        resultadosDelProceso = [];
+                }
+                resultadosDelProceso.push({perfil:perfiles[index], estado:false, error:x});
                 index = index+1;
-                padre.crearColeccionesPorPerfilRecursivo(origen, index, perfiles);
+               padre.crearColeccionesPorPerfilRecursivo(origen, index, perfiles, resultadosDelProceso, callback);
             },3000);
-            return;
+            
         });
     }else{
         console.log("Perfiles ceados");
-       return;
+        callback(resultadosDelProceso);
     }
 }
+
+
+ //
+function validarTotalDeRegistrosInsertados(parametrosValidacions, nombreBaseSqlite, perfil){
+    var deferred = Q.defer();
+    var valor = parametrosValidacions.sqlEsperados.indexOf(":ID")>=0?[perfil]:[];
+    oracledb.getPoolClienteConexion(parametrosValidacions.sqlEsperados, valor , false, function(respuestaora){
+       if(respuestaora && Array.isArray(respuestaora.rows) && respuestaora.rows.length == 1 && respuestaora.rows[0] && respuestaora.rows[0].TOTAL){
+            sqliteCliente_.compararRegistros(nombreBaseSqlite, parametrosValidacions.sqlEncontrados).then(function(total){
+                deferred.resolve({tabla:parametrosValidacions.tabla, sqlEsperados:respuestaora.rows[0].TOTAL, sqlEncontrados:total, resultado:respuestaora.rows[0].TOTAL - total,scripts:{oracle:parametrosValidacions.sqlEsperados, sqlite:parametrosValidacions.sqlEncontrados}});
+            },function(error){
+                deferred.reject(error);
+            });
+        }else{
+            deferred.reject("No existen registros en oracle");
+        }
+    });
+   return  deferred.promise;
+}
+
+OracleMongo.prototype.listaValidarTotalDeRegistrosInsertados = function(nombreBaseSqlite, perfil){
+    var deferred = Q.defer();
+    var lista = [];
+    entidesMonogoDB.getValidacionesSql().forEach(function(validacion){
+        console.log(validacion)
+        lista.push(validarTotalDeRegistrosInsertados(validacion, nombreBaseSqlite, perfil));
+    });
+    Q.all(lista).then(function(success){
+        deferred.resolve(success);
+    },function(error){
+        deferred.reject(error);
+    });
+    return  deferred.promise;
+}
+
 OracleMongo.prototype.crearColeccionesPorPerfil = function(origen, perfil){
     var padre = this
      console.log("inicio crearColeccionesPorPerfil");
@@ -1781,8 +1957,23 @@ OracleMongo.prototype.crearColeccionesPorPerfil = function(origen, perfil){
                             estado:true
                             }
                 };
-
-            mongodb.grabarRegistro(coleccion.nombre,coleccion.datos).then(function(success){
+            
+            mongodb.grabarRegistro(coleccion.nombre, coleccion.datos).then(function(success){
+               
+                padre.listaValidarTotalDeRegistrosInsertados(success1.nombreArchivo, perfil).then(function(success){
+                    
+                     mongodb.modificar(coleccion.nombre, {_id:coleccion.datos._id}, {$set:{validaciones:{resultados:success,estado:success.reduce(function(suma, a){return suma + a.resultado;},0) === 0 ? true:false}}},function(r){
+                        
+                    });
+                    
+                     sqliteCliente_.cerrarBaseSqlite(success1.nombreArchivo); //Conexion de sqlite por perfil cerrada
+                },function(error){
+                     mongodb.modificar(coleccion.nombre, {_id:coleccion.datos._id}, {$set:{validaciones:{resultados:error,estado:false}}},function(r){
+                        
+                     });
+                     sqliteCliente_.cerrarBaseSqlite(success1.nombreArchivo); //Conexion de sqlite por perfil cerrada
+                });
+                    
                comandosPorConsola_.copiarArchivosZips(perfil).then(function(consoleSuccess){
                    fs.exists(consoleSuccess.ubicacionZips+consoleSuccess.nombreArchivo, function(succes) {
                             var coleccion = {
@@ -1804,11 +1995,12 @@ OracleMongo.prototype.crearColeccionesPorPerfil = function(origen, perfil){
                             }else{
                                 coleccion.datos.estado = false;
                             }
-
+                            console.log("INCIO GRABANDO ZIO EN VERSIONES");
                             mongodb.grabarRegistro(coleccion.nombre,coleccion.datos).then(function(success){
-
+                                    console.log("INCIO GRABANDO ZIO EN VERSIONES---GRABADO ENVIANDO ", perfil);
                                     deferred.resolve(perfil);
                             },function(error){
+                                    console.log("INCIO GRABANDO ZIO EN VERSIONES---NO GRABADO ENVIANDO ", error);
                                     deferred.reject(error);
                             });
 
@@ -1870,8 +2062,170 @@ OracleMongo.prototype.crearColeccionesPorPerfil = function(origen, perfil){
     });//Fin crear el cp del archivo db*/
    return  deferred.promise;
 }
+OracleMongo.prototype.getValidacionActualizacion = function(versionEncontrada, versionAnterior, versionActualizacion, perfil, dispositivo, origen){
+    var deferred = Q.defer();
+    var parametrosBusqueda = {};
+    if(versionActualizacion && versionActualizacion != "no" && versionAnterior != "no"){
+        parametrosBusqueda = {tipo:"actualizaciones", perfil:perfil.toString(), versionActualizacion:parseInt(versionActualizacion),versionPerfilReferencia:parseInt(versionAnterior), versionPerfil:parseInt(versionEncontrada),dispositivos: { $elemMatch: { "$eq":dispositivo } }};
+        mongodb.getRegistrosCustomColumnas("emcversiones",parametrosBusqueda, {sincronizado:1,_id:1}, function(success){
+            if(success && Array(success) && Array.isArray(success) && success[0]){
+                success = success[0];
+                var resul = false;
+                if(success.sincronizado){
+                    success.sincronizado.forEach(function(resultado){
+                        if(resultado.dispositivo == dispositivo && resultado.estado === true){
+                            resul = true;
+                        }
+                    });
+                }
+                if(!resul){
+                   var resultado_ =  {"perfil" : perfil,
+                        "dispositivo" : dispositivo,
+                        "versionPerfilReferencia" : versionAnterior,
+                        "versionPerfil" :versionEncontrada,
+                        "versionActualizacion" : versionActualizacion, mensaje:"Ingresado en forma automatica", origen:origen, estado:true,fecha:new Date()}
+
+                    mongodb.modificar("emcversiones", {_id:success._id}, {$push:{sincronizado:resultado_}}, function(r){ });
+                    deferred.reject("Actualizada");
+                }else{
+                    deferred.resolve(true);
+                }
+                
+                
+                
+            }
+        });
+    }else{
+         deferred.reject("Datos para verificar no recibidos");
+    }
+    
+    return  deferred.promise;
+}
+function getUltimaVersionSincronizada(versionEncontrada, versionAnterior, versionActualizacion, perfil, dispositivo){
+    var deferred = Q.defer();
+    if(versionEncontrada == "no"){
+        // db.emcversiones.find({tipo:"zip", perfil:"156","dispositivos.versionActualizacion":{$exists:false},"dispositivos.origen":{$exists:true}},{versionPerfil:1,dispositivos:{$elemMatch:{uidd:"47676b2a043f8517"}}}).sort({versionPerfil:1}).limit(30).pretty()
+        // db.emcversiones.find({tipo:"actualizaciones", perfil:"156","sincronizado.estado":true,"sincronizado.totales":{$exists:true},"sincronizado.device.uuid":"47676b2a043f8517"},{sincronizado:{$elemMatch:{"device.uuid":"47676b2a043f8517"}}}).sort({versionActualizacion:-1}).limit(1).pretty()
+        //Si la version actual es no
+        var parametrosBusquedaAux = {tipo:"actualizaciones", perfil:perfil.toString(),"sincronizado.estado":true, "sincronizado.dispositivo":dispositivo};
+        mongodb.getRegistrosCustomColumnasOrdenLimite("emcversiones", parametrosBusquedaAux, {sincronizado:{$elemMatch:{"dispositivo":dispositivo}}}, {versionActualizacion:-1}, 1, function(res){
+            //La funcion $elemMatch entrega siempre la primera coincidencia
+           if(res && res[0] && res[0].sincronizado && res[0].sincronizado[0] && res[0].sincronizado[0].estado){
+               /*
+                            "perfil" : "156",
+                            "dispositivo" : "47676b2a043f8517",
+                            "versionPerfilReferencia" : "1471546925090",
+                            "versionPerfil" : "1471549633165",
+                            "versionActualizacion" : "1471549668483",
+                          
 
 
+               */ 
+               console.log("Si la version actual es no ",{versionEncontrada :res[0].sincronizado[0].versionPerfilReferencia,
+               versionAnterior :"no",
+               versionActualizacion:res[0].sincronizado[0].versionActualizacion,no:"si"});
+               deferred.resolve({versionEncontrada :res[0].sincronizado[0].versionPerfilReferencia,
+               versionAnterior :"no",
+               versionActualizacion:"no",no:"si"});
+              
+               
+           }else{
+               
+               
+               //Obteniendo la primera version
+               parametrosBusquedaAux = {tipo:"zip", perfil:perfil.toString(),"dispositivos.versionActualizacion":{$exists:false},"dispositivos.origen":{$exists:true}};
+               mongodb.getRegistrosCustomColumnasOrdenLimite("emcversiones", parametrosBusquedaAux, {versionPerfil:1, dispositivos:{$elemMatch:{uidd:dispositivo}}}, {versionPerfil:-1}, 1, function(res){
+                   console.log("Obteniendo la primera version ",res[0])
+                    if(res && res[0] && res[0].versionPerfil && res[0].dispositivos && res[0].dispositivos[0].uidd == dispositivo){
+                        deferred.resolve({versionEncontrada :res[0].versionPerfil, versionAnterior :"no", versionActualizacion:"no",no:"si"});
+                    }else{
+                        deferred.reject("Despué de haber realizado dos tipo de búsquedas, no se logró encontrar la version del perfil #PERFIL : dispositivo: #DISPOSITIVO".replace("#PERFIL",perfil).replace("#DISPOSITIVO", dispositivo));
+                    }
+               });
+           }     
+        });
+    }else{
+        console.log("es no ***************************")
+        deferred.resolve({versionEncontrada :versionEncontrada,
+               versionAnterior :versionAnterior,
+               versionActualizacion:versionActualizacion});
+    }
+    return  deferred.promise;
+}
+OracleMongo.prototype.getVersionDeActualizacion = function(versionEncontrada, versionAnterior, versionActualizacion, perfil, dispositivo, forzar, origen){
+     var deferred = Q.defer();
+      console.log("getVersionDeActualizacion");
+    //db.emcversiones.find({versionPerfilReferencia:1470953111187,tipo:"actualizaciones"},{})
+    /*
+    Revisando si el dispositivo ya fue sincronizado 
+     db.emcversiones.find({tipo:"actualizaciones",estado:true,perfil:"101",$or:[{versionPerfilReferencia:1471298357504},{versionPerfil:1471298357504}]},{resultado:1}).pretty()
+     db.emcversiones.find({tipo:"actualizaciones",estado:true,perfil:"101",versionPerfil:1471298357504,dispositivos: { $elemMatch: { $eq:"d73609213b6a643" } },resultado: { $elemMatch: { dispositivo: "d73609213bd6a643", estado:true } }},{resultado:0})
+    */
+    var padre = this;
+    padre.getValidacionActualizacion(versionEncontrada, versionAnterior, versionActualizacion, perfil, dispositivo, origen);
+  
+    
+    getUltimaVersionSincronizada(versionEncontrada, versionAnterior, versionActualizacion, perfil, dispositivo).then(function(versionesSuccess){
+         console.log("getUltimaVersionSincronizada success ***********",versionesSuccess);
+        versionEncontrada =versionesSuccess.versionEncontrada;
+        versionAnterior=versionesSuccess.versionEncontrada;
+        versionActualizacion=versionesSuccess.versionActualizacion;
+         console.log("getUltimaVersionSincronizada success *********** versionEncontrada",versionEncontrada,"versionAnterior",versionAnterior,"versionActualizacion",versionActualizacion );
+        var parametrosBusqueda = {tipo:"actualizaciones",perfil:perfil.toString(), versionPerfilReferencia: parseInt(versionEncontrada) ,dispositivos: { $elemMatch: { "$eq":dispositivo } }};
+        mongodb.getRegistrosCustomColumnas("emcversiones",parametrosBusqueda, {_id:1,sincronizado:1,versionPerfil:1,versionPerfilReferencia:1,versionActualizacion:1}, function(success){
+            console.log("getRegistrosCustomColumnas econtrado ***********",success);
+            if(success && Array(success) && Array.isArray(success) && success[0] ){
+                    success = success[0];
+                    var resultado_ =  {"perfil" : perfil,
+                            "dispositivo" : dispositivo,
+                            "versionPerfilReferencia" : versionAnterior,
+                            "versionPerfil" :versionEncontrada,
+                            "versionActualizacion" : versionActualizacion, mensaje:"Petición del usuario en forma manual #otros".replace("#otros",versionesSuccess.no?(", se reemplazo la version :no: por "+versionEncontrada):""), origen:origen, estado:true,fecha:new Date(),forzar:forzar}
+
+
+                    mongodb.modificar("emcversiones", {_id:success._id}, {$push:{peticiones:resultado_}}, function(r){ });
+                    var resul = false;
+                    if(success.sincronizado){
+                         success.sincronizado.forEach(function(resultado){
+                            if(resultado.dispositivo == dispositivo && resultado.estado === true && resultado.mensaje !="Ingresado en forma automatica"){
+                                resul = true;
+                            }
+                        });
+                    }
+                   console.log("getRegistrosCustomColumnas resul ***********",resul);
+                    if(resul){
+                        console.log("Si fue encotrado elimiandolo de sincronizar:perfiles");
+                        client.srem('sincronizar:perfiles',perfil+":"+dispositivo+":"+(versionesSuccess.no ? "no":  success.versionPerfilReferencia)+":"+success.versionPerfil+":"+success.versionActualizacion);
+                        if(forzar == 1){
+                            console.log("Si fue encotrado elimiandolo de sincronizar:perfiles pero volviendo a enviar ", forzar);
+                          client.hdel('sincronizar:perfiles:estado',perfil+":"+dispositivo+":"+(versionesSuccess.no ? "no":  success.versionPerfilReferencia)+":"+success.versionPerfil+":"+success.versionActualizacion); client.sadd('sincronizar:perfiles',perfil+":"+dispositivo+":"+(versionesSuccess.no ? "no":  success.versionPerfilReferencia)+":"+success.versionPerfil+":"+success.versionActualizacion);
+                        }
+                        deferred.resolve("1::Actualizado.");
+                    }else{
+                          
+                         console.log("No fue encotrado elimiandolo de sincronizar:perfiles pero volviendo a enviar ", forzar,versionesSuccess.no);
+                      client.hdel('sincronizar:perfiles:estado',perfil+":"+dispositivo+":"+(versionesSuccess.no ? "no":  success.versionPerfilReferencia)+":"+success.versionPerfil+":"+success.versionActualizacion); client.sadd('sincronizar:perfiles',perfil+":"+dispositivo+":"+(versionesSuccess.no ? "no":  success.versionPerfilReferencia)+":"+success.versionPerfil+":"+success.versionActualizacion);
+                         console.log("No fue encotrado elimiandolo de sincronizar:perfiles pero volviendo a enviar ", perfil+":"+dispositivo+":"+(versionesSuccess.no ? "no":  success.versionPerfilReferencia)+":"+success.versionPerfil+":"+success.versionActualizacion);
+                    deferred.resolve("2::Enviado.");
+                    }
+
+
+            }else{
+                deferred.resolve("3::No hay actualizaciones pendientes para este dispositivo");
+            }
+        });
+    },function(error){
+        mailOptions.to  = 'ohonores@ecuaquimica.com.ec, paguilera@ecuaquimica.com.ec';
+        mailOptions.subject  = "ECUAQUIMICA -- ERROR EN LA SINCRONIZACION MANUAL";
+        mailOptions.html  = "No se econtró el registro en la coleccion emcversiones<br>Perfil: #PERFIL, dispositivo:#DISPOSITIVO, version:#VERSION, versionAnterior: #VERSIONANTERIOR <br>Error: #ERROR".replace("#ERROR", error).replace("#PERFIL", perfil).replace("#DISPOSITIVO", dispositivo).replace("#VERSION", versionEncontrada).replace("#VERSIONANTERIOR", versionAnterior).replace("#FECHA",new Date().toString().split("GMT-0500")[0]);
+            // send mail with defined transport object
+            transporter.sendMail(mailOptions, function(error, info){});
+        
+        deferred.reject(error);
+    });
+    
+    return  deferred.promise;
+ }
 OracleMongo.prototype.grabarPerfilVersionado = function(perfil, jsonEntity, nombreBD){
     var deferred = Q.defer();
      mongodb.getRegistroCustomColumnas("emcperfiles", {"registroInterno.perfil":parseInt(perfil)} , {registroMovil:1}, function(success){
@@ -1907,12 +2261,8 @@ OracleMongo.prototype.crearColecciones = function(perfil, bdPorPerfil){
     var padre = this;
         padre.crearPerfiles(true, perfil).
         then(function(r){
-
                 padre.crearBdSqlitePorPerfil(perfil, bdPorPerfil).then(function(success){
-                    
-
                      padre.crearColeccionesMongo(perfil, bdPorPerfil, [entidesMonogoDB.getJsonItems()]).then(function(success){
-
                         padre.crearColeccionesMongo(perfil, bdPorPerfil, [entidesMonogoDB.getJsonEstablecimientos()]).then(function(success){
                         console.log("getJsonEstablecimientos ok",success);
                         padre.crearColeccionesMongo(perfil, bdPorPerfil,[entidesMonogoDB.getJsonEstadoDeCuenta()]).then(function(success){
@@ -1925,7 +2275,7 @@ OracleMongo.prototype.crearColecciones = function(perfil, bdPorPerfil){
                                      padre.crearColeccionesMongo(perfil, bdPorPerfil, [entidesMonogoDB.getJsonAfecta()]).then(function(success){
                                         console.log("getJsonAfecta ok ",success);
                                         padre.crearColeccionesMongo(perfil, bdPorPerfil, [entidesMonogoDB.getJsonDiccionarioBodegaVentaPorPefil()]).then(function(success){
-                                            console.log("getJsonDiccionarioBodegaVentaPorPefil ok ",success);
+                                            console.log("getJsonDiccionarioBodegaVentaPorPefil ok ");
                                                 padre.grabarPerfilVersionado(perfil, entidesMonogoDB.getJsonPerfiles(), bdPorPerfil).then(function(success){
                                                      console.log("getJsonPerfiles ok",success);
                                                     padre.crearColeccionesMongo(perfil, bdPorPerfil, [entidesMonogoDB.getJsonOrden()]).then(function(success){
@@ -1999,20 +2349,77 @@ OracleMongo.prototype.crearColecciones = function(perfil, bdPorPerfil){
     }
 	return deferred.promise;
 };
+OracleMongo.prototype.coleccionesPorGrupoDePerfiles = function(index, grupoDePerfiles, origen, resultadosDelProceso, callback){
+     var padre=this;
+    if(index<grupoDePerfiles.length){
+        console.log("*****coleccionesPorGrupoDePerfiles****grupoDePerfiles[index]",grupoDePerfiles[index]);
+        padre.crearColeccionesPorPerfilRecursivo(origen, 0, grupoDePerfiles[index], [], function(r){
+            console.log("*********crearColeccionesPorPerfilRecursivo fin  ",r);
+            setTimeout(function(){
+                if(!(resultadosDelProceso && Array.isArray(resultadosDelProceso))){
+                    resultadosDelProceso = [];
+                }
+                resultadosDelProceso = resultadosDelProceso.concat(r);
+                index += 1;
+               padre.coleccionesPorGrupoDePerfiles(index, grupoDePerfiles, origen, resultadosDelProceso, callback);
+            },5000);
+        });
+    }else{
+       callback(resultadosDelProceso);
+    }
+}
 
+var intentosParaSincronizar = [];
 OracleMongo.prototype.crearBackupsSqliteAutomatica = function(origen){
     var padre=this;
+     mailOptions.to  = 'paguilera@ecuaquimica.com.ec,ohonores@ecuaquimica.com.ec';
+     mailOptions.subject  = "ECUAQUIMICA -- CREACION AUTOMATICA DE SQLITE";
+	 mailOptions.html  = "Estimados se inició el proceso de creacion de sqlite <br>Orgine:#origen <br>Fecha: #FECHA".replace("#origen",origen ? JSON.stringify(origen):"no se pudo obtener").replace("#FECHA",new Date().toString().split("GMT-0500")[0]);
+     transporter.sendMail(mailOptions, function(error, info){});
     console.log("SINCRONIZACION::crearColeccionesBdSqliteTipoDiccionarios INICIO ",new Date());
     padre.crearColeccionesBdSqliteTipoDiccionarios(origen).then(function(success){
         console.log("SINCRONIZACION::crearColeccionesBdSqliteTipoDiccionarios ok ",new Date(),success);
         setTimeout(function(){
-            padre.crearColeccionesPorPerfilRecursivo(origen, 0, [140,101,123,135,108,137,107,156]);
-
-        },60000);
+            var p = [101,140,108,137,123,156,135,107/*1,112,65,92*/];
+            padre.coleccionesPorGrupoDePerfiles(0, [p], origen, [], function(){});
+            //padre.getPerfiles()
+            /*padre.getPerfiles().then(function(perfiles){
+                var grupoDePerfiles = [];
+                for(var i=0;i<perfiles.length;i++){
+                    if(i % 50 == 0){
+                        grupoDePerfiles.push(perfiles.slice(i, i+50));
+                    }
+                }
+               padre.coleccionesPorGrupoDePerfiles(0, grupoDePerfiles, origen, [], function(){});
+                
+            },function(error){
+                 console.log("SINCRONIZACION::crearColeccionesBdSqliteTipoDiccionarios::getPerfiles",new Date(),"No hay perfiles");
+            });*/
+        },2000);
     },function(error){
-        console.log("SINCRONIZACION::ERROR AL CREAR LOS BACKUPS ",new Date(), JSON.stringify(error));
+            var ref = new Date().getTime();
+            console.log("SINCRONIZACION::ERROR AL CREAR LOS BACKUPS ",new Date(), JSON.stringify(error));
+            var mensaje = "Estimados no se logró crear el sqlite para diccionarios, por favor revisar el error.<br> #FECHA <br>Error: #ERROR <br><br>Se activó el proceso nuevamanete para que inicie en 45 segundos, ref::#REFERENCIA"
+            mailOptions.to  = 'paguilera@ecuaquimica.com.ec, ohonores@ecuaquimica.com.ec';
+            mailOptions.subject  = "ECUAQUIMICA -- ERROR EN LA CREACION DE DICCIONARIOS ";
+            mailOptions.html  = mensaje.replace("#ERROR", error && Array.isArray(error)? error.toString():JSON.stringify(error)).replace("#FECHA",new Date().toString().split("GMT-0500")[0]);
+			transporter.sendMail(mailOptions, function(error, info){
+            });
+
+         setTimeout(function(){
+                var mensaje = "Estimados se inició la activación de la creación de sqlite <br>ref:#REFERENCIA <br>#FECHA";
+                mailOptions.to  = 'paguilera@ecuaquimica.com.ec, ohonores@ecuaquimica.com.ec';
+                mailOptions.subject  = "ECUAQUIMICA -- CREACION DE SQLITES";
+                mailOptions.html  = mensaje.replace("#REFERENCIA", ref).replace("#FECHA",new Date().toString().split("GMT-0500")[0]);
+                transporter.sendMail(mailOptions, function(error, info){
+                });
+             padre.crearBackupsSqliteAutomatica({origen:"Modo automatico",motivo:"Erro al crear los diccionarios"});
+         }, 45000);//45 segundos
     });
 }
+
+
+
 
 /**
  * Funcion: Permite grabar en la base de mongodb todas las tablas en comun para todos los perfiles y hace un backup de sqlite
@@ -2023,7 +2430,7 @@ OracleMongo.prototype.crearColeccionesBdSqliteTipoDiccionarios = function(origen
 
     var version = new Date().getTime();
     var nombreArchivo = "diccionarios_#version.db".replace("#version",version);
-    var coleccion = {nombre:"emcversiones",datos:{tipo:"diccionarios",version:version,nombreBackupSql:nombreArchivo,ubicacion:"/home/ecuaquimica/sqlite/bds/", origen:origen,resultado:{}}};
+    var coleccion = {nombre:"emcversiones",datos:{tipo:"diccionarios",version:version,nombreBackupSql:nombreArchivo,ubicacion:"/u02/movil/sqlite/bds/", origen:origen,resultado:{}}};
     var resultado={};
     padre.crearBdSqliteDiccionarios(nombreArchivo).then(function(success1){
         resultado.crearBdSqliteDiccionarios=success1;
@@ -2126,7 +2533,7 @@ OracleMongo.prototype.getTotalRegistrosPorPerfil = function(perfil, nuevoResulta
         });
     },function(x){
         deferred.reject(false);
-    })
+    });
     return deferred.promise;
 };
 
@@ -2181,37 +2588,145 @@ function buscarEstadoPorOrden(orden){
 }
 
 function notificarEstadosAlMovil(conexion, sokectId, perfil, estado, idmovil, tabla, callback){
-    console.log("notificarEstadosAlMovil",sokectId);
-    conexion.to(sokectId).emit('actualizar:estados',{amodificar:{estado:estado}, parametros:{id:idmovil},tabla:tabla});
+    console.log("notificarEstadosAlMovil enviado a sincronizar ",perfil);
+     conexion.to(sokectId).emit('actualizar:estados',{amodificar:{estado:estado}, parametros:{id:idmovil},tabla:tabla});
     callback(true);
     
 }
 
-
-function sincronizarNuevosDatosAlMovil(conexion, perfil, perfilDispositivoMap, callback){
-    console.log("sincronizarNuevosDatosAlMovil",perfil,datos);
+function sincronizarNuevosDatosAlMovilEnvioBackup(conexion, perfil, callback){
+    console.log("sincronizarNuevosDatosAlMovilEnvioBackup enviado a sincronizar ",perfil);
+    conexion.to(perfil).emit('socket:eval'," try{ if(window.cordova){$rootScope.porcentajeSincronizador={porcentaje:'0%'};sincronizacionManual().then(function(success){$ionicPopup.alert({  title: 'Sincronizando...', template: 'Por favor espere..<br>{{porcentajeSincronizador.porcentaje}}%' });socket.emit('perfil:sincronizado',{perfil:JSON.parse(localStorage.getItem('perfil')).id,resultado:success,uidd:getUidd()});},function(error){alert(error); socket.emit('perfil:sincronizado',error);  },function(porcentaje){$rootScope.porcentajeSincronizador = porcentaje});}}catch(error){alert(error)}");
+    callback(true);
+}
+OracleMongo.prototype.procesarPedidosDesdeMongoDbHaciaOracle = function(parametros){
     /*
-     Sincronizacion
-     1. El parametro datos es un un array con la siguiente informacion:
-        perfilDispositivoMap.perfil = perfil
-        dperfilDispositivoMap.dispositivo dispositivo
-        dperfilDispositivoMap.versionPerfilReferencia = versionPerfilReferencia, es la cual el sincronizador antes de actualizar verificara que eixsta esta version
-        dperfilDispositivoMap.versionPerfil = versionPerfil, nueva version que se actualizara al dispositivo
-        dperfilDispositivoMap.versionActualizacion = versionActualizacion, es la version de la actualizacion
-     2. Se hace una busqueda del buffer(scrip) en la coleccion emcversiones
-     3. Formo un json a evniar via socket mendiante el proceso sockect sincronizacion
+     /*procesarPedidosDesdeMongoDbHaciaOracle { tabla: 'emovtorden',
+  hash: '603f4c8e7b592a6e057558cdd7c3480de5c2aa73' }
+procesarPedidosDesdeMongoDbHaciaOracle []
 
     */
+    console.log("procesarPedidosDesdeMongoDbHaciaOracle",parametros);
+	 mongodb.getRegistrosCustomColumnas("emcrecibidas",{"hash":parametros.hash},{"registroMovil":1}, function(respuesta){
+           console.log("procesarPedidosDesdeMongoDbHaciaOracle",respuesta);
+                respuesta.forEach(function(r){
+					console.log("grabagetRegistrosCustomColumnasrNestedJson",r);
+                    r.registroMovil.REGISTROSASOCIADOS.forEach(function(d){
+                        if(d.registros){
+                            d.registros.forEach(function(e){
+                                
+                            })
+                        }
+                    });
+					oracledb.grabarNestedJson(r.registroMovil, parametros.tabla).then(function(r){
+						console.log("grabarNestedJson",r);
+                        
+						if(r){	
+                               if(parametros.tabla.toLowerCase().indexOf("emcorden")>=0 ){
+                                    padre.procesarPedidos(datosperfil.perfil)
+                                }
+                                if(parametros.tabla.toLowerCase().indexOf("emccartera")>=0){
+                                    padre.procesarCartera(datosperfil.perfil);
+                                }
 
-    //Paso 2
-    mongodb.getRegistroCustomColumnas("emcscriptsVersiones", {versionActualizacion:parseInt(perfilDispositivoMap.perfil)}, {buffer:1,_id:0}, function(respuesta){
-            conexion.to(perfil).emit('sincronizacion', { db: true, buffer:respuesta.buffer,fecha:new Date().getTime(), parametros:perfilDispositivoMap});
+							
+						}
+					});
+				});
+	});
+	
+	/*mongodb.getRegistrosCustomColumnas("emcrecibidas",{hash: parametros.hash},{"registroMovil":1}, function(respuesta){
+                respuesta.forEach(function(r){
+					console.log("grabagetRegistrosCustomColumnasrNestedJson",r);
+					oracledb.grabarNestedJson(r.registroMovil, parametros.colecion).then(function(r){
+						console.log("grabarNestedJson",r);
+						if(coleccion && coleccion.coleccion.toLowerCase().indexOf("emcorden")>=0 ){
+							padre.procesarPedidos(datosperfil.perfil)
+						}
+						if(coleccion && coleccion.coleccion.toLowerCase().indexOf("emccartera")>=0 && datos && datos.preimpreso){
+							padre.procesarCartera(datosperfil.perfil);
+						}
+					});
+				});
+	});*/
+}
+
+function sincronizarNuevosDatosAlMovil(conexion, perfil, perfilDispositivoMap, perfilRedis, callback){
+    
+    client.hget('sincronizar:perfiles:estado', perfilRedis, function(err, estado) {
+          console.log('sincronizar:perfiles:estado',perfilRedis, estado)
+         if(estado){
+                callback(true);
+                return;
+            }else{
+                /*
+                 Sincronizacion
+                 1. El parametro datos es un un array con la siguiente informacion:
+                    perfilDispositivoMap.perfil = perfil
+                    dperfilDispositivoMap.dispositivo dispositivo
+                    dperfilDispositivoMap.versionPerfilReferencia = versionPerfilReferencia, es la cual el sincronizador antes de actualizar verificara que eixsta esta version
+                    dperfilDispositivoMap.versionPerfil = versionPerfil, nueva version que se actualizara al dispositivo
+                    dperfilDispositivoMap.versionActualizacion = versionActualizacion, es la version de la actualizacion
+                 2. Se hace una busqueda del buffer(scrip) en la coleccion emcversiones
+                 3. Formo un json a evniar via socket mendiante el proceso sockect sincronizacion
+
+                */
+
+                //Paso 2
+                mongodb.getRegistroCustomColumnas("emcscriptsVersiones", {versionActualizacion:parseInt(perfilDispositivoMap.versionActualizacion)}, {buffer:1,nombreScriptTemp:1}, function(respuesta){
+                  //  console.log(respuesta);
+                        if(respuesta._id){
+                            //paso 3  //getJsonEstablecimientos
+                            //perfilDispositivoMap.validarTotalRegistros = entidesMonogoDB.getValidacionesSql().reduce(function(a,b){if(b.sqlEncontrados){a.push(b.sqlEncontrados) } return a;},[])
+                            mongodb.getRegistroCustomColumnas("emcversiones",{versionPerfil:parseInt(perfilDispositivoMap.versionPerfil), perfil:perfilDispositivoMap.perfil.toString(), tipo:"perfiles", estado:true},{validaciones:1},function(resultadosVersiones){
+                                var validaciones = resultadosVersiones.validaciones;
+                                if(validaciones && validaciones.resultados && Array.isArray(validaciones.resultados)){
+                                    perfilDispositivoMap.validarTotalRegistros = validaciones.resultados.reduce(function(a,b){if(b.tabla && b.scripts && b.scripts.sqlite && b.sqlEncontrados){a.push({esperados:b.sqlEncontrados,sql:b.scripts.sqlite,tabla:b.tabla} )} return a;},[]);    
+                                }else{
+                                    perfilDispositivoMap.validarTotalRegistros = [];
+                                }
+                                console.log("sincronizarNuevosDatosAlMovil enviado a sincronizar ",perfil, respuesta);
+                                conexion.to(perfil).emit('sincronizacion', { db: true, nombreScriptTemp:respuesta.nombreScriptTemp, buffer:respuesta.buffer.buffer,fecha:new Date().getTime(), parametros:perfilDispositivoMap });
+                            });
+
+
+
+
+                            /* borrame luego
+                              "_id" : ObjectId("57ac59fa00969930108aa714"),
+                              "tipo" : "actualizaciones",
+                              "versionPerfil" : 1470912965010,
+                              "versionActualizacion" : 1470913015953,
+                              "nombreScriptTemp" : "srcript_1470913015953_101.sql",
+                              "ubicacionScripTemp" : "/home/ecuaquimica/sqlite/areatrabajo/",
+                            */
+                            /*mongodb.getRegistroCustomColumnas("emcversiones", {versionActualizacion:parseInt(perfilDispositivoMap.versionActualizacion)}, {ubicacionScripTemp:1, nombreScriptTemp:1}, function(respuestaB){
+                                if(respuestaB.ubicacionScripTemp && respuestaB.nombreScriptTemp){
+
+                                     fs.readFile(respuestaB.ubicacionScripTemp + respuestaB.nombreScriptTemp , function(err, buf){
+
+                                     });
+                                }
+                            });*/
+
+
+                        }else{
+
+                        }
+
+                });
+    
+           
+                console.log("sincronizarNuevosDatosAlMovil se envio a actualizar el dispositivo ", perfilRedis, estado);
+                client.hmset('sincronizar:perfiles:estado', perfilRedis, estadosPerfilPorSincronizar.S );
+               
+            }
     });
-
     //conexion.to(perfil).emit('socket:eval'," try{ if(window.cordova){$rootScope.porcentajeSincronizador={porcentaje:'0%'};sincronizacionManual().then(function(success){$ionicPopup.alert({  title: 'Sincronizando...', template: 'Por favor espere..<br>{{porcentajeSincronizador.porcentaje}}%' });socket.emit('perfil:sincronizado',{perfil:JSON.parse(localStorage.getItem('perfil')).id,resultado:success,uidd:getUidd()});},function(error){alert(error); socket.emit('perfil:sincronizado',error);  },function(porcentaje){$rootScope.porcentajeSincronizador = porcentaje});}}catch(error){alert(error)}");
     callback(true);
 }
 OracleMongo.prototype.socketEmit = function(conexion, perfil,emit, dato, callback){
+    console.log("socketEmit enviado a sincronizar ",perfil);
     conexion.to(perfil).emit(emit,dato);
     callback(true)
     
@@ -2223,23 +2738,51 @@ OracleMongo.prototype.getEstadosPerfilPorSincronizar = function(){
 OracleMongo.prototype.sincronizarPerfilesNuevosDatos = function(conexion, dispositivosConectados){
     //Origen client.sadd('sincronizar:perfiles',perfil+":"+dispositivo+":"+success.versionPerfilReferencia+":"+success.versionPerfil+":"+success.versionActualizacion+":");
     client.smembers('sincronizar:perfiles', function(err, perfilesYdispositivos) {
-         if(Array.isArray(perfiles)){
+         if(Array.isArray(perfilesYdispositivos)){
                 perfilesYdispositivos.forEach(function(perfil){
+                    //console.log("sincronizarPerfilesNuevosDatos", perfil);
                     var perfilDispositivo = perfil.split(":");
                     var perfilDispositivoMap = {perfil:perfilDispositivo[0], dispositivo:perfilDispositivo[1], versionPerfilReferencia:perfilDispositivo[2],versionPerfil:perfilDispositivo[3],versionActualizacion:perfilDispositivo[4]}
-                     console.log("sincronizarNuevosDatosAlMovil for ", perfilDispositivo);
                      if( perfilDispositivoMap && perfilDispositivoMap.perfil && perfilDispositivoMap.dispositivo && dispositivosConectados[perfilDispositivoMap.perfil] && dispositivosConectados[perfilDispositivoMap.perfil][perfilDispositivoMap.dispositivo]){
-                         sincronizarNuevosDatosAlMovil(conexion, dispositivosConectados[perfilDispositivoMap.perfil][perfilDispositivoMap.dispositivo], perfilDispositivoMap, function(estado){});
+                         sincronizarNuevosDatosAlMovil(conexion, dispositivosConectados[perfilDispositivoMap.perfil][perfilDispositivoMap.dispositivo], perfilDispositivoMap, perfil, function(estado){});
+                         
                      }
 
                });
          }
     });
 }
+
+OracleMongo.prototype.sincronizarPerfilesNuevosDatosEnvioBackup = function(conexion, dispositivosConectados){
+    //Origen client.sadd('sincronizar:perfiles',perfil+":"+dispositivo+":"+success.versionPerfilReferencia+":"+success.versionPerfil+":"+success.versionActualizacion+":");
+    client.smembers('sincronizarbackup:perfiles', function(err, perfilesYdispositivos) {
+         if(Array.isArray(perfilesYdispositivos)){
+                perfilesYdispositivos.forEach(function(perfil){
+                    for(key in dispositivosConectados[perfil]){
+                        client.hget('sincronizarbackup:perfiles:estado',perfil, function(err, estado) {
+                              if(!estado){
+                                  client.hmset('sincronizarbackup:perfiles:estado', perfil, estadosPerfilPorSincronizar.S , function(err, reply) {
+                                        console.log("sincronizarbackup:perfiles:estado ",perfil, reply);
+                                        sincronizarNuevosDatosAlMovilEnvioBackup(conexion, dispositivosConectados[perfil][key], function(estado){});
+                                        //Notifica al mobil
+                                  });
+                                  
+                              }else{
+                                  
+                              }
+                          });
+                    }
+                   
+
+               });
+         }
+    });
+}
+
 OracleMongo.prototype.revisarEstadosDeOrdenesEnviadasDesdeMovil = function(conexion, dispositivosConectados){
     client.smembers('ordenes', function(err, ordenes) {
         if(!err){
-            console.log(ordenes)
+          //  console.log(ordenes)
             if(Array.isArray(ordenes)){
                 ordenes.forEach(function(orden){
                     buscarEstadoPorOrden(orden).then(function(res){
@@ -2247,65 +2790,62 @@ OracleMongo.prototype.revisarEstadosDeOrdenesEnviadasDesdeMovil = function(conex
                              console.log("NNO SE ENCONTRO ",res);
                            return ; 
                         }
-                        console.log("buscarEstadoPorOrden", res);
+                       // console.log("buscarEstadoPorOrden", res);
                         if(res.estado === "EA"){
                            client.srem('ordenes',res.orden, function(err, estado) {
-                               console.log("Eliminada de ordenes en redis ",res.orden,estado);
+                                //console.log("Eliminada de ordenes en redis ",res.orden,estado);
                            });
                            client.hdel('orden::estado',res.orden, function(err, estado) {
-                               console.log("Eliminada de orden::estado en redis ",res.orden,estado);
+                                //console.log("Eliminada de orden::estado en redis ",res.orden,estado);
                            });
-                            
+                            //ACTUALIZANDO EL ESTADO EN LA TABLA EMOVTORDEN DE ORACLE
+                           oracledb.getPoolClienteConexion("UPDATE EMOVTORDEN SET ESTADO=:ESTADO WHERE ORDEN_ID=:ORDEN", [res.estado, res.orden], true, function(respuestaora){
+						   });
+                            //ACTUALIZANDO EL ESTADO EN EL DISPOSITIVO
+                            if(res.dispositivo && dispositivosConectados && dispositivosConectados[res.perfil] && dispositivosConectados[res.perfil][res.dispositivo]){
+                                notificarEstadosAlMovil(conexion, dispositivosConectados[res.perfil][res.dispositivo], res.perfil, res.estado, res.idmovil, "emovtorden",function(estado){
+                                });
+                            }
                             //notificar al mobil
                         }else{
                             //Verficar si ya esxiste el estado
                             client.hget('orden::estado',res.orden, function(err, estado) {
-                                console.log("err",err)
-                                console.log("estado",estado)
                                 if(estado !== res.estado){
                                     client.hmset('orden::estado',res.orden,res.estado , function(err, reply) {
-                                        console.log("Orden en hmset", reply);
                                         //Notifica al mobil
                                     });
-                                }
+                                       //ACTUALIZANDO EL ESTADO EN LA TABLA EMOVTORDEN DE ORACLE
+                                       oracledb.getPoolClienteConexion("UPDATE EMOVTORDEN SET ESTADO=:ESTADO WHERE ORDEN_ID=:ORDEN", [res.estado, res.orden], true, function(respuestaora){
+                                       });
+                                        //ACTUALIZANDO EL ESTADO EN EL DISPOSITIVO
+                                        if(res.dispositivo && dispositivosConectados && dispositivosConectados[res.perfil] && dispositivosConectados[res.perfil][res.dispositivo]){
+                                            notificarEstadosAlMovil(conexion, dispositivosConectados[res.perfil][res.dispositivo], res.perfil, res.estado, res.idmovil, "emovtorden",function(estado){
+                                            });
+                                        }
+                                }// if(estado !== res.estado)
                             });
 
                         }
-                        console.log("estado...",res.estado)
                         if(res.estado === 'OP' || res.estado === 'OA' ){
-
+                            //Se vuelve a procesar
                             procesarOrdenEnProduccionSwisSystem(res.orden, null).then(function(r){
+                                
                             },function(error){
-								client.srem('ordenes',res.orden, function(err, estado) {
-									console.log("Eliminada de sets en redis ",res.orden,estado);
-								});
-								oracledb.getPoolClienteConexion("UPDATE EMOVTORDEN SET ESTADO=:ESTADO, MENSAJE=:M WHERE ORDEN_ID=:ORDEN", [error.estado,error.mensaje, res.orden], true, function(respuestaora){
-									console.log(respuestaora);
-								});
+                                //Si al procesar ocurre algún error se cambia de estado a la orden si es que existe la esteado en la variable error
+                                if(error && error.estado){
+                                     //Se actualiza la tabla EMOVTORDEN de oracle
+								    oracledb.getPoolClienteConexion("UPDATE EMOVTORDEN SET ESTADO=:ESTADO, MENSAJE=:M WHERE ORDEN_ID=:ORDEN", [error.estado,error.mensaje, res.orden], true, function(respuestaora){});
+                                    //Se actualiza el dispositivo siempre y cuando esté conectado
+                                    if(res.estado != 'OP' && res.dispositivo && dispositivosConectados && dispositivosConectados[res.perfil] && dispositivosConectados[res.perfil][res.dispositivo]){
+                                        notificarEstadosAlMovil(conexion, dispositivosConectados[res.perfil][res.dispositivo], res.perfil, error.estado, res.idmovil, "emovtorden",function(estado){
+                                        });
 
-								if(res.dispositivo && dispositivosConectados && dispositivosConectados[res.perfil] && dispositivosConectados[res.perfil][res.dispositivo]){
-									notificarEstadosAlMovil(conexion, dispositivosConectados[res.perfil][res.dispositivo], res.perfil, error.estado, res.idmovil, "emovtorden",function(estado){
-									console.log("notificarEstadosAlMovil",estado)
-									});
+                                    }
 
-								}else{
-									console.log("no se notificara puede ser por el perfil o dispositivo", dispositivosConectados, dispositivosConectados[res.perfil],res.dispositivo )
-								}
-
-							});
+                                }
+                  			});
                         }
-                        oracledb.getPoolClienteConexion("UPDATE EMOVTORDEN SET ESTADO=:ESTADO WHERE ORDEN_ID=:ORDEN", [res.estado, res.orden], true, function(respuestaora){
-									console.log(respuestaora);
-						});
-                        
-                        if(res.dispositivo && dispositivosConectados && dispositivosConectados[res.perfil] && dispositivosConectados[res.perfil][res.dispositivo]){
-                            notificarEstadosAlMovil(conexion, dispositivosConectados[res.perfil][res.dispositivo], res.perfil, res.estado, res.idmovil, "emovtorden",function(estado){
-                            console.log("notificarEstadosAlMovil",estado)
-                            });
-
-                        }else{
-                            console.log("no se notificara puede ser por el perfil o dispositivo", dispositivosConectados, dispositivosConectados[res.perfil],res.dispositivo )
-                        }
+                            
                         
 
                         
@@ -2378,46 +2918,14 @@ OracleMongo.prototype.crearBdSqlitePorPerfil = function(perfil, bdPorPerfil){
             scripts = scripts.concat(padre.getScriptsIterarPorPerfil("Drop",padre.getTablasScriptDrop()));
             scripts = scripts.concat(padre.getScriptsIterarPorPerfil("",script));
             scripts = scripts.concat(padre.getScriptsIterarPorPerfil("UniqueKey",padre.getTablasScriptUniqueKey()));
-
-      /*
-        getScriptsIterarPorPerfil
-           for(key in padre.getTablasScriptDrop()){
-               if("emovtitemsemovtitem_promocionventaemovtdiccionarios".indexOf(key.replace("DROP",""))<0){
-                    scripts.push(padre.getTablasScriptDrop()[key]);
-               }
-
-           }
-
-
-
-           for(key in script){
-               if("emovtitemsemovtitem_promocionventaemovtdiccionarios".indexOf(key)<0){
-               scripts.push(script[key]);
-               }
-           }
-           for(key in padre.getTablasScriptUniqueKey()){
-               if("emovtitemsemovtitem_promocionventaemovtdiccionarios".indexOf(key.replace("UniqueKey",""))<0){
-               scripts.push(padre.getTablasScriptUniqueKey()[key]);
-               }
-           }*/
-            var busquedaPorPerfil = {};
-            if(perfil === "todos" ){
-              busquedaPorPerfil = {}
-            }
-            if(!isNaN(perfil)){
-              busquedaPorPerfil = {"registroInterno.perfil":parseInt(perfil)}
-            }
-             sqliteCliente_.crearTablas(bdPorPerfil, scripts).then(function(success){
-                    console.log("crearTablas",success, bdPorPerfil,scripts);
+            sqliteCliente_.crearTablas(bdPorPerfil, scripts).then(function(success){
                     deferred.resolve(true);
                 },function(error){
-                     console.log("crearTablas error ",error);
                     deferred.reject(error);
             });
 
 
     },function(error){
-             console.log("getTablasScript error ",error);
             deferred.reject(error);
         });
     return deferred.promise;
@@ -2434,16 +2942,11 @@ OracleMongo.prototype.crearBdSqliteDiccionarios = function(nombreBdSlite){
             scripts = scripts.concat(padre.getScriptsNoIterarPorPerfil("UniqueKey",padre.getTablasScriptUniqueKey()));
             
             sqliteCliente_.crearTablas(nombreBdSlite, scripts).then(function(success){
-                    console.log("crearTablas",nombreBdSlite,scripts,success);
                     deferred.resolve(true);
                 },function(error){
-                     console.log("crearTablas error ",error);
                     deferred.reject(error);
                 });
-
-
     },function(error){
-             console.log("getTablasScript error ",error);
             deferred.reject(error);
         });
     return deferred.promise;
@@ -2650,10 +3153,18 @@ function procesarOrdenEnProduccionSwisSystem(orden, extras){
                 console.log("body *********************",body,servicio.replace("#ORDEN", orden).replace("#USUARIO_ID", respuestaora.rows[0].USUARIO_ID));
 				if(error){
 					console.log("ERROR *********************",error);
+                    deferred.reject(error);
 				}else{
-					if(body && body.indexOf("promociones anuladas")>=0 || body && body.indexOf("Desbloqueada")>=0 ){
+					if(body && (body.indexOf("promociones anuladas")>=0 || body && body.indexOf("Desbloqueada")>=0 || body && body.indexOf("promocionAnulada")>=0) ){
+                        if(body && body.indexOf("promocionAnulada")>=0){
+                            mailOptions.to  = 'paguilera@ecuaquimica.com.ec, ohonores@ecuaquimica.com.ec';
+							mailOptions.subject  = "ECUAQUIMICA -- PROMOCION ANULADA # "+orden;
+							mailOptions.html  = mensaje.replace("#mensaje",body ? body:"").replace("#ORDEN",orden).replace("#FECHA",new Date().toString().split("GMT-0500")[0]).replace("#ERRORES","PROMOCION ANULADA, SE CAMBIO A ESTADO OI");
+							transporter.sendMail(mailOptions, function(error, info){});
+                        }
 						deferred.reject({estado:"OI",mensaje:body.replace(/>/g,"").replace(/</g,"")});
-					}else{
+					}else
+                    {
 						if(body && (body + "").indexOf("Procesado")>=0){
 
 							mailOptions.to  = 'fblanc@gmail.com, ohonores@hotmail.com,dchavez@ecuaquimica.com.ec,ohonores@ecuaquimica.com.ec,paguilera@ecuaquimica.com.ec';
@@ -2665,10 +3176,9 @@ function procesarOrdenEnProduccionSwisSystem(orden, extras){
 								}else{
 									deferred.resolve(info.response)
 								}
-
-
 							});
 						}else{
+                            deferred.reject(false);
 							//deferred.reject({estado:"OI",mensaje:body.replace(/>/g,"").replace(/</g,"")});
 						}
 					}
@@ -2678,19 +3188,16 @@ function procesarOrdenEnProduccionSwisSystem(orden, extras){
             sqlObtenerUsuario.replace("#ORDEN", orden).replace("#USUARIO_ID",respuestaora.rows[0].USUARIO_ID)
             
         }else{
-            
             mailOptions.to  = 'fblanco@gmail.com, ohonores@hotmail.com,dchavez@ecuaquimica.com.ec,ohonores@ecuaquimica.com.ec,paguilera@ecuaquimica.com.ec';
-            mailOptions.subject  = "ECUAQUIMICA -- RECIBO DE PAGO ERROR AL ENVIAR EL EMAIL";
-            mailOptions.html  = mensajeError.replace("#ORDEN",orden).replace("#FECHA",new Date().toString().split("GMT-0500")[0]);
+            mailOptions.subject  = "ECUAQUIMICA -- AL PROCESAR A ORDEN #";
+            mailOptions.html  = "No se encontro el usuario correspondiente a la orden #".replace("#ORDEN",orden).replace("#FECHA",new Date().toString().split("GMT-0500")[0]);
             // send mail with defined transport object
             transporter.sendMail(mailOptions, function(error, info){
                 if(error){
-                    deferred.reject(error);
+                    //deferred.reject(error);
                 }else{
-                    deferred.resolve(info.response)
+                    //deferred.resolve(info.response)
                 }
-                
-                
             });
             
             deferred.reject("No se enontraron datos con la orden id",orden); 

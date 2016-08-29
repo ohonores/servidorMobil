@@ -10,13 +10,16 @@ var seguridadEDC = require('../../seguridad/SeguridadEDC.js');
 var oracledb = require('../../conexiones-basededatos/conexion-oracle.js');
 var mongodb = require('../../conexiones-basededatos/conexion-mongodb.js');
 var OracleMongo = require('../../utils/OracleMongo.js');
+var Geolocalizacion = require('../../utils/geoLocalizacion.js');
+    geolocalizacion = new Geolocalizacion();
 var mensajes = require('../../utils/mensajesLabels.js');
 var oracleMongo =  new OracleMongo(oracledb, mongodb);
-var urlMatriz = "http://documentos.ecuaquimica.com.ec:8080";
+
+var urlMatriz = process.env.DOMINIO;
 var urlPefil = "/movil/sincronizacion/inicio/perfil/:coleccion/:index";
 var urlDiccionario = "/movil/sincronizacion/inicio/diccionarios/:coleccion/:index";
-var urlRecpcion = "http://documentos.ecuaquimica.com.ec:8080/movil/sincronizacion/recepcion/:tabla/";
-var urlSincronizarPerifil = "http://documentos.ecuaquimica.com.ec:8080/movil/sincronizacion/actualizar/perfil-sinc/:coleccion/:index";
+var urlRecpcion = urlMatriz+"/movil/sincronizacion/recepcion/:tabla/";
+var urlSincronizarPerifil = urlMatriz+"/movil/sincronizacion/actualizar/perfil-sinc/:coleccion/:index";
 var parser = new UAParser();
 /* PAGINA DE INICIO. */
 router.get('/', TipoBrowser.browserAceptado, function(req, res, next) {
@@ -24,24 +27,9 @@ router.get('/', TipoBrowser.browserAceptado, function(req, res, next) {
 
 
 });
-/**
-    ESTE GET ES SOLO DE PRUEBA
-*/
-var tokenAix="";
-router.get('/datos',function(req, res, next){
-    var header={
-           'x-access-token':tokenAix
-   };
-   request({
 
-               uri: "http://documentos.ecuaquimica.com.ec:8087/movil/sincronizacion/perfil/emcperfilestablecimientos/3",
-               method: "GET",
-               headers: header,
-               timeout : 10000 //Maximo espera 10 segundos por peticion
-
-           }, function(error, response, body) {
-                res.send(body);
-           });
+router.get('/geolocalizacion',function(req, res, next){
+     res.render('home/index.html');
 });
 router.get('/movil/autentificacion-getToken/:identificacion/:empresa/:uidd/:x/:y/:token',  function(req, res) {
 
@@ -83,7 +71,7 @@ router.get('/movil/autentificacion-getToken/:identificacion/:empresa/:uidd/:x/:y
     //  Esta url permite la autenficacion y registro del device
     //  Grabando cada peticion en la base de mongo
     // =====================================
-var coleccion = {nombre:"emcversiones",datos:{tipo:"diccionarios",version:"",nombreBackupSql:"",ubicacion:"/home/ecuaquimica/sqlite/bds/", origen:"",resultado:{}}};
+var coleccion = {nombre:"emcversiones",datos:{tipo:"diccionarios",version:"",nombreBackupSql:"",ubicacion:"/u02/movil/sqlite/bds/", origen:"",resultado:{}}};
 router.get('/movil/autentificacion/:tipo/:identificacion/:empresa/:uidd/:x/:y/:token', seguridadEDC.validarIdentificacion, function(req, res) {
     oracleMongo.autentificacionOracle(req).
     then(oracleMongo.autentificacionMongo).
@@ -112,7 +100,7 @@ router.get('/movil/autentificacion/:tipo/:identificacion/:empresa/:uidd/:x/:y/:t
                         case "device":
                              mongodb.getRegistrosCustomColumnasOrdenLimite(coleccion.nombre, {tipo:"zip",estado:true,perfil:respuesta.registroInterno.perfil.toString()}, {nombreBackupZip:1,ubicacion:1,version:1,versionPerfil:1}, {versionPerfil:-1}, 1, function(resMDB){
                                 if(resMDB && resMDB[0] && resMDB[0].nombreBackupZip){
-                                    respuesta.zipUrl = "http://documentos.ecuaquimica.com.ec:8080/zipsSqls/#archivo".replace("#archivo",resMDB[0].nombreBackupZip);
+                                    respuesta.zipUrl = urlMatriz+"/zipsSqls/#archivo".replace("#archivo",resMDB[0].nombreBackupZip);
                                     respuesta.versionPerfil = resMDB[0].versionPerfil;
                                     console.log("respuesta",respuesta);
                                     /**MODIFICANDO LA COLECCION VERSIONES CON LOS DISPOSITIVOS**/
@@ -212,7 +200,7 @@ router.get('/movil/iniciar/sensor/sincronizador/get-datos', function(req, res) {
 var sincronizarColeeciones = false;
 var sincronizarColeecionesPendientes  = [];
 router.get('/movil/iniciar/sensor/sincronizador/actualizar-datos/:tablas', function(req, res) {
-    
+       console.log('/movil/iniciar/sensor/sincronizador/actualizar-datos/:tablas', req.headers)
 		oracleMongo.crearBackupsSqliteAutomatica(parser.setUA(req.headers['user-agent']).getResult());
 		/*oracleMongo.actualizarColecciones(req.params.tablas.split(','), parser.setUA(req.headers['user-agent']).getResult()).then(function(succes){
             
@@ -237,8 +225,17 @@ router.get('/movil/iniciar/cargar-datos-iniciales/:perfil', function(req, res) {
     if(req.params.perfil === "todos"){
         oracleMongo.crearColeccionesPorPerfilRecursivo(parser.setUA(req.headers['user-agent']).getResult(), 0, [140,101,123]);
     }else{
-        oracleMongo.crearColeccionesPorPerfil(parser.setUA(req.headers['user-agent']).getResult(), req.params.perfil);
+        oracleMongo.crearColeccionesScriptsPorPerfil(parser.setUA(req.headers['user-agent']).getResult(), req.params.perfil);
     }
+    res.send("Listo perfil");
+});
+router.get('/movil/iniciar/cargar-sqldiff/:perfil', function(req, res) {
+    oracleMongo.crearSqlDiffPorPerfil(req.params.perfil, parser.setUA(req.headers['user-agent']).getResult(), true);
+    res.send("Listo perfil");
+});
+router.get('/movil/iniciar/cargar-sqldiff-version/:perfil/:version', function(req, res) {
+    console.log(req.params,req.params.version );
+    oracleMongo.crearSqlDiffPorPerfil(req.params.perfil, parser.setUA(req.headers['user-agent']).getResult(), req.params.version);
     res.send("Listo perfil");
 });
 router.get('/movil/actualizar/impresora/:perfil/:impresora', function(req, res) {
@@ -262,8 +259,8 @@ router.get('/movil/iniciar/forzarSincronizacion/:identificacion/:empresa/:notifi
     
        
 });
-router.get('/movil/procesar/pedidos', function(req, res) {
-        oracleMongo.procesarPedidos();
+router.get('/movil/procesar/pedidos/:perfil', function(req, res) {
+        oracleMongo.procesarPedidos(req.params.perfil);
     res.send("Proceso enviado");
 });
 router.get('/movil/procesar/cartera', function(req, res) {
@@ -311,5 +308,41 @@ router.get('/movil/iniciar/socket-mensaje/:perfil/:mensaje', function(req, res) 
     }
        
 });
+router.get('/movil/iniciar/geolocalizacion/:perfil', function(req, res) {
+    
+   console.log('/movil/iniciar/geolocalizacion/:perfil',req.params,req.app.dispositivosConectados)
+    if(req.app.dispositivosConectados[req.params.perfil] && req.params.perfil ){
+        geolocalizacion.getPosicionActual(req.app.conexiones[req.app.empresas[0].ruc], req.app.dispositivosConectados, req.params.perfil);
+         res.send("geolocalizacion pedida a  "+req.params.perfil);
+    }else{
+        if(!req.app.dispositivosConectados[req.params.perfil]){
+            res.json({error:"Error al activar el servicio de mensajes, el perfil no esta conectado"});
+        }else{
+            res.json({error:"Error al activar el servicio de mensajes, debe ingresar un pefil y el mensaje"});
+        }
+    }
+       
+});
+router.get('/movil/iniciar/backupsqlite/:perfil', function(req, res) {
+    
+   console.log('/movil/iniciar/backupsqlite/:perfil',req.params)
+    if(req.app.dispositivosConectados[req.params.perfil] && req.params.perfil ){
+        geolocalizacion.getBaseSqlite(req.app.conexiones[req.app.empresas[0].ruc], req.app.dispositivosConectados, req.params.perfil);
+         res.send("geolocalizacion pedida a  "+req.params.perfil);
+    }else{
+        if(!req.app.dispositivosConectados[req.params.perfil]){
+            res.json({error:"Error al activar el servicio de mensajes, el perfil no esta conectado"});
+        }else{
+            res.json({error:"Error al activar el servicio de mensajes, debe ingresar un pefil y el mensaje"});
+        }
+    }
+       
+});
+router.get('/movil/procesar/pedidos/mongodb/:tabla/:hash', function(req, res) {
+        oracleMongo.procesarPedidosDesdeMongoDbHaciaOracle(req.params);          
+        res.send("Proceso pedidos mongodb");
+});
+
+
 
 module.exports = router;

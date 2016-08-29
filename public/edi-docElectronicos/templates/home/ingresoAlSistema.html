@@ -1,0 +1,37 @@
+<span class="titulo_14">Ingresar al Sistema</span><hr>
+
+
+<form id="formLogin" class="formularioingreso" ng-submit="procesarForm()">
+
+    <div class="input-group">
+        <span class="input-group-addon" style="background-color:#fff" id="sizing-addon1"><i class="icon-fixed-width icon-user"></i></span>
+        <input name="username" id="username" class="form-control" aria-describedby="sizing-addon1" ng-keyup="enviarDatos();" ng-model="formDatosVirtual.username" size="30"  type="text" autocomplete="off" placeholder="Ingrese su ruc/cédula" required />
+
+    </div>
+    <br>
+    <div class="input-group">
+        <span class="input-group-addon" style="background-color:#fff" id="sizing-addon2"><i class="icon-fixed-width icon-lock"></i></span>
+        <input type="password" ng-keyup="enviarDatos();" class="form-control" aria-describedby="sizing-addon2" name="password" ng-model="formDatosVirtual.password" id="password" value="" autocomplete="off" placeholder="Ingrese su contraseña" required/>
+
+    </div>
+    <br>
+    <div class="input-group">
+        <span class="input-group-addon" style="background-color:#fff" id="sizing-addon3"><input  type="checkbox" ng-click="enviarDatos();" ng-model="formDatosVirtual.condic" data-mini="true"   id="terminosC" /></span>
+        <label type="text" for="terminosC" class="form-control"  aria-describedby="sizing-addon2" ><span style="font-weight:normal">Acepto las condiciones</span></label>
+    </div>
+    <a href="#" type="text"  aria-describedby="sizing-addon2"  ui-sref="ingreso.condiciones" ng-click="formDatosVirtual.formularioB=false;formDatosVirtual.formularioD=false;enviarDatos();" ><span style="font-size:14px !important;">Ver Condiciones</span></a>
+    <br>
+    <br>
+
+    <button type="submit" ng-click="enviarDatos();" class="btn btn-primary " ng-disable="formDatosVirtual.formularioAprocesar"  >Iniciar sesión</button>
+
+
+</form>
+<hr>
+<p class="serifparrafo">Si tienes problemas al ingresar, intenta las siguientes opciones: <br>
+
+
+    <a href="#"  ui-sref="ingreso.recuperacionClave" ng-click="imagenResetFormulario();formDatosVirtual.formularioB=true;formDatosVirtual.formularioD=false;enviarDatos();" >Olvidé mi contraseña</a>
+    <br>
+    <a href="#" ui-sref="ingreso.soporteEnLinea" ng-click="formDatosVirtual.formularioB=false;formDatosVirtual.formularioD=true;enviarDatos();"  style="color:red" >Soporte en línea</a>
+</p>

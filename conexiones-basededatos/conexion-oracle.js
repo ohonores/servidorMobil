@@ -45,7 +45,7 @@ var ClienteOracle = function () {this.init();};
           {
             user          : "swissmovi",
             password      : "swissmovi",
-            connectString : "swiss01_1_29",
+            connectString : "swiss01_1_24",
             poolMax       : 200, // maximum size of the pool
             poolMin       : 10, // let the pool shrink completely
             poolIncrement : 20, // only grow the pool by one connection at a time
@@ -53,8 +53,9 @@ var ClienteOracle = function () {this.init();};
           },
           function(err, pool)
           {
+            pool._logStats();  
             if (err) {
-              console.error("createPool() callback: " + err.message);
+              console.error("ERROR AL LLAMAR AL POOL createPool() callback: " + err.message);
               return;
             }
             poolConexion = pool;
@@ -211,6 +212,8 @@ function commitTransaccion(connection) {
 }
  function getPoolClienteConexionCommit(connection, sql, parametros,commit, resultado) {
     connection.execute(sql, parametros, { autoCommit: commit}, function(err, result) {
+        console.log(err);
+        console.log(result);
             // return the client to the connection pool for other requests to reuse
                 if(err) {
                     console.log("Error");
@@ -358,6 +361,7 @@ function grabarMovilJson(parametrosJson){
     console.log("scriptInsert",scriptInsert)
       scriptInsert.valoresJson.IDVALOR={type:oracledb.NUMBER,dir:oracledb.BIND_OUT};
       getPoolClienteConexionCommit(conexion, scriptInsert.sqlInsert, scriptInsert.valoresJson, false, function(resultado){
+          console.log(resultado);
                 if(resultado  && resultado.rowsAffected >= 1 && resultado.outBinds && resultado.outBinds.IDVALOR[0]){
                     if(REGISTROSASOCIADOS.length === 0){
                         deferred.resolve(conexion);

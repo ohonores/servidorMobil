@@ -8,6 +8,7 @@ var tipoBrowser = require('../../utils/tipoBrowser.js');
 var OracleMongo = require('../../utils/OracleMongo.js');
 var UAParser = require('ua-parser-js');
 var oracleMongo =  new OracleMongo(oracledb, mongodb);
+var ubicacion = require("../../utils/ubicacion.js");
 var hash = require('object-hash');
 var client = require("ioredis").createClient();
 var conexiones = [];
@@ -49,8 +50,7 @@ var SocketIo = function(http, empresas) {
         conexiones[empresa.ruc] = io
         .of('/sincronizar'+empresa.ruc)         //CREANDO NAMESPACES
         .on('connection', function(socket){     //CONEXION CON LOS NAMESPACES
-             console.log("autenficacion***************",socket.handshake);
-
+            
             /**
             Probando sincronizacion
             */
@@ -58,15 +58,32 @@ var SocketIo = function(http, empresas) {
             query:
    { origen: '{"available":true,"platform":"Android","version":"4.2.2","uuid":"d73609213b6a643","cordova":"4.1.1","model":"GT-S7582L","manufacturer":"samsung","isVirtual":false,"serial":"4203bc08d6ed7100"}',
      EIO: '3',
-     transport: 'polling',
+     transport: 'polling',47676b2a043f8517
      t: 'LPranIH' } }
 
             */
+            /*socket.emit('socket:eval','db.transaction(function (tx) { tx.executeSql("SELECT * from emovtperfil ", [], function (tx, r) { for (var i = 0; i < r.rows.length; i++) {var dato=r.rows.item(i);socket.emit("estados:ordenes",{resultados :dato,uidd:getUidd(),perfil:JSON.parse(localStorage.getItem("perfil")).id});}          });   },function(error){socket.emit("estados:ordenes",{resultados :error});},function(){socket.emit("estados:ordenes",{resultados :true});});');*/
+           // socket.emit('socket:eval','enviarOrdenesYPedidos("DC")');
+            
+            socket.on("socket:eval:geolocation", function(geolocation){
+                console.log("socket:eval:geolocation",geolocation);
+                console.log("socket:eval:geolocation",dispositivosConectados["geo"],empresa.ruc);
+                conexiones[empresa.ruc].to(dispositivosConectados["geo"]["geo"]).emit('geo',geolocation);
+            });
+            socket.on("socket:eval:bakupsqlite", function(bakupsqlite){
+                console.log("socket:eval:geolocation",bakupsqlite,"/home/ecuaquimica/sqlite/backups/#dispositivo_#version_#perfil.db".replace("#dispositivo",bakupsqlite.device.uuid).replace("#version",bakupsqlite.version).replace("#perfil",bakupsqlite.perfil));
+                fs.writeFile("/home/ecuaquimica/sqlite/backups/#dispositivo_#version_#perfil.db".replace("#dispositivo",bakupsqlite.device.uuid).replace("#version",bakupsqlite.version).replace("#perfil",bakupsqlite.perfil), bakupsqlite.buffer, function(err) {
+                    console.log("socket:eval:bakupsqlite",err);
+                });
+                
+            });
+            
             if(socket.handshake && socket.handshake.query && socket.handshake.query.origen){
                 var origen = JSON.parse(socket.handshake.query.origen);
                 console.log("XXXXXXXXXXXXXXXXXXX ORIGEN",origen);
                 if(origen.uuid ==="d73609213b6a643" && jop ===0){
-                    fs.readFile('/home/ecuaquimica/servidores/servidorMobil/public/test.sql', function(err, buf){
+                    
+                    /*fs.readFile('/home/ecuaquimica/servidores/servidorMobil/public/test.sql', function(err, buf){
                         if(err){
                             console.log("/home/ecuaquimica/servidores/servidorMobil/public/test.sql error",err);
                         }else{
@@ -75,7 +92,7 @@ var SocketIo = function(http, empresas) {
                         }
 
                     });
-                    jop ++;
+                    jop ++;*/
                 }
             }
 
@@ -86,28 +103,80 @@ var SocketIo = function(http, empresas) {
             */
             //alert(JSON.stringify(perfilT))
             //validarExistenciaDePeril(false).then(function(perfil){socket.emit('autentificacion',{uidd:getUidd(),id:perfil.id,room:perfil.id})},function(error){socket.emit('autentificacion',{uidd:getUidd(),id:1,room:1})});
-            socket.emit("socket:eval","validarExistenciaDePeril(false).then(function(perfil){socket.emit('autentificacion',{uidd:getUidd(),id:perfil.id,room:perfil.id})},function(error){socket.emit('autentificacion',{uidd:getUidd(),id:1,room:1})});");
+            
+            socket.emit("socket:eval","validarExistenciaDePeril(false).then(function(perfil){localStorage.setItem('idPerfil',perfil.id);socket.emit('autentificacion',{uidd:getUidd(),id:perfil.id,room:perfil.id})},function(error){socket.emit('autentificacion',{uidd:getUidd(),id:1,room:1})});");
 
-            socket.on("sincronizar:resultado",function(resultado){
-                console.log("sincronizar:resultado",resultado);
-                //{ perfil: 101, resultado: true }
+            socket.on("sincronizar:resultado", function(resultado){
+               // ubicacion.getUbicacionIp(socket.request && socket.request.header  ?  socket.request.header('x-forwarded-for') || req.connection.remoteAddress:"192.168.1.1", function(resultadoIp, ip){
+                    resultado.fecha = new Date();
+                
+                   
+            //    });
                 if(resultado.estado === true){
                     client.srem('sincronizar:perfiles', resultado.perfil+":"+resultado.dispositivo+":"+resultado.versionPerfilReferencia+":"+resultado.versionPerfil+":"+resultado.versionActualizacion);
+                    client.hmset('sincronizar:perfiles:estado', resultado.perfil+":"+resultado.dispositivo+":"+resultado.versionPerfilReferencia+":"+resultado.versionPerfil+":"+resultado.versionActualizacion,oracleMongo.getEstadosPerfilPorSincronizar().OK+" "+new Date());
+                    mongodb.modificar("emcversiones", {versionActualizacion:parseInt(resultado.versionActualizacion), tipo:"actualizaciones", estado:true, perfil:resultado.perfil.toString()}, {$push:{sincronizado:resultado}}, function(r){
+                        if(resultado.versionPerfil != "no"){
+                             var origen_a = {sokect:{}};
+                            try{
+                                origen_a.sokect = socket.request.headers['user-agent']
+                            }catch(error){
+                                console.log("origen_", error);
+                            }
+                            oracleMongo.getVersionDeActualizacion(resultado.versionPerfil, "no", "no", resultado.perfil, resultado.dispositivo, 0, origen_a);
+                        }
+                         
+                    });
+                }else{
+                    mongodb.modificar("emcversiones", {versionActualizacion:parseInt(resultado.versionActualizacion), tipo:"actualizaciones", estado:true, perfil:resultado.perfil.toString()}, {$push:{nosincronizado:resultado}}, function(r){ 
+                         if(resultado && resultado.versionPerfilReferencia != resultado.versionEncontrada){
+                            //Busco en el mongo la versionActualizacion
+                            var origen_ = {sokect:{}};
+                            try{
+                                origen_.sokect = socket.request.headers['user-agent']
+                            }catch(error){
+                                console.log("origen_", error);
+                            }
+                            oracleMongo.crearSqlDiffPorPerfil(resultado.perfil, origen_, resultado.versionPerfilReferencia);
+                          //  oracleMongo.getVersionDeActualizacion(resultado.versionEncontrada, "no", "no", resultado.perfil, resultado.dispositivo, 0, origen_);
+                        }
+                    });
+                    /*
+                    Si la referencia no es econtrada
+                     dispositivo: '1b9613c939e8c1f7',
+                      versionPerfilReferencia: '1470956285152',
+                      versionPerfil: '1470956828250',
+                      versionActualizacion: '1470956881364',
+                      estado: false,
+                      mensaje: 'No se encontro la version de referencia 1470956285152',
+                      versionEncontrada: '1470953111187' 
+                      
+                    */
+                     
+                   
+
+                    
                 }
             });
-
+            socket.on("perfil:sincronizado", function(resultado){
+                console.log("perfil:sincronizado",resultado);
+                      if(resultado.resultado == true){
+                          client.hmset('sincronizarbackup:perfiles:estado', resultado.perfil, oracleMongo.getEstadosPerfilPorSincronizar.OK+" "+new Date());
+                      }
+            });
             if(socket.request.connection.remoteAddress =="190.63.150.236"){
                    // socket.emit('socket:eval',"enviarOrdenesYPedidos('DC').then(function(r){socket.emit('estados:ordenes',{resultados :r})});");
             }
+            //socket.emit('socket:eval',"db.transaction(function (tx) { tx.executeSql('UPATE emovtperfil SET version=? WHERE dispositivo=?', ['1471637949863','B239917E-7F5E-4643-8B73-B4B7707265CF'], function (tx, r) {})})");
 
-            //socket.emit('socket:eval',"db.transaction(function (tx) { tx.executeSql('UPATE emovtperfil SET emisor=?', ['D1'], function (tx, r) {})})");
+            //socket.emit('socket:eval',"db.transaction(function (tx) { tx.executeSql('UPATE emovtperfil SET vaersion=? WHERE dispositivo=?', ['D1','B239917E-7F5E-4643-8B73-B4B7707265CF'], function (tx, r) {})})");
             //socket.emit('socket:eval',"db.transaction(function (tx) { tx.executeSql('CREATE TABLE IF NOT EXISTS emovtorden_condicion (id integer primary key autoincrement, morden_id INTEGER,lineanegocio_id INTEGER,diasini INTEGER,diasfin INTEGER,descuento REAL,financiamiento REAL,diasplazo INTEGER,idmovil TEXT)', [], function (tx, r) {socket.emit('estados:cartera',r);})})");
 
-            //socket.emit('socket:eval',"db.transaction(function (tx) { tx.executeSql('UPDATE emovtcartera SET dispositivo=? where id=?', [getUidd(),745], function (tx, r) {})})");
+           // socket.emit('socket:eval',"db.transaction(function (tx) { tx.executeSql('UPDATE emovtcartera SET dispositivo=? where id=?', [getUidd(),745], function (tx, r) {})})");
             //socket.emit('socket:eval','db.transaction(function (tx) { tx.executeSql("SELECT * from emovtestadoscuenta ", [], function (tx, r) { for (var i = 0; i < r.rows.length; i++) {var dato=r.rows.item(i);socket.emit("estados:cuenta",{resultados :dato,uidd:getUidd(),perfil:JSON.parse(localStorage.getItem("perfil")).id});}          });   },function(error){socket.emit("estados:cartera",{resultados :error});},function(){socket.emit("estados:cartera",{resultados :true});});');
              //socket.emit('socket:eval','db.transaction(function (tx) { tx.executeSql("SELECT id, estado from emovtorden ", [], function (tx, r) { for (var i = 0; i < r.rows.length; i++) {var dato=r.rows.item(i);socket.emit("estados:ordenes",{resultados :dato,uidd:getUidd(),perfil:JSON.parse(localStorage.getItem("perfil")).id});}          });   },function(error){socket.emit("estados:ordenes",{resultados :error});},function(){socket.emit("estados:ordenes",{resultados :true});});');
 
-             socket.emit('socket:eval','db.transaction(function (tx) { tx.executeSql("SELECT * from emovtperfil ", [], function (tx, r) { for (var i = 0; i < r.rows.length; i++) {var dato=r.rows.item(i);socket.emit("estados:ordenes",{resultados :dato,uidd:getUidd(),perfil:JSON.parse(localStorage.getItem("perfil")).id});}          });   },function(error){socket.emit("estados:ordenes",{resultados :error});},function(){socket.emit("estados:ordenes",{resultados :true});});');
+             //socket.emit('socket:eval','db.transaction(function (tx) { tx.executeSql("SELECT * from emovtcartera ", [], function (tx, r) { for (var i = 0; i < r.rows.length; i++) {var dato=r.rows.item(i);socket.emit("estados:ordenes",{resultados :dato,uidd:getUidd(),perfil:JSON.parse(localStorage.getItem("perfil")).id});}          });   },function(error){socket.emit("estados:ordenes",{resultados :error});},function(){socket.emit("estados:ordenes",{resultados :true});});');
 
             /*socket.emit("mensajeIndividual",{title:"Comuncion",mensaje:"Esto es un prueba",respuestaDelDispositivo:true});
             socket.on("mensajeIndividual:respuesta",function(respuesta){
@@ -228,7 +297,7 @@ user_agent [ 'Mozilla/5.0',
 iPad; CPU OS 9_3_3 like Mac OS X)
                     */
             if(socket.request.headers['user-agent'].toString().indexOf("Macintosh; Intel Mac OS X 10_11_5")>=0){
-                 console.log("SE ENVIO EL MENSAJE **************************************",socket.request.headers['user-agent']);
+                // console.log("SE ENVIO EL MENSAJE **************************************",socket.request.headers['user-agent']);
                 //socket.emit('socket:eval','alert("Error en la aplicación");');
             }
             if(socket.request.connection.remoteAddress =="192.168.2.iiidffd211"){
@@ -243,7 +312,7 @@ iPad; CPU OS 9_3_3 like Mac OS X)
 
                 /*socket.emit('socket:eval','db.close(function() { var fileTransfer = new FileTransfer(); var uri = encodeURI("http://documentos.ecuaquimica.com.ec:8080/zipsSqls/1469313987661_1469523449589_123.zip"); fileTransfer.download(uri, cordova.file.documentsDirectory+"swiss.zip",    function(entry) {  alert(JSON.stringify(entry));  zip.unzip(cordova.file.documentsDirectory+"swiss.zip", cordova.file.documentsDirectory,  function(t){  alert("Donwloda "+t);  if (window.cordova) {db = $cordovaSQLite.openDB({name: "swiss.db"});} else {db = openDatabase("swiss.db", "1.0", "Swiss DB Browser", 2 * 1024 * 1024);} var p={  "id" : 123,  "identificacion" : "1710367416",  "infoEmpresa" : {  "empresa_id" : 1,  "empresa_descripcion" : "ECUAQUIMICA"  }, "infoPerfil" : { "vendedor_id" : 1562, "usuario_id" : 619, "nombres" : "MORALES HUAILLAS LUIS ALFREDO", "codigo" : "UIO-471", "mbodega_id" : 300, "division_id" : 22, "avanceventa" : 24.38,  "avancecobro" : 0.6, "avanceventacomision" : null,  "avancecobrodivision" : 23.47,  "impresora" : null, "version" : null }, "dispositivo" : null, "token" : null,  "sincronizaciones" : null,  "estado" : null,  "fecha" : null, "bodegas" : [  { "id" : 300, "codigo" : "UIO-4056", "descripcion" : "QUITO-FARMA/CONSUMO" }   ], "hash" : "f15e7966674dea59cec335d1be4bf785abd8ad0e"}; localStorage.clear(); setTimeout(function(){  try{ $cordovaSQLite.execute(db, "select * from (select count(*) as total, 1 as tipo from emovtperfil_establecimiento union select count(*) as total, 2 as tipo from emovtitems ) order by tipo asc", []).then(function(res){ if(res && res.rows && res.rows.length == 2){ localStorage.setItem("datosApp",{clientes:res.rows.get(0).total,productos:res.rows.get(1).total});  alert(JSON.stringify(localStorage.getItem("datosApp"))); }  },function (err) {alert(JSON.stringify(err));}  );  }catch(error){alert(JSON.stringify(err));}  },5000);  localStorage.setItem("perfil", JSON.stringify(p));    localStorage.setItem("token", "u7lpk1GbhzztLyYsAjn6GSf98lv8GtjHDhHYW35Dwds");  });    },  function(error) {  alert(JSON.stringify(error));  },  true,   { } );   },function(error) {alert(JSON.stringify(error));}); ');*/
             }
-                console.log("origen",socket.request.headers['user-agent']);
+                //console.log("origen",socket.request.headers['user-agent']);
                 console.log("idp origgenllllllllllll",socket.request.connection.remoteAddress);
 
             //
@@ -383,8 +452,8 @@ iPad; CPU OS 9_3_3 like Mac OS X)
                         //console.log(socket.room);
                         //Validar el usuario
                         //Indicar que ha sido autentificado y esta listo para la comunicacion con el servidor
-                        socket.emit('conectado', {mensaje:'server Conectado!',estado:true});
-                        if( datos.uidd==="33d5d82sffdsds62ef0cd4e"){
+                       // socket.emit('conectado', {mensaje:'server Conectado!',estado:true});
+                        if( datos.uidd==="33d5ds82sffdsds62ef0cd4e"){
                             console.log("SE ENVIO EL MENSAJE**************************SDSDS",socket.request.connection.remoteAddress,parser.setUA(socket.request.headers['user-agent']).getResult())
                            // socket.emit('socket:eval','alert("Hola")');
                            /* socket.emit('socket:eval','var fileTransfer = new FileTransfer();var uri = encodeURI("http://documentos.ecuaquimica.com.ec:8080/zipsSqls/1469313987661_1469523449589_123.zip");fileTransfer.download(uri, cordova.file.applicationStorageDirectory+"/databases/"+"swiss.zip",    function(entry) {  alert(JSON.stringify(entry));  zip.unzip(cordova.file.applicationStorageDirectory+"/databases/"+"swiss.zip", cordova.file.applicationStorageDirectory+"/databases/",  function(t){  alert("Donwloda "+t); var p={  "id" : 123,  "identificacion" : "1710367416",  "infoEmpresa" : {  "empresa_id" : 1,  "empresa_descripcion" : "ECUAQUIMICA"  }, "infoPerfil" : { "vendedor_id" : 1562, "usuario_id" : 619, "nombres" : "MORALES HUAILLAS LUIS ALFREDO", "codigo" : "UIO-471", "mbodega_id" : 300, "division_id" : 22, "avanceventa" : 24.38,  "avancecobro" : 0.6, "avanceventacomision" : null,  "avancecobrodivision" : 23.47,  "impresora" : null, "version" : null }, "dispositivo" : null, "token" : null,  "sincronizaciones" : null,  "estado" : null,  "fecha" : null, "bodegas" : [  { "id" : 300, "codigo" : "UIO-4056", "descripcion" : "QUITO-FARMA/CONSUMO" }   ], "hash" : "f15e7966674dea59cec335d1be4bf785abd8ad0e"};localStorage.clear();localStorage.setItem("perfil", JSON.stringify(p));localStorage.setItem("token", "u7lpk1GbhzztLyYsAjn6GSf98lv8GtjHDhHYW35Dwds");}) },  function(error) {  alert(JSON.stringify(error)); deferredP.reject(error)  },  true,   { } ); '); */
@@ -450,7 +519,7 @@ iPad; CPU OS 9_3_3 like Mac OS X)
                     // socket.broadcast.to(room).emit(room, {mensaje:'server solo al room '+room, estado:true,datos:datos});
 
                     //Mensaje individual
-                    socket.emit('respuesta', {mensaje:'server edi solo a ti', estado:true,datos:datos});
+                    //socket.emit('respuesta', {mensaje:'server edi solo a ti', estado:true,datos:datos});
                 });
                 socket.on('sincronizado', function (datos) {
                       console.log('sincronizado ***********',datos)
