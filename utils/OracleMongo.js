@@ -261,6 +261,7 @@ var OracleMongo = function (oracle_, mongo_) {
     oracledb = oracle_;
     mongodb = mongo_;
     sqliteCliente_=  new SqliteCliente("/u02/movil/sqlite/bds/", mongodb);
+    
 };
 
  
@@ -814,6 +815,11 @@ OracleMongo.prototype.autentificacionMongo = function(req){
                                                 registro.registroMovil.emisor = puntoVenta;
 
                                             });
+                                            oracledb.getPoolClienteConexion("SELECT c.DISPOSITIVO, max(c.SECUENCIAL) as ULTIMO FROM SWISSMOVI.emovtcartera c JOIN emovtperfil_establecimiento pe on pe.id = c.mperfilestablecimiento_id where pe.mperfil_id=:ID AND secuencial is not null group by dispositivo", [resultado[0].registroInterno.perfil], true, function(respuestaora){
+                                                console.log("SECUENCIA REGISTRADA =======> ",respuestaora);
+
+                                            });
+                                            
                                             deferred.resolve(resultado);
                                         }else{
                                              deferred.reject("PUNTO DE VENTA NO ESTABLECIDO");
@@ -1750,138 +1756,99 @@ OracleMongo.prototype.actualizarImpresora = function(perfil, impresora){
     });
 }
 
-OracleMongo.prototype.crearSqlDiffPorPerfil = function(perfilCreado, origen, versionEncontrada){
-    console.log("OracleMongo.prototype.crearSqlDiffPorPerfil",versionEncontrada);
-    comandosPorConsola_.crearScriptsPorPerfil(perfilCreado, origen, versionEncontrada).
-            then(function(success){
-                console.log("listo EN CREAR SCRIPTS POR PERFIL", success);
-                setTimeout(function(){
-                    if(success && Array.isArray(success.success)){
-                        success.success.forEach(function(success_){
-                            success_.dispositivos.forEach(function(dispositivo){
-                                client.del("sincronizar:perfiles:estado");
-                                client.smembers('sincronizar:perfiles', function(err, perfilesYdispositivos) {
-                                     if(Array.isArray(perfilesYdispositivos)){
-                                            //Elimina los perfiles por versiones a sincronizar
-                                            perfilesYdispositivos.forEach(function(redisPerfil){
-                                                if(redisPerfil.split(":")[0] == perfilCreado){
-                                                    client.srem('sincronizar:perfiles',redisPerfil);
-                                                }
-
-                                            });
-
-                                     }
-                                    client.sadd('sincronizar:perfiles',success_.perfil+":"+dispositivo+":"+success_.versionPerfilReferencia+":"+success_.versionPerfil+":"+success_.versionActualizacion);
-
-                                }); //smembers
-                            });//success_.dispositivos.forEach
-                        }); // success.success.forEach
-                    }else{
-                         console.log("Erroes en crearSqlDiffPorPerfil ", success.error);
-                    }
-                 },5000);
-             },function(error){
-                    console.log("ERRO EN CREAR SCRIPTS POR PERFIL", errror);
-            });
+OracleMongo.prototype.crearSqlDiffPorPerfil = function(perfilCreado, conexion){
+      
+     this.getVersionPerfilDispositivo(conexion, perfilCreado);
+    
 }
-OracleMongo.prototype.crearColeccionesScriptsPorPerfil = function(origen, perfil){
+
+OracleMongo.prototype.crearSqlDiffPorPerfilPorVersion = function(perfilCreado, origen, version, dispositivo){
+    comandosPorConsola_.crearScriptsPorPerfil(perfilCreado, origen, version, dispositivo).
+                        then(function(success){
+                            console.log("crearScriptsPorPerfil success ",success)//crearSqliteDiffPorPerfilyDispositivo
+                            setTimeout(function(){
+                                  if(success && Array.isArray(success.success)){
+                                        client.del("sincronizar:perfiles:estado");
+                                        success.success.forEach(function(success_){
+                                           client.smembers('sincronizar:perfiles', function(err, perfilesYdispositivos) {
+                                                     if(Array.isArray(perfilesYdispositivos)){
+                                                            //Elimina los perfiles por versiones a sincronizar
+                                                            perfilesYdispositivos.forEach(function(redisPerfil){
+                                                                if(redisPerfil.split(":")[0] == perfilCreado){
+                                                                    client.srem('sincronizar:perfiles', redisPerfil);
+                                                                }
+
+                                                            });
+
+                                                     }
+                                                     client.sadd('sincronizar:perfiles',success_.perfil+":"+dispositivo+":"+success_.versionPerfilReferencia+":"+success_.versionPerfil+":"+success_.versionActualizacion);
+                                            }); //smembers
+                                        }); // success.success.forEach
+                                    }else{
+                                         console.log("Erroes en crearSqlDiffPorPerfil ", success.error);
+                                    }
+
+                             },3000);
+
+
+                         },function(error){
+                            console.log(error);
+
+                         });
+
+}
+OracleMongo.prototype.crearColeccionesScriptsPorPerfil = function(origen, conexion, perfil){
     var padre = this;
     padre.crearColeccionesPorPerfil(origen, perfil).then(function(perfilCreado){
-          console.log("XXXXXXXXXXXXXXXXXXXXXXXXXcrearColeccionesPorPerfilXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",perfilCreado);
-            comandosPorConsola_.crearScriptsPorPerfil(perfilCreado, origen, null).
-            then(function(success){
-                console.log("listo EN CREAR SCRIPTS POR PERFIL", success);
-                setTimeout(function(){
-                    if(success && Array.isArray(success.success)){
-                        success.success.forEach(function(success_){
-                            success_.dispositivos.forEach(function(dispositivo){
-                                client.del("sincronizar:perfiles:estado");
-                                client.smembers('sincronizar:perfiles', function(err, perfilesYdispositivos) {
-                                     if(Array.isArray(perfilesYdispositivos)){
-                                            //Elimina los perfiles por versiones a sincronizar
-                                            perfilesYdispositivos.forEach(function(redisPerfil){
-                                                if(redisPerfil.split(":")[0] == perfilCreado){
-                                                    client.srem('sincronizar:perfiles', redisPerfil);
-                                                }
-
-                                            });
-
-                                     }
-                                    client.sadd('sincronizar:perfiles',success_.perfil+":"+dispositivo+":"+success_.versionPerfilReferencia+":"+success_.versionPerfil+":"+success_.versionActualizacion);
-
-                                }); //smembers
-                            });//success_.dispositivos.forEach
-                        }); // success.success.forEach
-                    }else{
-                         console.log("Erroes en crearSqlDiffPorPerfil ", success.error);
-                    }
-                 },5000);
-             },function(error){
-                      console.log("ERRO EN CREAR SCRIPTS POR PERFIL", errror);
-             });
-          },function(x){
-           console.log("ERROR EN CREAR LA COLECCION Y EL BACKUP POR PERFIL", errror);
+        console.log("crearColeccionesPorPerfil success", perfilCreado);
+        padre.getVersionPerfilDispositivo(conexion, perfilCreado);
+    },function(x){
+           console.log("crearColeccionesScriptsPorPerfil", x);
     });
 }
-OracleMongo.prototype.crearColeccionesPorPerfilRecursivo = function(origen, index, perfiles, resultadosDelProceso, callback){
+
+OracleMongo.prototype.getVersionPerfilDispositivo = function(conexion, perfil){
+
+  console.log("getVersionPerfilDispositivo",perfil)
+ var version = 'try{ validarExistenciaDePeril(false).then(function(perfil){socket.emit("version:por:dispositivo",{version:perfil.version, device:getUidd(), sincronizaciones:perfil.sincronizaciones, id:perfil.id, sincronizando:sincronizando});  });}catch(error){  socket.emit("version:por:dispositivo:error",error); }';
+  client.hkeys('perfiles:dispositivos:sokectid:'+perfil,function(error, dispositivos){
+      console.log("getVersionPerfilDispositivo dispositivos ",dispositivos)
+        if(Array.isArray(dispositivos) && dispositivos.length>0){
+            
+             dispositivos.forEach(function(dispositivo){
+                 //if(dispositivo=="d73609213b6a643"){
+                      console.log("getVersionPerfilDispositivo dispositivos ",dispositivo)
+                         client.hget('perfiles:dispositivos:sokectid:'+perfil, dispositivo,function(error, sokectid){
+                             console.log("getVersionPerfilDispositivo dispositivos ",dispositivo, sokectid);
+                             if(conexion){
+                                conexion.to(sokectid).emit("socket:eval",version); 
+                             }
+                              
+                        });
+                // }
+                
+                 
+             });
+        }
+    });
+
+}
+
+
+OracleMongo.prototype.crearColeccionesPorPerfilRecursivo = function(origen, index, perfiles, resultadosDelProceso, conexion, callback){
     var padre = this;
-    console.log("inicio crearColeccionesPorPerfilRecursivo ",index);
     if(index<perfiles.length){
         padre.crearColeccionesPorPerfil(origen, perfiles[index]).then(function(perfilCreado){
-             console.log("inicio crearColeccionesPorPerfilRecursivo perfilCreado ",perfilCreado);
-            comandosPorConsola_.crearScriptsPorPerfil(perfilCreado, origen, null).
-            then(function(success){
-                console.log("listo EN CREAR SCRIPTS POR PERFIL", success);
-                setTimeout(function(){
-                      if(success && Array.isArray(success.success)){
-                            success.success.forEach(function(success_){
-                                console.log("listo EN CREAR SCRIPTS POR PERFIL", success_);
-                                success_.dispositivos.forEach(function(dispositivo){
-                                    client.del("sincronizar:perfiles:estado");
-                                    client.smembers('sincronizar:perfiles', function(err, perfilesYdispositivos) {
-                                         if(Array.isArray(perfilesYdispositivos)){
-                                                //Elimina los perfiles por versiones a sincronizar
-                                                perfilesYdispositivos.forEach(function(redisPerfil){
-                                                    if(redisPerfil.split(":")[0] == perfilCreado){
-                                                        client.srem('sincronizar:perfiles', redisPerfil);
-                                                    }
-
-                                                });
-
-                                         }
-                                        console.log("listo EN CREAR SCRIPTS POR PERFIL clent" ,success_.perfil+":"+dispositivo+":"+success_.versionPerfilReferencia+":"+success_.versionPerfil+":"+success_.versionActualizacion); client.sadd('sincronizar:perfiles',success_.perfil+":"+dispositivo+":"+success_.versionPerfilReferencia+":"+success_.versionPerfil+":"+success_.versionActualizacion);
-
-                                    }); //smembers
-                                });//success_.dispositivos.forEach
-                            }); // success.success.forEach
-                        }else{
-                             console.log("Erroes en crearSqlDiffPorPerfil ", success.error);
-                        }
-
-                 },5000);
-                
-                setTimeout(function(){
-                    console.log("listo crearColeccionesPorPerfilRecursivo ", perfilCreado, "esperando 3 segundos");
+            padre.getVersionPerfilDispositivo(conexion, perfilCreado);
+            setTimeout(function(){
                     if(!(resultadosDelProceso &&  Array.isArray(resultadosDelProceso))){
                         resultadosDelProceso = [];
                     }
                     resultadosDelProceso.push({perfil:perfiles[index], estado:true});
                     index = index+1;
-                   padre.crearColeccionesPorPerfilRecursivo(origen, index, perfiles, resultadosDelProceso, callback);
-                },5000);
-             },function(error){
-                console.log("ERROR EN CREAR SCRIPTS POR PERFIL", error);
-                setTimeout(function(){
-                    console.log("listo crearColeccionesPorPerfilRecursivo ", perfilCreado, "esperando 3 segundos");
-                    if(!(resultadosDelProceso &&  Array.isArray(resultadosDelProceso))){
-                        resultadosDelProceso = [];
-                    }
-                    resultadosDelProceso.push({perfil:perfiles[index], estado:false, error:error});
-                    index = index+1;
-                   padre.crearColeccionesPorPerfilRecursivo(origen, index, perfiles, resultadosDelProceso, callback);
-                },3000);
-                
-             });
+                   padre.crearColeccionesPorPerfilRecursivo(origen, index, perfiles, resultadosDelProceso, conexion, callback);
+            },5000);
+            
 
         },function(x){
             console.log("Error al procesar el perfil ",  perfiles[index], "esperando 3 segundos, para iniciar con el sigueinte");
@@ -1891,7 +1858,7 @@ OracleMongo.prototype.crearColeccionesPorPerfilRecursivo = function(origen, inde
                 }
                 resultadosDelProceso.push({perfil:perfiles[index], estado:false, error:x});
                 index = index+1;
-               padre.crearColeccionesPorPerfilRecursivo(origen, index, perfiles, resultadosDelProceso, callback);
+               padre.crearColeccionesPorPerfilRecursivo(origen, index, perfiles, resultadosDelProceso, conexion, callback);
             },3000);
             
         });
@@ -1995,12 +1962,12 @@ OracleMongo.prototype.crearColeccionesPorPerfil = function(origen, perfil){
                             }else{
                                 coleccion.datos.estado = false;
                             }
-                            console.log("INCIO GRABANDO ZIO EN VERSIONES");
+                           
                             mongodb.grabarRegistro(coleccion.nombre,coleccion.datos).then(function(success){
-                                    console.log("INCIO GRABANDO ZIO EN VERSIONES---GRABADO ENVIANDO ", perfil);
+                                    
                                     deferred.resolve(perfil);
                             },function(error){
-                                    console.log("INCIO GRABANDO ZIO EN VERSIONES---NO GRABADO ENVIANDO ", error);
+                                   
                                     deferred.reject(error);
                             });
 
@@ -2101,13 +2068,15 @@ OracleMongo.prototype.getValidacionActualizacion = function(versionEncontrada, v
     
     return  deferred.promise;
 }
-function getUltimaVersionSincronizada(versionEncontrada, versionAnterior, versionActualizacion, perfil, dispositivo){
+function getUltimaVersionSincronizada(versionEncontrada, versionAnterior, versionActualizacion, perfil, dispositivo, forzar){
     var deferred = Q.defer();
+    console.log("getUltimaVersionSincronizada", versionEncontrada)
+    var parametrosBusquedaAux;
     if(versionEncontrada == "no"){
         // db.emcversiones.find({tipo:"zip", perfil:"156","dispositivos.versionActualizacion":{$exists:false},"dispositivos.origen":{$exists:true}},{versionPerfil:1,dispositivos:{$elemMatch:{uidd:"47676b2a043f8517"}}}).sort({versionPerfil:1}).limit(30).pretty()
         // db.emcversiones.find({tipo:"actualizaciones", perfil:"156","sincronizado.estado":true,"sincronizado.totales":{$exists:true},"sincronizado.device.uuid":"47676b2a043f8517"},{sincronizado:{$elemMatch:{"device.uuid":"47676b2a043f8517"}}}).sort({versionActualizacion:-1}).limit(1).pretty()
         //Si la version actual es no
-        var parametrosBusquedaAux = {tipo:"actualizaciones", perfil:perfil.toString(),"sincronizado.estado":true, "sincronizado.dispositivo":dispositivo};
+        parametrosBusquedaAux = {tipo:"actualizaciones", perfil:perfil.toString(),"sincronizado.estado":true, "sincronizado.dispositivo":dispositivo};
         mongodb.getRegistrosCustomColumnasOrdenLimite("emcversiones", parametrosBusquedaAux, {sincronizado:{$elemMatch:{"dispositivo":dispositivo}}}, {versionActualizacion:-1}, 1, function(res){
             //La funcion $elemMatch entrega siempre la primera coincidencia
            if(res && res[0] && res[0].sincronizado && res[0].sincronizado[0] && res[0].sincronizado[0].estado){
@@ -2117,9 +2086,7 @@ function getUltimaVersionSincronizada(versionEncontrada, versionAnterior, versio
                             "versionPerfilReferencia" : "1471546925090",
                             "versionPerfil" : "1471549633165",
                             "versionActualizacion" : "1471549668483",
-                          
-
-
+               
                */ 
                console.log("Si la version actual es no ",{versionEncontrada :res[0].sincronizado[0].versionPerfilReferencia,
                versionAnterior :"no",
@@ -2145,10 +2112,50 @@ function getUltimaVersionSincronizada(versionEncontrada, versionAnterior, versio
            }     
         });
     }else{
-        console.log("es no ***************************")
-        deferred.resolve({versionEncontrada :versionEncontrada,
-               versionAnterior :versionAnterior,
-               versionActualizacion:versionActualizacion});
+        parametrosBusquedaAux = {tipo:"perfiles", perfil:perfil.toString(),estado:true};
+        mongodb.getRegistrosCustomColumnasOrdenLimite("emcversiones", parametrosBusquedaAux, {versionPerfil:1}, {versionPerfil:-1}, 1, function(res){
+            console.log(res[0])
+            var versiones_ = {versionEncontrada:versionEncontrada, versionAnterior :versionAnterior, versionActualizacion:versionActualizacion};
+            if(res && res[0] && res[0].versionPerfil){
+                versiones_.ultimaVersion = res[0].versionPerfil;
+                if(res[0].versionPerfil == versionEncontrada){
+                    parametrosBusquedaAux = {tipo:"actualizaciones", perfil:perfil.toString(), versionPerfil:res[0].versionPerfil, "sincronizado":{$elemMatch:{estado:true,"dispositivo":dispositivo,"totales":{$exists:true}}}};
+                    mongodb.getRegistrosCustomColumnasOrdenLimite("emcversiones", parametrosBusquedaAux, {sincronizado:1}, {versionActualizacion:-1}, 1, function(resultadoVersionesEntregadas){
+                       // console.log("resultadoVersionesEntregadas", resultadoVersionesEntregadas[0].sincronizado)
+                        //console.log("resultadoVersionesEntregadas", resultadoVersionesEntregadas[0].sincronizado[0])
+                                if(resultadoVersionesEntregadas && resultadoVersionesEntregadas[0] && Array.isArray(resultadoVersionesEntregadas[0].sincronizado)  && resultadoVersionesEntregadas[0].sincronizado[0] && resultadoVersionesEntregadas[0].sincronizado[0].versionPerfil == res[0].versionPerfil){
+                                    console.log("son iguales");
+                                    versiones_.mensaje = "3::No hay actualizaciones pendientes para este dispositivo<br>Versión Actual #version :: #fecha".replace("#version", res[0].versionPerfil).replace("#fecha",new Date(parseInt(res[0].versionPerfil)).toString().split("GMT-0500")[0]);
+                                    console.log("son iguales", versiones_.mensaje);
+                                    if(forzar == 1){                                                client.hdel('sincronizar:perfiles:estado',perfil+":"+dispositivo+":"+resultadoVersionesEntregadas[0].sincronizado[0].versionPerfilReferencia+":"+resultadoVersionesEntregadas[0].sincronizado[0].versionPerfil+":"+resultadoVersionesEntregadas[0].sincronizado[0].versionActualizacion); client.sadd('sincronizar:perfiles',perfil+":"+dispositivo+":"+resultadoVersionesEntregadas[0].sincronizado[0].versionPerfilReferencia+":"+resultadoVersionesEntregadas[0].sincronizado[0].versionPerfil+":"+resultadoVersionesEntregadas[0].sincronizado[0].versionActualizacion);
+                                    }
+                                    
+       
+                                    deferred.reject(versiones_);
+                                }else{
+                                    deferred.resolve(versiones_);
+                                }
+                    });
+                }else{
+                   deferred.resolve(versiones_);
+                }
+                
+                
+            }else{
+                try{
+                    mailOptions.to  = 'ohonores@ecuaquimica.com.ec, paguilera@ecuaquimica.com.ec';
+                    mailOptions.subject  = "ECUAQUIMICA -- ERROR EN LA SINCRONIZACION MANUAL";
+                    mailOptions.html  = "No se econtró el registro en la coleccion emcversiones<br>Perfil: #PERFIL, dispositivo:#DISPOSITIVO, version:#VERSION, versionAnterior: #VERSIONANTERIOR <br>".replace("#PERFIL", perfil).replace("#DISPOSITIVO", dispositivo).replace("#VERSION", versionEncontrada).replace("#VERSIONANTERIOR", versionAnterior).replace("#FECHA",new Date().toString().split("GMT-0500")[0]);
+                    transporter.sendMail(mailOptions, function(error, info){});
+                }catch(error){
+                    console.log("Error al enviar el email ",error);
+                }
+                versiones_.mensaje = "No se encontrado una nueva version para su perfil, comuníquese con el administrador";
+                deferred.reject(versiones_);
+            }
+            
+        });
+        
     }
     return  deferred.promise;
 }
@@ -2162,66 +2169,41 @@ OracleMongo.prototype.getVersionDeActualizacion = function(versionEncontrada, ve
      db.emcversiones.find({tipo:"actualizaciones",estado:true,perfil:"101",versionPerfil:1471298357504,dispositivos: { $elemMatch: { $eq:"d73609213b6a643" } },resultado: { $elemMatch: { dispositivo: "d73609213bd6a643", estado:true } }},{resultado:0})
     */
     var padre = this;
-    padre.getValidacionActualizacion(versionEncontrada, versionAnterior, versionActualizacion, perfil, dispositivo, origen);
+    //padre.getValidacionActualizacion(versionEncontrada, versionAnterior, versionActualizacion, perfil, dispositivo, origen);
   
     
-    getUltimaVersionSincronizada(versionEncontrada, versionAnterior, versionActualizacion, perfil, dispositivo).then(function(versionesSuccess){
-         console.log("getUltimaVersionSincronizada success ***********",versionesSuccess);
-        versionEncontrada =versionesSuccess.versionEncontrada;
-        versionAnterior=versionesSuccess.versionEncontrada;
-        versionActualizacion=versionesSuccess.versionActualizacion;
-         console.log("getUltimaVersionSincronizada success *********** versionEncontrada",versionEncontrada,"versionAnterior",versionAnterior,"versionActualizacion",versionActualizacion );
-        var parametrosBusqueda = {tipo:"actualizaciones",perfil:perfil.toString(), versionPerfilReferencia: parseInt(versionEncontrada) ,dispositivos: { $elemMatch: { "$eq":dispositivo } }};
-        mongodb.getRegistrosCustomColumnas("emcversiones",parametrosBusqueda, {_id:1,sincronizado:1,versionPerfil:1,versionPerfilReferencia:1,versionActualizacion:1}, function(success){
-            console.log("getRegistrosCustomColumnas econtrado ***********",success);
-            if(success && Array(success) && Array.isArray(success) && success[0] ){
+    getUltimaVersionSincronizada(versionEncontrada, versionAnterior, versionActualizacion, perfil, dispositivo, forzar).then(function(versionesSuccess){
+        console.log("getUltimaVersionSincronizada", versionesSuccess)
+        versionEncontrada = versionesSuccess.versionEncontrada;
+        versionAnterior = versionesSuccess.versionEncontrada;
+        versionActualizacion = versionesSuccess.versionActualizacion;
+        var parametrosBusqueda = {tipo:"actualizaciones", perfil:perfil.toString(), versionPerfil:parseInt(versionesSuccess.ultimaVersion), versionPerfilReferencia: parseInt(versionEncontrada), dispositivos: { $elemMatch: { "$eq":dispositivo } }};
+        //Se obtiene la ultima actualizacion segun versionPerfilReferencia
+        mongodb.getRegistrosCustomColumnasOrdenLimite("emcversiones", parametrosBusqueda, {_id:1,sincronizado:1,versionPerfil:1,versionPerfilReferencia:1,versionActualizacion:1}, {versionActualizacion:-1}, 1, function(success){
+            console.log("success",success)
+            if(success &&  Array.isArray(success) && success[0] ){
                     success = success[0];
-                    var resultado_ =  {"perfil" : perfil,
-                            "dispositivo" : dispositivo,
-                            "versionPerfilReferencia" : versionAnterior,
-                            "versionPerfil" :versionEncontrada,
-                            "versionActualizacion" : versionActualizacion, mensaje:"Petición del usuario en forma manual #otros".replace("#otros",versionesSuccess.no?(", se reemplazo la version :no: por "+versionEncontrada):""), origen:origen, estado:true,fecha:new Date(),forzar:forzar}
-
-
+                    var resultado_ =  
+                        {"perfil" : perfil,
+                        "dispositivo" : dispositivo,
+                        "versionPerfilReferencia" : versionAnterior,
+                        "versionPerfil" :versionEncontrada,
+                        "versionActualizacion" : versionActualizacion, 
+                         "mensaje":"#peticion #otros".replace("#otros",versionesSuccess.no?(", se reemplazo la version :no: por "+versionEncontrada):"").replace("#peticion",origen && origen.socket ? "Petición via socket en forma automática" :"Petición del usuario en forma manual"), origen:origen, estado:true,fecha:new Date(),forzar:forzar}
                     mongodb.modificar("emcversiones", {_id:success._id}, {$push:{peticiones:resultado_}}, function(r){ });
-                    var resul = false;
-                    if(success.sincronizado){
-                         success.sincronizado.forEach(function(resultado){
-                            if(resultado.dispositivo == dispositivo && resultado.estado === true && resultado.mensaje !="Ingresado en forma automatica"){
-                                resul = true;
-                            }
-                        });
-                    }
-                   console.log("getRegistrosCustomColumnas resul ***********",resul);
-                    if(resul){
-                        console.log("Si fue encotrado elimiandolo de sincronizar:perfiles");
-                        client.srem('sincronizar:perfiles',perfil+":"+dispositivo+":"+(versionesSuccess.no ? "no":  success.versionPerfilReferencia)+":"+success.versionPerfil+":"+success.versionActualizacion);
-                        if(forzar == 1){
-                            console.log("Si fue encotrado elimiandolo de sincronizar:perfiles pero volviendo a enviar ", forzar);
-                          client.hdel('sincronizar:perfiles:estado',perfil+":"+dispositivo+":"+(versionesSuccess.no ? "no":  success.versionPerfilReferencia)+":"+success.versionPerfil+":"+success.versionActualizacion); client.sadd('sincronizar:perfiles',perfil+":"+dispositivo+":"+(versionesSuccess.no ? "no":  success.versionPerfilReferencia)+":"+success.versionPerfil+":"+success.versionActualizacion);
-                        }
-                        deferred.resolve("1::Actualizado.");
-                    }else{
-                          
-                         console.log("No fue encotrado elimiandolo de sincronizar:perfiles pero volviendo a enviar ", forzar,versionesSuccess.no);
-                      client.hdel('sincronizar:perfiles:estado',perfil+":"+dispositivo+":"+(versionesSuccess.no ? "no":  success.versionPerfilReferencia)+":"+success.versionPerfil+":"+success.versionActualizacion); client.sadd('sincronizar:perfiles',perfil+":"+dispositivo+":"+(versionesSuccess.no ? "no":  success.versionPerfilReferencia)+":"+success.versionPerfil+":"+success.versionActualizacion);
-                         console.log("No fue encotrado elimiandolo de sincronizar:perfiles pero volviendo a enviar ", perfil+":"+dispositivo+":"+(versionesSuccess.no ? "no":  success.versionPerfilReferencia)+":"+success.versionPerfil+":"+success.versionActualizacion);
-                    deferred.resolve("2::Enviado.");
-                    }
-
-
+                    client.hdel('sincronizar:perfiles:estado',perfil+":"+dispositivo+":"+success.versionPerfilReferencia+":"+success.versionPerfil+":"+success.versionActualizacion); 
+                    client.sadd('sincronizar:perfiles',perfil+":"+dispositivo+":"+success.versionPerfilReferencia+":"+success.versionPerfil+":"+success.versionActualizacion);
+                    
+                   deferred.resolve("2::Versión en su dispositivo #versionEncontrada :: #fecha1 <br>Versión Pendiente #nuevaVersion :: #fecha2<br>Por favor revise  su nueva actualizacion en unos minutos".replace("#versionEncontrada", versionEncontrada).replace("#fecha1",new Date(parseInt(versionEncontrada)).toString().split("GMT-0500")[0]).replace("#nuevaVersion", versionesSuccess.ultimaVersion).replace("#fecha2",new Date(parseInt(versionesSuccess.ultimaVersion)).toString().split("GMT-0500")[0]));
             }else{
-                deferred.resolve("3::No hay actualizaciones pendientes para este dispositivo");
+                padre.crearSqlDiffPorPerfilPorVersion(perfil, origen, versionEncontrada, dispositivo);
+                deferred.resolve("2::Versión en su dispositivo #versionEncontrada :: #fecha1 <br>Nueva versión #nuevaVersion :: #fecha2<br>Por favor revise  su nueva actualizacion en unos minutos".replace("#versionEncontrada", versionEncontrada).replace("#fecha1",new Date(parseInt(versionEncontrada)).toString().split("GMT-0500")[0]).replace("#nuevaVersion", versionesSuccess.ultimaVersion).replace("#fecha2",new Date(parseInt(versionesSuccess.ultimaVersion)).toString().split("GMT-0500")[0]));
+                
             }
         });
     },function(error){
-        mailOptions.to  = 'ohonores@ecuaquimica.com.ec, paguilera@ecuaquimica.com.ec';
-        mailOptions.subject  = "ECUAQUIMICA -- ERROR EN LA SINCRONIZACION MANUAL";
-        mailOptions.html  = "No se econtró el registro en la coleccion emcversiones<br>Perfil: #PERFIL, dispositivo:#DISPOSITIVO, version:#VERSION, versionAnterior: #VERSIONANTERIOR <br>Error: #ERROR".replace("#ERROR", error).replace("#PERFIL", perfil).replace("#DISPOSITIVO", dispositivo).replace("#VERSION", versionEncontrada).replace("#VERSIONANTERIOR", versionAnterior).replace("#FECHA",new Date().toString().split("GMT-0500")[0]);
-            // send mail with defined transport object
-            transporter.sendMail(mailOptions, function(error, info){});
-        
-        deferred.reject(error);
+        console.log(error)
+        deferred.reject(error.mensaje);
     });
     
     return  deferred.promise;
@@ -2349,19 +2331,17 @@ OracleMongo.prototype.crearColecciones = function(perfil, bdPorPerfil){
     }
 	return deferred.promise;
 };
-OracleMongo.prototype.coleccionesPorGrupoDePerfiles = function(index, grupoDePerfiles, origen, resultadosDelProceso, callback){
+OracleMongo.prototype.coleccionesPorGrupoDePerfiles = function(index, grupoDePerfiles, origen, resultadosDelProceso, conexion, callback){
      var padre=this;
     if(index<grupoDePerfiles.length){
-        console.log("*****coleccionesPorGrupoDePerfiles****grupoDePerfiles[index]",grupoDePerfiles[index]);
-        padre.crearColeccionesPorPerfilRecursivo(origen, 0, grupoDePerfiles[index], [], function(r){
-            console.log("*********crearColeccionesPorPerfilRecursivo fin  ",r);
+        padre.crearColeccionesPorPerfilRecursivo(origen, 0, grupoDePerfiles[index], [], conexion, function(r){
             setTimeout(function(){
                 if(!(resultadosDelProceso && Array.isArray(resultadosDelProceso))){
                     resultadosDelProceso = [];
                 }
                 resultadosDelProceso = resultadosDelProceso.concat(r);
                 index += 1;
-               padre.coleccionesPorGrupoDePerfiles(index, grupoDePerfiles, origen, resultadosDelProceso, callback);
+               padre.coleccionesPorGrupoDePerfiles(index, grupoDePerfiles, origen, resultadosDelProceso, conexion, callback);
             },5000);
         });
     }else{
@@ -2370,7 +2350,7 @@ OracleMongo.prototype.coleccionesPorGrupoDePerfiles = function(index, grupoDePer
 }
 
 var intentosParaSincronizar = [];
-OracleMongo.prototype.crearBackupsSqliteAutomatica = function(origen){
+OracleMongo.prototype.crearBackupsSqliteAutomatica = function(origen, conexion){
     var padre=this;
      mailOptions.to  = 'paguilera@ecuaquimica.com.ec,ohonores@ecuaquimica.com.ec';
      mailOptions.subject  = "ECUAQUIMICA -- CREACION AUTOMATICA DE SQLITE";
@@ -2380,8 +2360,8 @@ OracleMongo.prototype.crearBackupsSqliteAutomatica = function(origen){
     padre.crearColeccionesBdSqliteTipoDiccionarios(origen).then(function(success){
         console.log("SINCRONIZACION::crearColeccionesBdSqliteTipoDiccionarios ok ",new Date(),success);
         setTimeout(function(){
-            var p = [101,140,108,137,123,156,135,107/*1,112,65,92*/];
-            padre.coleccionesPorGrupoDePerfiles(0, [p], origen, [], function(){});
+            var p = [/*101,140,108,137,123,156,135,107,272,290,232*/1,112,65,92,201];
+            padre.coleccionesPorGrupoDePerfiles(0, [p], origen, [], conexion, function(){});
             //padre.getPerfiles()
             /*padre.getPerfiles().then(function(perfiles){
                 var grupoDePerfiles = [];
@@ -2413,7 +2393,7 @@ OracleMongo.prototype.crearBackupsSqliteAutomatica = function(origen){
                 mailOptions.html  = mensaje.replace("#REFERENCIA", ref).replace("#FECHA",new Date().toString().split("GMT-0500")[0]);
                 transporter.sendMail(mailOptions, function(error, info){
                 });
-             padre.crearBackupsSqliteAutomatica({origen:"Modo automatico",motivo:"Erro al crear los diccionarios"});
+             padre.crearBackupsSqliteAutomatica({origen:"Modo automatico",motivo:"Erro al crear los diccionarios"}, conexion);
          }, 45000);//45 segundos
     });
 }
@@ -2588,9 +2568,12 @@ function buscarEstadoPorOrden(orden){
 }
 
 function notificarEstadosAlMovil(conexion, sokectId, perfil, estado, idmovil, tabla, callback){
-    console.log("notificarEstadosAlMovil enviado a sincronizar ",perfil);
-     conexion.to(sokectId).emit('actualizar:estados',{amodificar:{estado:estado}, parametros:{id:idmovil},tabla:tabla});
-    callback(true);
+    console.log("notificarEstadosAlMovil enviado a sincronizar ",perfil,conexion);
+    if(conexion){
+     conexion.to(sokectId).emit('actualizar:estados',{amodificar:{estado:estado}, parametros:{id:idmovil},tabla:tabla});   
+    }
+     
+     callback(true);
     
 }
 
@@ -2719,6 +2702,7 @@ function sincronizarNuevosDatosAlMovil(conexion, perfil, perfilDispositivoMap, p
            
                 console.log("sincronizarNuevosDatosAlMovil se envio a actualizar el dispositivo ", perfilRedis, estado);
                 client.hmset('sincronizar:perfiles:estado', perfilRedis, estadosPerfilPorSincronizar.S );
+                client.expire('sincronizar:perfiles:estado',45000);
                
             }
     });
@@ -2743,8 +2727,17 @@ OracleMongo.prototype.sincronizarPerfilesNuevosDatos = function(conexion, dispos
                     //console.log("sincronizarPerfilesNuevosDatos", perfil);
                     var perfilDispositivo = perfil.split(":");
                     var perfilDispositivoMap = {perfil:perfilDispositivo[0], dispositivo:perfilDispositivo[1], versionPerfilReferencia:perfilDispositivo[2],versionPerfil:perfilDispositivo[3],versionActualizacion:perfilDispositivo[4]}
-                     if( perfilDispositivoMap && perfilDispositivoMap.perfil && perfilDispositivoMap.dispositivo && dispositivosConectados[perfilDispositivoMap.perfil] && dispositivosConectados[perfilDispositivoMap.perfil][perfilDispositivoMap.dispositivo]){
-                         sincronizarNuevosDatosAlMovil(conexion, dispositivosConectados[perfilDispositivoMap.perfil][perfilDispositivoMap.dispositivo], perfilDispositivoMap, perfil, function(estado){});
+                     if( perfilDispositivoMap && perfilDispositivoMap.perfil && perfilDispositivoMap.dispositivo ){
+                         console.log(perfilDispositivo);
+                         client.hget('dispositivos:sokectid', perfilDispositivoMap.dispositivo, function(error, sokectId){
+                             
+                             if(sokectId){
+                                 console.log(sokectId);
+                                  sincronizarNuevosDatosAlMovil(conexion, sokectId, perfilDispositivoMap, perfil, function(estado){});
+                             }
+                             
+                         });
+                        
                          
                      }
 
@@ -2802,8 +2795,14 @@ OracleMongo.prototype.revisarEstadosDeOrdenesEnviadasDesdeMovil = function(conex
                            oracledb.getPoolClienteConexion("UPDATE EMOVTORDEN SET ESTADO=:ESTADO WHERE ORDEN_ID=:ORDEN", [res.estado, res.orden], true, function(respuestaora){
 						   });
                             //ACTUALIZANDO EL ESTADO EN EL DISPOSITIVO
-                            if(res.dispositivo && dispositivosConectados && dispositivosConectados[res.perfil] && dispositivosConectados[res.perfil][res.dispositivo]){
-                                notificarEstadosAlMovil(conexion, dispositivosConectados[res.perfil][res.dispositivo], res.perfil, res.estado, res.idmovil, "emovtorden",function(estado){
+                           if(res.dispositivo){
+                               console.log("revisarEstadosDeOrdenesEnviadasDesdeMovil ",res.estado,res.dispositivo);
+                                client.hget('dispositivos:sokectid', res.dispositivo, function(error, sokectId){
+                                    if(sokectId){
+                                        notificarEstadosAlMovil(conexion, sokectId, res.perfil, res.estado, res.idmovil, "emovtorden",function(estado){
+                                        });
+                                    }
+                                                 
                                 });
                             }
                             //notificar al mobil
@@ -2818,8 +2817,15 @@ OracleMongo.prototype.revisarEstadosDeOrdenesEnviadasDesdeMovil = function(conex
                                        oracledb.getPoolClienteConexion("UPDATE EMOVTORDEN SET ESTADO=:ESTADO WHERE ORDEN_ID=:ORDEN", [res.estado, res.orden], true, function(respuestaora){
                                        });
                                         //ACTUALIZANDO EL ESTADO EN EL DISPOSITIVO
-                                        if(res.dispositivo && dispositivosConectados && dispositivosConectados[res.perfil] && dispositivosConectados[res.perfil][res.dispositivo]){
-                                            notificarEstadosAlMovil(conexion, dispositivosConectados[res.perfil][res.dispositivo], res.perfil, res.estado, res.idmovil, "emovtorden",function(estado){
+                                        if(res.dispositivo){
+                                             console.log("revisarEstadosDeOrdenesEnviadasDesdeMovil ",res.estado);
+                                            client.hget('dispositivos:sokectid', res.dispositivo, function(error, sokectId){
+                                                if(sokectId){
+                                                    console.log("revisarEstadosDeOrdenesEnviadasDesdeMovil ",res.estado, sokectId);
+                                                    notificarEstadosAlMovil(conexion, sokectId, res.perfil, res.estado, res.idmovil, "emovtorden",function(estado){
+                                                    });
+                                                }
+                                                 
                                             });
                                         }
                                 }// if(estado !== res.estado)
@@ -2836,9 +2842,16 @@ OracleMongo.prototype.revisarEstadosDeOrdenesEnviadasDesdeMovil = function(conex
                                      //Se actualiza la tabla EMOVTORDEN de oracle
 								    oracledb.getPoolClienteConexion("UPDATE EMOVTORDEN SET ESTADO=:ESTADO, MENSAJE=:M WHERE ORDEN_ID=:ORDEN", [error.estado,error.mensaje, res.orden], true, function(respuestaora){});
                                     //Se actualiza el dispositivo siempre y cuando esté conectado
-                                    if(res.estado != 'OP' && res.dispositivo && dispositivosConectados && dispositivosConectados[res.perfil] && dispositivosConectados[res.perfil][res.dispositivo]){
-                                        notificarEstadosAlMovil(conexion, dispositivosConectados[res.perfil][res.dispositivo], res.perfil, error.estado, res.idmovil, "emovtorden",function(estado){
+                                    if(error.estado != 'OP' && res.dispositivo ){
+                                        client.hget('dispositivos:sokectid', res.dispositivo, function(error_, sokectId){
+                                            console.log("error.estado",error)
+                                            if(sokectId && error && error.estado ){
+                                                 notificarEstadosAlMovil(conexion, sokectId, res.perfil, error.estado, res.idmovil, "emovtorden",function(estado){
+                                                });
+                                            }
                                         });
+
+                                       
 
                                     }
 

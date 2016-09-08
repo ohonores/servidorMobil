@@ -143,11 +143,11 @@ var agentOptions_= {
 					//cert: fs.readFileSync("C:/restful-nodeEdi-v01/certificados/client.cer"),
 					//key: fs.readFileSync("C:/restful-nodeEdi-v01/certificados/client.keystore"),
 					// Or use `pfx` property replacing `cert` and `key` when using private key, certificate and CA certs in PFX or PKCS12 format:
-					pfx: fs.readFileSync(__dirname+"/certificados/KEYSTORE.p12"),
-					passphrase: 'Alien20150521EQ',
-					securityOptions: 'SSLv2',
-					strictSSL: false, // allow us to use our self-signed cert for testing
-					rejectUnauthorized: false
+					//pfx: fs.readFileSync(__dirname+"/certificados/KEYSTORE.p12"),
+					//passphrase: 'Alien20150521EQ',
+					//securityOptions: 'SSLv2',
+					//strictSSL: false, // allow us to use our self-signed cert for testing
+					//rejectUnauthorized: false
 					//rejectUnhauthorized : false
 				};
 //Mensaje de errores
@@ -184,6 +184,14 @@ var sincronizarPerfilesConNuevosDatos = schedule.scheduleJob('10 * * * * *', fun
     }
 
 });
+
+var rule = new schedule.RecurrenceRule();
+rule.minute = 5;
+var crearBases = schedule.scheduleJob(rule, function(){
+   oracleMongo.crearBackupsSqliteAutomatica({cron:"Automatico","mensaje":"Cada hora despues de 5 minutos"});
+
+});
+
 /*var sincronizarPerfilesConNuevosDatosEnviarBackup = schedule.scheduleJob('5 * * * * *', function(){
     if(app.dispositivosConectados  && app.empresas[0] && app.empresas[0].ruc && app.conexiones[app.empresas[0].ruc]){
         oracleMongo.sincronizarPerfilesNuevosDatosEnvioBackup(app.conexiones[app.empresas[0].ruc], app.dispositivosConectados);

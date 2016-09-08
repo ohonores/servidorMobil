@@ -12,7 +12,8 @@ var urlSincronizarPerifil = process.env.DOMINIO + "/movil/sincronizacion/actuali
 var client = require("ioredis").createClient();
 var UAParser = require('ua-parser-js');
 var parser = new UAParser();
-
+var Geolocalizacion = require('../../utils/geoLocalizacion.js');
+    geolocalizacion = new Geolocalizacion();
 /**************
 Logger
 ********************/
@@ -210,11 +211,20 @@ sincronizar.get('/sincronizacion-manual-sql/:versionEncontrada/:versionAnterior/
            res.json("Por favor vuelva a intentarlo en unos minutos");
         },10000);
         console.log('/sincronizacion-manual-sql/:versionEncontrada/:versionAnterior/:versionActualizacion/:perfil/:dispositivo',req.params);
-
+        if(req.app.conexiones[req.app.empresas[0].ruc] && req.params.perfil ){
+            geolocalizacion.getOrdenes(req.app.conexiones[req.app.empresas[0].ruc], req.params.perfil);
+            geolocalizacion.getCarteras(req.app.conexiones[req.app.empresas[0].ruc], req.params.perfil);
+         
+        }
         oracleMongo.getVersionDeActualizacion(req.params.versionEncontrada, req.params.versionAnterior, req.params.versionActualizacion, req.params.perfil, req.params.dispositivo,req.params.forzar, parser.setUA(req.headers['user-agent']).getResult()).then(function(success){
             clearTimeout(resAux);
             res.json(success);
+        },function(error){
+            clearTimeout(resAux);
+            res.json(error);
         });
+        
+        
     }catch(error){
         console.log(error);
         clearTimeout(resAux);

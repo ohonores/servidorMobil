@@ -1,3 +1,7 @@
+/***************
+OOOOOOOJOOOOOOOO VERIFICAR LA URL DEL PERFIL
+****************/
+
 var scritpA = "CREATE TABLE IF NOT EXISTS #TABLA (id integer primary key autoincrement, hash TEXT, #COLUMNAS)";
 var scritpEspejo = "CREATE TABLE IF NOT EXISTS #TABLA (id integer primary key autoincrement, #COLUMNAS)";
 var scritpDropTables = "DROP TABLE IF  EXISTS  #TABLA";
@@ -58,7 +62,7 @@ EntidadesMongoOracle.prototype.getJsonPerfiles = function(){
                                     fecha:"",
                                     bodegas:"",
                                     cambiaprecio:"",
-                                    url:"",
+                                    url:"http://documentos.ecuaquimica.com:8080",
                                     arrayJson1:{
                                         sqlOrigen:"SELECT B.* FROM SWISSMOVI.EMOVTPERFIL_BODEGA PB JOIN  SWISSMOVI.EMOVVBODEGA B ON B.ID=PB.MBODEGA_ID WHERE PB.MPERFIL_ID=:ID ORDER BY B.ID ASC",
                                         parametrosBusqueda:["registroInterno.perfil"],
@@ -626,8 +630,9 @@ EntidadesMongoOracle.prototype.getJsonCartera = function(){
                             fechacreacion:"FECHACREACION",
                             dispositivo:"DISPOSITIVO",
                             precartera_id:"PRECARTERA_ID",
+                            COMENTARIO:"",
                             estado:"ESTADO",
-
+                            
                         }
                     }
                 };//FIN DEL JSON
@@ -719,7 +724,7 @@ EntidadesMongoOracle.prototype.getJsonOrden = function(){
                     iteracionPorPerfil:true,
                     movil:{tabla:"emovtorden", crear:true, espejo:true, sql:"SELECT * FROM SWISSMOVI.EMOVTORDEN where rownum = 1",secuencia:"SWISSMOVI.emovsorden"},
                     referencias:[{tabla:"emovtorden_detalle",campofk:"MORDEN_ID"},{tabla:"emovtorden_condicion",campofk:"MORDEN_ID"}],
-                    sqlOrigen:"SELECT * FROM (SELECT C.* FROM SWISSMOVI.EMOVTORDEN C JOIN SWISSMOVI.EMOVTPERFIL_ESTABLECIMIENTO PE ON PE.ID = C.MPERFILESTABLECIMIENTO_ID  WHERE  PE.MPERFIL_ID=:ID AND ROWNUM<=100 ORDER BY C.ID ASC) PEA WHERE  PEA.ID>=:A AND ROWNUM<=:B",
+                    sqlOrigen:"SELECT * FROM (SELECT C.* FROM SWISSMOVI.EMOVTORDEN C JOIN SWISSMOVI.EMOVTPERFIL_ESTABLECIMIENTO PE ON PE.ID = C.MPERFILESTABLECIMIENTO_ID  WHERE  PE.MPERFIL_ID=:ID AND ROWNUM<=200 ORDER BY C.ID ASC) PEA WHERE  PEA.ID>=:A AND ROWNUM<=:B",
                     parametrosBusqueda:["registroInterno.perfil"],
                     parametrosBusquedaValores:[],
                     registroTipoCamposNumericos:{
@@ -759,7 +764,7 @@ EntidadesMongoOracle.prototype.getJsonOrdenDetalle = function(){
                     sincronizar:true,
                     iteracionPorPerfil:true,
                     movil:{tabla:"emovtorden_detalle", crear:true, espejo:true, sql:"SELECT * FROM SWISSMOVI.EMOVTORDEN_DETALLE where rownum = 1",secuencia:"SWISSMOVI.emovsorden_detalle"},
-                    sqlOrigen:"SELECT * FROM (SELECT CD.* FROM SWISSMOVI.EMOVTORDEN_DETALLE CD JOIN SWISSMOVI.EMOVTORDEN C ON CD.MORDEN_ID = C.ID JOIN SWISSMOVI.EMOVTPERFIL_ESTABLECIMIENTO PE ON PE.ID = C.MPERFILESTABLECIMIENTO_ID  WHERE  CD.MORDEN_ID IN (SELECT C.ID FROM SWISSMOVI.EMOVTORDEN C JOIN SWISSMOVI.EMOVTPERFIL_ESTABLECIMIENTO PE ON PE.ID = C.MPERFILESTABLECIMIENTO_ID  WHERE  PE.MPERFIL_ID=:ID AND ROWNUM<=500)  ORDER BY CD.ID ASC)  PEA WHERE  PEA.ID>=:A AND ROWNUM<=:B",
+                    sqlOrigen:"SELECT * FROM (SELECT CD.* FROM SWISSMOVI.EMOVTORDEN_DETALLE CD JOIN SWISSMOVI.EMOVTORDEN C ON CD.MORDEN_ID = C.ID JOIN SWISSMOVI.EMOVTPERFIL_ESTABLECIMIENTO PE ON PE.ID = C.MPERFILESTABLECIMIENTO_ID  WHERE  CD.MORDEN_ID IN (SELECT C.ID FROM SWISSMOVI.EMOVTORDEN C JOIN SWISSMOVI.EMOVTPERFIL_ESTABLECIMIENTO PE ON PE.ID = C.MPERFILESTABLECIMIENTO_ID  WHERE  PE.MPERFIL_ID=:ID AND ROWNUM<=1500)  ORDER BY CD.ID ASC)  PEA WHERE  PEA.ID>=:A AND ROWNUM<=:B",
                     parametrosBusqueda:["registroInterno.perfil"],
                     parametrosBusquedaValores:[],
                     registroTipoCamposNumericos:{
@@ -872,11 +877,9 @@ EntidadesMongoOracle.prototype.getColeccionesParaActualizar = function(tablas){
     obj = new EntidadesMongoOracle();
     return Object.getOwnPropertyNames( EntidadesMongoOracle.prototype ).filter(function(a){
             if(a.indexOf("getJson")>=0 && obj[a]()){
-                console.log("getColeccionesParaActualizar",tablas);
-               
                 tablas.forEach(function(tablaOracle){
                     if(obj[a]().sqlOrigen && obj[a]().sqlOrigen.toLowerCase().indexOf(tablaOracle.toLowerCase())>=0 ){
-                        console.log("getColeccionesParaActualizar ok ",tablaOracle);
+                       
                         return true;
                     }
                 });
@@ -965,14 +968,12 @@ EntidadesMongoOracle.prototype.getValidacionesSql = function(){
     entidesMonogoDB = new EntidadesMongoOracle();
     return Object.getOwnPropertyNames( EntidadesMongoOracle.prototype ).reduce(function(res, a){
                         if(a.indexOf("getJson")>=0 && entidesMonogoDB[a]() &&  (entidesMonogoDB[a]().validacionSql)){
-                            console.log(entidesMonogoDB[a]().movil);
                             var validacionSql = entidesMonogoDB[a]().validacionSql;
                             if(entidesMonogoDB[a]().movil && entidesMonogoDB[a]().movil.tabla){
-                                console.log("getValidacionesSql entro");
+                              
                                 validacionSql.tabla = entidesMonogoDB[a]().movil.tabla;
                             }
-                            console.log(validacionSql);
-                            res.push(validacionSql);
+                           res.push(validacionSql);
                         }
                         return res;
                     },[]);
