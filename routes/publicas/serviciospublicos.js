@@ -14,8 +14,8 @@ var Geolocalizacion = require('../../utils/geoLocalizacion.js');
     geolocalizacion = new Geolocalizacion();
 var mensajes = require('../../utils/mensajesLabels.js');
 var oracleMongo =  new OracleMongo(oracledb, mongodb);
-
-var urlMatriz = process.env.DOMINIO;
+var urlsProduccion = JSON.parse(process.env.DOMINIO);
+var urlMatriz = urlsProduccion[process.env.GRUPO];
 var urlPefil = "/movil/sincronizacion/inicio/perfil/:coleccion/:index";
 var urlDiccionario = "/movil/sincronizacion/inicio/diccionarios/:coleccion/:index";
 var urlRecpcion = urlMatriz+"/movil/sincronizacion/recepcion/:tabla/";
@@ -73,6 +73,7 @@ router.get('/movil/autentificacion-getToken/:identificacion/:empresa/:uidd/:x/:y
     // =====================================
 var coleccion = {nombre:"emcversiones",datos:{tipo:"diccionarios",version:"",nombreBackupSql:"",ubicacion:"/u02/movil/sqlite/bds/", origen:"",resultado:{}}};
 router.get('/movil/autentificacion/:tipo/:identificacion/:empresa/:uidd/:x/:y/:token', seguridadEDC.validarIdentificacion, function(req, res) {
+    req.params.tipo = 'device';
     oracleMongo.autentificacionOracle(req).
     then(oracleMongo.autentificacionMongo).
     then(function(respuesta){
@@ -94,7 +95,7 @@ router.get('/movil/autentificacion/:tipo/:identificacion/:empresa/:uidd/:x/:y/:t
                     respuesta.perfil = respuesta.registroInterno.perfil;
                     respuesta.emisor = respuesta.registroMovil.emisor;
 
-                    console.log("herxxxxxxxxxxxxxxxxxSDDDDDDDDDDDDDDDDD",respuesta.emisor,respuesta.registroMovil.emisor);
+                    console.log("herxxxxxxxxxxxxxxxxxSDDDDDDDDDDDDDDDDD",respuesta.emisor,respuesta.registroMovil.emisor, urlMatriz,JSON.stringify(process.env.GRUPO),JSON.stringify(process.env.DOMINIO), JSON.stringify(urlsProduccion[process.env.GRUPO]));
                     //Buscano la url del archivo zip
                     switch(req.params.tipo){
                         case "device":

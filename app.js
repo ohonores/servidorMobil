@@ -185,12 +185,20 @@ var sincronizarPerfilesConNuevosDatos = schedule.scheduleJob('10 * * * * *', fun
 
 });
 
-var rule = new schedule.RecurrenceRule();
-rule.minute = 5;
-var crearBases = schedule.scheduleJob(rule, function(){
-   oracleMongo.crearBackupsSqliteAutomatica({cron:"Automatico","mensaje":"Cada hora despues de 5 minutos"});
+if(process.env.GRUPO == "2"){
+    var rule = new schedule.RecurrenceRule();
+    rule.minute = 5;
+    var crearBases = schedule.scheduleJob(rule, function(){
+       oracleMongo.crearBackupsSqliteAutomatica({cron:"Automatico","mensaje":"Cada hora despues de 5 minutos"});
 
-});
+    });
+    var pingOracle = schedule.scheduleJob('*/1 * * * *', function(){
+         oracleMongo.pingOracle();
+     });
+
+
+    
+}
 
 /*var sincronizarPerfilesConNuevosDatosEnviarBackup = schedule.scheduleJob('5 * * * * *', function(){
     if(app.dispositivosConectados  && app.empresas[0] && app.empresas[0].ruc && app.conexiones[app.empresas[0].ruc]){

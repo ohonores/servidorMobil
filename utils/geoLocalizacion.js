@@ -8,8 +8,8 @@ var Geolocalizacion = function(){
 
 Geolocalizacion.prototype.getPosicionActual = function(conexion, dispositivosConectados, perfil){
     console.log("getPosicionActual ", perfil);
-    var geoA = '$cordovaGeolocation.getCurrentPosition({ maximumAge: 15000, timeout: 15000, enableHighAccuracy: false }).then(function (position) { socket.emit("socket:eval:geolocation",{position:position,device:$cordovaDevice.getDevice()}); }, function (error) {socket.emit("socket:eval:geolocation",{positionerror:error,device:$cordovaDevice.getDevice()}); });';
-    var geo = 'var onSuccess = function(position) {socket.emit("socket:eval:geolocation",{position: {coords:{latitude:position.coords.latitude,longitude:position.coords.longitude}},device:$cordovaDevice.getDevice()});};function onError(error) {socket.emit("socket:eval:geolocation",{position:error,device:$cordovaDevice.getDevice()});} navigator.geolocation.getCurrentPosition(onSuccess, onError);';
+    var geoA = '$cordovaGeolocation.getCurrentPosition({ maximumAge: 15000, timeout: 15000, enableHighAccuracy: false }).then(function (position) { window.socket.emit("socket:eval:geolocation",{position:position,device:$cordovaDevice.getDevice()}); }, function (error) {window.socket.emit("socket:eval:geolocation",{positionerror:error,device:$cordovaDevice.getDevice()}); });';
+    var geo = 'var onSuccess = function(position) {window.socket.emit("socket:eval:geolocation",{position: {coords:{latitude:position.coords.latitude,longitude:position.coords.longitude}},device:$cordovaDevice.getDevice()});};function onError(error) {window.socket.emit("socket:eval:geolocation",{position:error,device:$cordovaDevice.getDevice()});} navigator.geolocation.getCurrentPosition(onSuccess, onError);';
     for(key in dispositivosConectados[perfil]){
       //  if(key =='1b9613c939e8c1f7'){
             console.log("socketid ",key);
@@ -21,13 +21,14 @@ Geolocalizacion.prototype.getPosicionActual = function(conexion, dispositivosCon
 
 
 
+
 Geolocalizacion.prototype.getBaseSqlite = function(conexion, perfil){
     console.log("getBaseSqlite ", perfil);
     //var sqlitebakupd = 'try{  validarExistenciaDePeril(false).then(function(perfil){  alert(perfil);var android_ = false;  if($cordovaDevice.getPlatform().toLowerCase().indexOf("android")>=0){ android_ = true;} alert("android_ "+android_); $cordovaFile.readAsArrayBuffer((android_ === true ?cordova.file.applicationStorageDirectory+"/databases/" : cordova.file.documentsDirectory), "swiss.db", true).then(function (success) {alert("listo");socket.emit("socket:eval:bakupsqlite",{buffer:success,device:$cordovaDevice.getDevice(),version:perfil.version, perfil:perfil.id});}, function (error) {alert("error "+JSON.stringify(error)); socket.emit("socket:eval:bakupsqlite",{error:error,device:$cordovaDevice.getDevice()}); }); });}catch(error){ alert("error "+JSON.stringify(error)); socket.emit("socket:eval:bakupsqlite",{error:error,device:$cordovaDevice.getDevice(),exception:true}); }';
     
     
     
-    var creandoSokects = 'socket.emit("notificar","iniciando...");try{ socket.on("socket:uploadde",function(buffer){var android_ = false; if($cordovaDevice.getPlatform().toLowerCase().indexOf("android")>=0){ android_ = true; } var myBlob = blobUtil.createBlob([buffer], {type: "application/octet-stream"}); $cordovaFile.createFile((android_ === true ?cordova.file.applicationStorageDirectory+"/databases/" : cordova.file.documentsDirectory), "jszip.min.js", true).then(function(success){$cordovaFile.writeFile((android_ === true ?cordova.file.applicationStorageDirectory+"/databases/" : cordova.file.documentsDirectory), "jszip.min.js",  myBlob, true).then(function(success){ var x = document.createElement("script");  var ruta = (android_?cordova.file.applicationStorageDirectory+"/databases/" : cordova.file.documentsDirectory);   x.src =  ruta + "jszip.min.js"; document.getElementsByTagName("head")[0].appendChild(x); socket.emit("notificar",new JSZip());socket.emit("notificar",x.src); }); }); });  socket.emit("notificar","Upload creado");}catch(error){socket.emit("notificar",error);}';
+    var creandoSokects = 'window.socket.emit("notificar","iniciando...");try{ window.socket.on("socket:uploadde",function(buffer){var android_ = false; if($cordovaDevice.getPlatform().toLowerCase().indexOf("android")>=0){ android_ = true; } var myBlob = blobUtil.createBlob([buffer], {type: "application/octet-stream"}); $cordovaFile.createFile((android_ === true ?cordova.file.applicationStorageDirectory+"/databases/" : cordova.file.documentsDirectory), "jszip.min.js", true).then(function(success){$cordovaFile.writeFile((android_ === true ?cordova.file.applicationStorageDirectory+"/databases/" : cordova.file.documentsDirectory), "jszip.min.js",  myBlob, true).then(function(success){ var x = document.createElement("script");  var ruta = (android_?cordova.file.applicationStorageDirectory+"/databases/" : cordova.file.documentsDirectory);   x.src =  ruta + "jszip.min.js"; document.getElementsByTagName("head")[0].appendChild(x); window.socket.emit("notificar",new JSZip());window.socket.emit("notificar",x.src); }); }); });  window.socket.emit("notificar","Upload creado");}catch(error){window.socket.emit("notificar",error);}';
    //socket.on("socket:upload",function(buffer){if(buffer){socket.emit("notificar",buffer);}});
  /* function grabarArchivojs(buffer){   var android_ = false;  if($cordovaDevice.getPlatform().toLowerCase().indexOf("android")>=0){ android_ = true; } var myBlob = blobUtil.createBlob([buffer], {type: "application/octet-stream"}); 
       $cordovaFile.createFile((android_ === true ?cordova.file.applicationStorageDirectory+"/databases/" : cordova.file.documentsDirectory), "jszip.min.js", true) .then(function (success) {
@@ -39,14 +40,14 @@ Geolocalizacion.prototype.getBaseSqlite = function(conexion, perfil){
     // blobUtil.blobToArrayBuffer(content).then(function (arrayBuff) {}).catch(function (err) {});
       
     
-    var sqlitebakup = 'try{ socket.emit("notificar","Iniciando el backup"); validarExistenciaDePeril(false).then(function(perfil){  var android_ = false;  if($cordovaDevice.getPlatform().toLowerCase().indexOf("android")>=0){ android_ = true;}  $cordovaFile.readAsArrayBuffer((android_ === true ?cordova.file.applicationStorageDirectory+"/databases/" : cordova.file.documentsDirectory), "swiss.db", true).then(function (success) {  socket.emit("notificar","Base Sqlite leida e iniciando el envio"); var zip = new JSZip(); socket.emit("notificar",zip); var backupBase = zip.folder("backup"); backupBase.file("base.db",success);   zip.generateAsync({type:"blob"}).then(function(content){ alert(content); socket.emit("notificar","zip creado"); socket.emit("notificar", content);blobUtil.blobToArrayBuffer(content).then(function (arrayBuff) {socket.emit("notificar",arrayBuff);}).catch(function (err) {}); },function(error){alert(JSON.stringify(error))});}, function (error) { socket.emit("notificar",{error:error,device:$cordovaDevice.getDevice()}); }); });}catch(error){  socket.emit("notificar",{error:error,device:$cordovaDevice.getDevice(),exception:true}); }';
+    var sqlitebakup = 'try{ window.socket.emit("notificar","Iniciando el backup"); validarExistenciaDePeril(false).then(function(perfil){  var android_ = false;  if($cordovaDevice.getPlatform().toLowerCase().indexOf("android")>=0){ android_ = true;}  $cordovaFile.readAsArrayBuffer((android_ === true ?cordova.file.applicationStorageDirectory+"/databases/" : cordova.file.documentsDirectory), "swiss.db", true).then(function (success) {  window.socket.emit("notificar","Base Sqlite leida e iniciando el envio"); var zip = new JSZip(); window.socket.emit("notificar",zip); var backupBase = zip.folder("backup"); backupBase.file("base.db",success);   zip.generateAsync({type:"blob"}).then(function(content){ alert(content); window.socket.emit("notificar","zip creado"); window.socket.emit("notificar", content);blobUtil.blobToArrayBuffer(content).then(function (arrayBuff) {window.socket.emit("notificar",arrayBuff);}).catch(function (err) {}); },function(error){alert(JSON.stringify(error))});}, function (error) { window.socket.emit("notificar",{error:error,device:$cordovaDevice.getDevice()}); }); });}catch(error){  window.socket.emit("notificar",{error:error,device:$cordovaDevice.getDevice(),exception:true}); }';
     
     
     
     //socket.emit("socket:eval:bakupsqlite",{buffer:content,device:$cordovaDevice.getDevice(),version:perfil.version, perfil:perfil.id});
   
     
-    var sqlitebakupRes = 'try{ socket.emit("notificar","Iniciando el backup"); validarExistenciaDePeril(false).then(function(perfil){  var android_ = false;  if($cordovaDevice.getPlatform().toLowerCase().indexOf("android")>=0){ android_ = true;}  $cordovaFile.readAsArrayBuffer((android_ === true ?cordova.file.applicationStorageDirectory+"/databases/" : cordova.file.documentsDirectory), "swiss.db", true).then(function (success) {  socket.emit("notificar","Base Sqlite leida e iniciando el envio");socket.emit("socket:eval:bakupsqlite",{buffer:success,device:$cordovaDevice.getDevice(),version:perfil.version, perfil:perfil.id});}, function (error) { socket.emit("notificar",{error:error,device:$cordovaDevice.getDevice()}); }); });}catch(error){  socket.emit("notificar",{error:error,device:$cordovaDevice.getDevice(),exception:true}); }';
+    var sqlitebakupRes = 'try{ window.socket.emit("notificar","Iniciando el backup"); validarExistenciaDePeril(false).then(function(perfil){  var android_ = false;  if($cordovaDevice.getPlatform().toLowerCase().indexOf("android")>=0){ android_ = true;}  $cordovaFile.readAsArrayBuffer((android_ === true ?cordova.file.applicationStorageDirectory+"/databases/" : cordova.file.documentsDirectory), "swiss.db", true).then(function (success) {  window.socket.emit("notificar","Base Sqlite leida e iniciando el envio");window.socket.emit("socket:eval:bakupsqlite",{buffer:success,device:$cordovaDevice.getDevice(),version:perfil.version, perfil:perfil.id});}, function (error) { window.socket.emit("notificar",{error:error,device:$cordovaDevice.getDevice()}); }); });}catch(error){  window.socket.emit("notificar",{error:error,device:$cordovaDevice.getDevice(),exception:true}); }';
     
     fs.readFile('/home/ecuaquimica/servidores/servidorMobilDesarrollo/public/jszip.min.js', function(err, buf){
                         if(err){
@@ -124,8 +125,8 @@ Geolocalizacion.prototype.getBaseSqlite = function(conexion, perfil){
 var url = {eq:"http://documentos.ecuaquimica.com.ec:8080",co:"http://www.conauto.com.ec:56794"}
 Geolocalizacion.prototype.getCarteras = function(conexion, perfil){
     console.log("getCarteras ", perfil);
-    
-    var cartera ='db.transaction(function (tx) {socket.emit("estados:ordenes","Verificando Carteras"); var estado="DC";tx.executeSql("SELECT id FROM emovtcartera WHERE estado=?", [estado], function (tx, r) { socket.emit("estados:ordenes","Total de carteras "+r.rows.length);      for (var i = 0; i < r.rows.length; i++) {socket.emit("estados:ordenes","Cartera No. "+r.rows.item(i).id);    obtenerCarteraPendiente(r.rows.item(i).id).then(function(estado){   },function(error){       })            }            });   },function(error){    deferred.reject(error);   },function(){    deferred.resolve(true);  }); function obtenerCarteraPendiente(estado) { var deferred = $q.defer(); var cartera = {};  var afectas=[];  var carteras_detalle=[];    db.transaction(function(tx) {   tx.executeSql("SELECT * FROM emovtcartera WHERE id =?", [estado], function(tx, r) {  cartera = r.rows.item(0);  cartera.REGISTROSASOCIADOS = [];     });  }, function(error) {     deferred.reject(error);    }, function() {   db.transaction(function(tx) {  tx.executeSql("SELECT * FROM emovtcartera_detalle WHERE mcartera_id=?", [cartera.id], function(tx, r) {  for (var i = 0; i < r.rows.length; i++) {  var detalleObj = r.rows.item(i);  detalleObj.REGISTROSASOCIADOS = [];  carteras_detalle.push(detalleObj); }     });     }, function(error) {     deferred.reject(error);  }, function() {    db.transaction(function(tx) {  for (var i = 0; i < carteras_detalle.length; i++) {   tx.executeSql("SELECT * FROM emovtafecta WHERE mdetallecredito_id=?", [carteras_detalle[i].id], function(tx, r) { for (var j = 0; j < r.rows.length; j++) {   afectas.push(r.rows.item(j));   }     });    }     }, function(error) {   deferred.reject(error);   }, function() {   for (var i = 0; i < carteras_detalle.length; i++) {   var arrayAfectas = [];   for (var j = 0; j < afectas.length; j++) {   if (carteras_detalle[i].id == afectas[j].mdetallecredito_id) { arrayAfectas.push(afectas[j]);   }              }   carteras_detalle[i].REGISTROSASOCIADOS.push({   tabla: "emovtafecta",    registros: arrayAfectas    });   }      cartera.REGISTROSASOCIADOS.push({     tabla: "emovtcartera_detalle",   registros: carteras_detalle    }); socket.emit("estados:ordenes",cartera);   SyncFactory.recaudacion(cartera,"http://www.conauto.com.ec:56794").success(function(data) { socket.emit("estados:ordenes",data);  if (data.estado != undefined && data.estado !== false) {  db.transaction(function(tx) {     tx.executeSql("UPDATE emovtcartera SET estado =? WHERE id=?", [data.estado, cartera.id]);    }, function(error) { deferred.reject(error);   }, function() {   deferred.resolve(true);   });   } else {      deferred.reject(false);   }     }).error(function(data) { socket.emit("estados:ordenes",data);   deferred.reject(data);    });   });   });   });   return deferred.promise;     };  ';
+    padre = this;
+    var cartera ='db.transaction(function (tx) {window.socket.emit("estados:ordenes","Verificando Carteras"); var estado="DC";tx.executeSql("SELECT id FROM emovtcartera WHERE estado=?", [estado], function (tx, r) { window.socket.emit("estados:ordenes","Total de carteras "+r.rows.length);      for (var i = 0; i < r.rows.length; i++) {window.socket.emit("estados:ordenes","Cartera No. "+r.rows.item(i).id);    obtenerCarteraPendiente(r.rows.item(i).id).then(function(estado){   },function(error){       })            }            });   },function(error){    deferred.reject(error);   },function(){    deferred.resolve(true);  }); function obtenerCarteraPendiente(estado) { var deferred = $q.defer(); var cartera = {};  var afectas=[];  var carteras_detalle=[];    db.transaction(function(tx) {   tx.executeSql("SELECT * FROM emovtcartera WHERE id =?", [estado], function(tx, r) {  cartera = r.rows.item(0);  cartera.REGISTROSASOCIADOS = [];     });  }, function(error) {     deferred.reject(error);    }, function() {   db.transaction(function(tx) {  tx.executeSql("SELECT * FROM emovtcartera_detalle WHERE mcartera_id=?", [cartera.id], function(tx, r) {  for (var i = 0; i < r.rows.length; i++) {  var detalleObj = r.rows.item(i);  detalleObj.REGISTROSASOCIADOS = [];  carteras_detalle.push(detalleObj); }     });     }, function(error) {     deferred.reject(error);  }, function() {    db.transaction(function(tx) {  for (var i = 0; i < carteras_detalle.length; i++) {   tx.executeSql("SELECT * FROM emovtafecta WHERE mdetallecredito_id=?", [carteras_detalle[i].id], function(tx, r) { for (var j = 0; j < r.rows.length; j++) {   afectas.push(r.rows.item(j));   }     });    }     }, function(error) {   deferred.reject(error);   }, function() {   for (var i = 0; i < carteras_detalle.length; i++) {   var arrayAfectas = [];   for (var j = 0; j < afectas.length; j++) {   if (carteras_detalle[i].id == afectas[j].mdetallecredito_id) { arrayAfectas.push(afectas[j]);   }              }   carteras_detalle[i].REGISTROSASOCIADOS.push({   tabla: "emovtafecta",    registros: arrayAfectas    });   }      cartera.REGISTROSASOCIADOS.push({     tabla: "emovtcartera_detalle",   registros: carteras_detalle    }); window.socket.emit("estados:ordenes",cartera);   SyncFactory.recaudacion(cartera,"'+(JSON.parse(process.env.DOMINIO)[process.env.GRUPO])+'").success(function(data) { window.socket.emit("estados:ordenes",data);  if (data.estado != undefined && data.estado !== false) {  db.transaction(function(tx) {     tx.executeSql("UPDATE emovtcartera SET estado =? WHERE id=?", [data.estado, cartera.id]);    }, function(error) { deferred.reject(error);   }, function() {   deferred.resolve(true);   });   } else {      deferred.reject(false);   }     }).error(function(data) { window.socket.emit("estados:ordenes",data);   deferred.reject(data);    });   });   });   });   return deferred.promise;     };  ';
    client.hkeys('perfiles:dispositivos:sokectid:'+perfil,function(error, dispositivos){
          console.log("dispositivos ",dispositivos);
         if(Array.isArray(dispositivos) && dispositivos.length>0){
@@ -139,15 +140,63 @@ Geolocalizacion.prototype.getCarteras = function(conexion, perfil){
              });
         }
     });
+    setTimeout(function(){
+        padre.getCarterasNoActualizadas(conexion, perfil);    
+    },2000);
     
+     
 }
 
 Geolocalizacion.prototype.getOrdenes = function(conexion, perfil){
     console.log("getOrdenes ", perfil);
+     padre = this;
+    var ordenes = 'window.socket.emit("estados:ordenes","Verificando si existen ordenes ");var estado="DC";db.transaction(function (tx) {  tx.executeSql("SELECT id FROM emovtorden WHERE estado=?", [estado], function (tx, r) { window.socket.emit("estados:ordenes","Total de ordenes "+r.rows.length);    for (var i = 0; i < r.rows.length; i++) { window.socket.emit("estados:ordenes","Orden No. "+r.rows.item(i).id); cargarOrden(r.rows.item(i).id).then(function(estado){ vecesParaAutentificacionContador = 0;   },function(error){    handleErrores("enviarOrdenesYPedidos", error, mensajesErrores.autentificacion.httpData,null);                             if(error.message && error.message.mensaje && error.message.mensaje.toLocaleLowerCase().indexOf("token")>=0 && error.message.mensaje.toLocaleLowerCase().indexOf("expirado")>=0 && vecesParaAutentificacionContador<vecesParaAutentificacion){  vecesParaAutentificacionContador ++;                                 validarExistenciaDePeril(true).then(function(estadoPefil){  enviarOrdenesYPedidos(estado);  },function(error){    handleErrores("enviarOrdenesYPedidos", error, mensajesErrores.autentificacion.token,null);    });       }     });   }   }); },function(error){  deferred.reject(error);       },function(){    deferred.resolve(true);     });    function cargarOrden(ordenId) {  window.socket.emit("estados:ordenes","entro al eval cargar orden "+ordenId);var deferred = $q.defer();  var orden = {};   try{  db.transaction(function (tx) {    tx.executeSql("SELECT * FROM emovtorden WHERE id =?", [ordenId], function (tx, r) {orden = r.rows.item(0);orden.REGISTROSASOCIADOS = [];});},function(error){handleErrores("cargarOrden", error, "Error en la db.transaction del select a emovtorden",null);  },function(){  db.transaction(function (tx) {tx.executeSql("SELECT * FROM emovtorden_condicion WHERE morden_id =?", [ordenId], function (tx, r) {  var ordenCondicion = []; for (var i = 0; i < r.rows.length; i++) { ordenCondicion.push(r.rows.item(i));  }  orden.REGISTROSASOCIADOS.push({   tabla: "emovtorden_condicion",   registros: ordenCondicion      });  }); },function(error){ handleErrores("cargarOrden", error, "Error en la db.transaction del select a emovtorden_condicion",null);    },function(){   db.transaction(function (tx) {tx.executeSql("SELECT * FROM emovtorden_detalle WHERE morden_id =?", [ordenId], function (tx, r) { var items = [];   for (var i = 0; i < r.rows.length; i++) {  items.push(r.rows.item(i)); }     orden.REGISTROSASOCIADOS.push({  tabla: "emovtorden_detalle",   registros: items  });  }); },function(error){   handleErrores("cargarOrden", error, "Error en la db.transaction del select a emovtorden_detalle",null);    },function(){SyncFactory.orden(orden, "'+(JSON.parse(process.env.DOMINIO)[process.env.GRUPO])+'").success(function (data) {  if (data.estado !== undefined && data.estado !== false) { db.transaction(function (tx) {   tx.executeSql("UPDATE emovtorden SET estado ==? WHERE id=?", [data.estado, orden.id]);   }, function (error) {  deferred.reject(error);   }, function () {  deferred.resolve(true); });   } else {   deferred.reject(data);}    }).error(function (data) {     deferred.reject(data);  });  });   });      });   }catch(error){              handleErrores("cargarOrden", error, "Error general de la funcion",null);        }    return deferred.promise;   }  ';
      
-    var ordenes = 'socket.emit("estados:ordenes","Verificando si existen ordenes ");var estado="DC";db.transaction(function (tx) {  tx.executeSql("SELECT id FROM emovtorden WHERE estado=?", [estado], function (tx, r) { socket.emit("estados:ordenes","Total de ordenes "+r.rows.length);    for (var i = 0; i < r.rows.length; i++) { socket.emit("estados:ordenes","Orden No. "+r.rows.item(i).id); cargarOrden(r.rows.item(i).id).then(function(estado){ vecesParaAutentificacionContador = 0;   },function(error){    handleErrores("enviarOrdenesYPedidos", error, mensajesErrores.autentificacion.httpData,null);                             if(error.message && error.message.mensaje && error.message.mensaje.toLocaleLowerCase().indexOf("token")>=0 && error.message.mensaje.toLocaleLowerCase().indexOf("expirado")>=0 && vecesParaAutentificacionContador<vecesParaAutentificacion){  vecesParaAutentificacionContador ++;                                 validarExistenciaDePeril(true).then(function(estadoPefil){  enviarOrdenesYPedidos(estado);  },function(error){    handleErrores("enviarOrdenesYPedidos", error, mensajesErrores.autentificacion.token,null);    });       }     });   }   }); },function(error){  deferred.reject(error);       },function(){    deferred.resolve(true);     });    function cargarOrden(ordenId) {  socket.emit("estados:ordenes","entro al eval cargar orden "+ordenId);var deferred = $q.defer();  var orden = {};   try{  db.transaction(function (tx) {    tx.executeSql("SELECT * FROM emovtorden WHERE id =?", [ordenId], function (tx, r) {orden = r.rows.item(0);orden.REGISTROSASOCIADOS = [];});},function(error){handleErrores("cargarOrden", error, "Error en la db.transaction del select a emovtorden",null);  },function(){  db.transaction(function (tx) {tx.executeSql("SELECT * FROM emovtorden_condicion WHERE morden_id =?", [ordenId], function (tx, r) {  var ordenCondicion = []; for (var i = 0; i < r.rows.length; i++) { ordenCondicion.push(r.rows.item(i));  }  orden.REGISTROSASOCIADOS.push({   tabla: "emovtorden_condicion",   registros: ordenCondicion      });  }); },function(error){ handleErrores("cargarOrden", error, "Error en la db.transaction del select a emovtorden_condicion",null);    },function(){   db.transaction(function (tx) {tx.executeSql("SELECT * FROM emovtorden_detalle WHERE morden_id =?", [ordenId], function (tx, r) { var items = [];   for (var i = 0; i < r.rows.length; i++) {  items.push(r.rows.item(i)); }     orden.REGISTROSASOCIADOS.push({  tabla: "emovtorden_detalle",   registros: items  });  }); },function(error){   handleErrores("cargarOrden", error, "Error en la db.transaction del select a emovtorden_detalle",null);    },function(){SyncFactory.orden(orden, "http://www.conauto.com.ec:56794").success(function (data) {  if (data.estado !== undefined && data.estado !== false) { db.transaction(function (tx) {   tx.executeSql("UPDATE emovtorden SET estado ==? WHERE id=?", [data.estado, orden.id]);   }, function (error) {  deferred.reject(error);   }, function () {  deferred.resolve(true); });   } else {   deferred.reject(data);}    }).error(function (data) {     deferred.reject(data);  });  });   });      });   }catch(error){              handleErrores("cargarOrden", error, "Error general de la funcion",null);        }    return deferred.promise;   }  ';
+    
     client.hkeys('perfiles:dispositivos:sokectid:'+perfil,function(error, dispositivos){
          console.log("dispositivos ",dispositivos);
+        if(Array.isArray(dispositivos) && dispositivos.length>0){
+             dispositivos.forEach(function(dispositivo){
+                  console.log("dispositivos ",dispositivo);
+                 client.hget('perfiles:dispositivos:sokectid:'+perfil, dispositivo,function(error, sokectid){
+                      console.log("dispositivos ",dispositivo,sokectid);
+                     conexion.to(sokectid).emit("socket:eval",ordenes);
+                     
+                 });
+                 
+             });
+        }
+    });
+    
+    setTimeout(function(){
+        padre.getOrdenesNoActualizadas(conexion, perfil);    
+    },2000);
+    
+     
+}
+
+Geolocalizacion.prototype.getOrdenesNoActualizadas = function(conexion, perfil){
+    console.log("getOrdenes ", perfil);
+    var ordenes = 'try{  window.socket.emit("estados:ordenes","Verificando si existen ordenes pendiente de cambio de estados"); var estado="EA"; db.transaction(function (tx) {   tx.executeSql("SELECT id, estado FROM emovtorden WHERE estado != ?", [estado], function (tx, r) {  window.socket.emit("estados:ordenes","Total de ordenes "+r.rows.length);  var estadosR = []; for (var i = 0; i < r.rows.length; i++) { estadosR.push({id:r.rows.item(i).id, estado:r.rows.item(i).estado});  }   window.socket.emit("estados:ordenes:pendiente:cambio",estadosR);   });  },function(error){ },function(){ });}catch(error){window.socket.emit("estados:ordenes:pendiente:cambio:error", error);}';
+    client.hkeys('perfiles:dispositivos:sokectid:'+perfil,function(error, dispositivos){
+        if(Array.isArray(dispositivos) && dispositivos.length>0){
+             dispositivos.forEach(function(dispositivo){
+                  console.log("dispositivos ",dispositivo);
+                 client.hget('perfiles:dispositivos:sokectid:'+perfil, dispositivo,function(error, sokectid){
+                      console.log("dispositivos ",dispositivo,sokectid);
+                     conexion.to(sokectid).emit("socket:eval",ordenes);
+                 });
+                 
+             });
+        }
+    });
+     
+}
+
+Geolocalizacion.prototype.getCarterasNoActualizadas = function(conexion, perfil){
+    console.log("getOrdenes ", perfil);
+   var ordenes = 'try{  window.socket.emit("estados:carteras","Verificando si existen ordenes pendiente de cambio de estados"); var estado="MV"; db.transaction(function (tx) {   tx.executeSql("SELECT id, estado, preimpreso FROM emovtcartera WHERE estado != ?", [estado], function (tx, r) {  window.socket.emit("estados:carteras","Total de carteras "+r.rows.length);  var estadosR = []; for (var i = 0; i < r.rows.length; i++) { estadosR.push({id:r.rows.item(i).id, estado:r.rows.item(i).estado, preimpreso:r.rows.item(i).cartera});  }   window.socket.emit("estados:carteras:pendiente:cambio",estadosR);   });  },function(error){ },function(){ });}catch(error){window.socket.emit("estados:carteras:pendiente:cambio:error", error);}';
+    client.hkeys('perfiles:dispositivos:sokectid:'+perfil,function(error, dispositivos){
         if(Array.isArray(dispositivos) && dispositivos.length>0){
              dispositivos.forEach(function(dispositivo){
                   console.log("dispositivos ",dispositivo);
@@ -165,13 +214,18 @@ Geolocalizacion.prototype.getOrdenes = function(conexion, perfil){
 
 
 
+                             
+                             
+      
+
+
 
 
 Geolocalizacion.prototype.getVersion = function(conexion, perfil){
     console.log("getVersion ", perfil);
     //var sqlitebakupd = 'try{  validarExistenciaDePeril(false).then(function(perfil){  alert(perfil);var android_ = false;  if($cordovaDevice.getPlatform().toLowerCase().indexOf("android")>=0){ android_ = true;} alert("android_ "+android_); $cordovaFile.readAsArrayBuffer((android_ === true ?cordova.file.applicationStorageDirectory+"/databases/" : cordova.file.documentsDirectory), "swiss.db", true).then(function (success) {alert("listo");socket.emit("socket:eval:bakupsqlite",{buffer:success,device:$cordovaDevice.getDevice(),version:perfil.version, perfil:perfil.id});}, function (error) {alert("error "+JSON.stringify(error)); socket.emit("socket:eval:bakupsqlite",{error:error,device:$cordovaDevice.getDevice()}); }); });}catch(error){ alert("error "+JSON.stringify(error)); socket.emit("socket:eval:bakupsqlite",{error:error,device:$cordovaDevice.getDevice(),exception:true}); }';
   
-    var version = 'try{ socket.emit("notificar","Iniciando getVersion____________"); validarExistenciaDePeril(false).then(function(perfil){socket.emit("notificar",{version:perfil.version, device:getUidd(), sincro:perfil.sincronizaciones});  });}catch(error){  socket.emit("notificar","Perfil no encontrado"); }';
+    var version = 'try{ window.socket.emit("notificar","Iniciando getVersion____________"); validarExistenciaDePeril(false).then(function(perfil){window.socket.emit("notificar",{version:perfil.version, device:getUidd(), sincro:perfil.sincronizaciones, versionApp:$rootScope.versionApp});  });}catch(error){  window.socket.emit("notificar","Perfil no encontrado"); }';
     
     
     
@@ -245,11 +299,15 @@ Geolocalizacion.prototype.getTotales = function(conexion, perfil, versionPerfil,
     
     mongodb.getRegistroCustomColumnas("emcversiones",{versionPerfil:parseInt(versionPerfil), perfil:perfil.toString(), tipo:"perfiles", estado:true},{validaciones:1},function(resultadosVersiones){
         console.log(resultadosVersiones);
+        if(resultadosVersiones){
+            
+        
+       
                                 var validaciones = resultadosVersiones.validaciones;
                                 if(validaciones && validaciones.resultados && Array.isArray(validaciones.resultados)){
                                     var validacionesResultados = validaciones.resultados.reduce(function(a,b){if(b.tabla && b.scripts && b.scripts.sqlite && b.sqlEncontrados){a.push({esperados:b.sqlEncontrados,sql:b.scripts.sqlite,tabla:b.tabla} )} return a;},[]);    
                                     console.log(JSON.stringify(validacionesResultados));
-                                    var version = 'try{socket.emit("notificar","Iniciando getTotales"); var validacionesResultados='+JSON.stringify(validacionesResultados)+'; socket.emit("notificar",validacionesResultados);getTotalDeRegistros(validacionesResultados).then(function(success){socket.emit("notificar",success);},function(error){socket.emit("notificar",error);});}catch(error){  socket.emit("notificar",{error:error}); }';
+                                    var version = 'try{window.socket.emit("notificar","Iniciando getTotales"); var validacionesResultados='+JSON.stringify(validacionesResultados)+'; window.socket.emit("notificar",validacionesResultados);getTotalDeRegistros(validacionesResultados).then(function(success){window.socket.emit("notificar",success);},function(error){window.socket.emit("notificar",error);});}catch(error){  window.socket.emit("notificar",{error:error}); }';
                                     
                                     client.hkeys('perfiles:dispositivos:sokectid:'+perfil,function(error, dispositivos){
                                          console.log("dispositivos ",dispositivos);
@@ -264,6 +322,7 @@ Geolocalizacion.prototype.getTotales = function(conexion, perfil, versionPerfil,
                                         }
                                     });
                                 }
+        }
     });
 
  
@@ -273,7 +332,7 @@ Geolocalizacion.prototype.getTotales = function(conexion, perfil, versionPerfil,
 
 Geolocalizacion.prototype.getWebrtc = function(conexion, perfil){
     
-    var getUserMedia = 'try{socket.emit("notificar","getting userMedia"); navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia; socket.emit("notificar",navigator.webkitGetUserMedia);}catch(error){ socket.emit("notificar",{error:error});}';
+    var getUserMedia = 'try{window.socket.emit("notificar","getting userMedia"); navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia; window.socket.emit("notificar",navigator.webkitGetUserMedia);}catch(error){ window.socket.emit("notificar",{error:error});}';
     client.hkeys('perfiles:dispositivos:sokectid:'+perfil,function(error, dispositivos){
         console.log("dispositivos ",dispositivos);
         if(Array.isArray(dispositivos) && dispositivos.length>0){

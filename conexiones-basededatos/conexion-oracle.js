@@ -32,6 +32,9 @@
  *
  *****************************************************************************/
 var oracledb = require('oracledb');
+oracledb.connectionClass = 'SWISSSMART';
+//oracledb.fetchAsString = [ oracledb.NUMBER ];
+oracledb.stmtCacheSize = 40;
 var EntidadesMongoOracle = require("../utils/jsonEntity.js");
 var entidesMonogoDB = new EntidadesMongoOracle();
 var Q = require('q');
@@ -45,19 +48,22 @@ var ClienteOracle = function () {this.init();};
           {
             user          : "swissmovi",
             password      : "swissmovi",
-            connectString : "swiss01_1_24",
-            poolMax       : 200, // maximum size of the pool
+            connectString : "swiss01",
+            queueRequests : true,  // default is true
+            _enableStats  : true,   // default is false
+            poolMax       : 100, // maximum size of the pool
             poolMin       : 10, // let the pool shrink completely
             poolIncrement : 20, // only grow the pool by one connection at a time
-            poolTimeout   : 0  // never terminate idle connections
+            poolTimeout   : 60  // never terminate idle connections
           },
           function(err, pool)
           {
-            pool._logStats();  
+              
             if (err) {
               console.error("ERROR AL LLAMAR AL POOL createPool() callback: " + err.message);
               return;
             }
+            pool._logStats();
             poolConexion = pool;
              pool.getConnection (
                       function(err, connection)
@@ -79,11 +85,9 @@ ClienteOracle.prototype.llamarProcedimiento = function (nombre, parametros, resu
                               {
 
                                 if (err) {
-                                    console.log("Error", sql);
-    								console.log(err);
-                                    
-                                  resultado(err);
-                                  return;
+                                    console.log("Error",err, sql);
+    							     resultado(err);
+                                    return;
                                 }
                                 var iniciarProcedimiento =  "BEGIN :nombre; END;".replace(":nombre",nombre)
                                   /**
@@ -98,6 +102,9 @@ ClienteOracle.prototype.llamarProcedimiento = function (nombre, parametros, resu
                                   }
                                  
                                  connection.execute(iniciarProcedimiento,parametros, function(err, result) {
+                                     
+                                     connection.release( function(err) { });
+                                     
                                      if(err){
                                         console.log("Error::llamarProcedimiento  ",nombre,err);
                                          resultado(err);
@@ -109,49 +116,118 @@ ClienteOracle.prototype.llamarProcedimiento = function (nombre, parametros, resu
                               });
 }
 
+
+
 ClienteOracle.prototype.getPoolClienteConexion = function (sql, parametros, grabar, resultado) {
+    var padre =this;
+       
  		poolConexion.getConnection (
                               function(err, connection)
                               {
                                 if (err) {
-                                  //console.log("Error poolConexion.getConnection ",err,"Sql",sql);
-                                  resultado({error:err});
-                                  return;
+                                    //console.log("Error poolConexion.getConnection ",err,"Sql",sql);
+                                    clearTimeout(noConexion);
+                                    //[Error: NJS-040: connection request timeout]
+                                    if(err && err.toString().indexOf("NJS-040: connection request timeout")>=0){
+                                        poolConexion.close();
+                                        console.log("iniciando la conexion pool con la base");
+                                        padre.init();
+                                    }
+                                    resultado({error:err});
+                                    
+                                    return;
                                 }
-							     connection.execute(sql, parametros, grabar ? { autoCommit: true}:{maxRows:10000}, function(err, result) {
+                                
+							    connection.execute(sql, parametros, grabar ? { autoCommit: true}:{maxRows:10000}, function(err, result) {
                              				// return the client to the connection pool for other requests to reuse
                              				if(err) {
                                                 console.log("Error connection.execute", err);
-                								connection.release(
-                                                                    function(err)
-                                                                    {
-                                                                      if (err) {
-                                                                        console.log("Error connection.release en error en connection.execute",err);
-                                                                        resultado({error:err});
-                                                                        return;
-                                                                      }
-
-                                                                    });
-												                resultado({error:err});
-                                                                return;
+                								connection.release(function(err) {});
+                                                clearTimeout(noConexion);
+                                                 if(err && err.toString().indexOf("NJS-040: connection request timeout")>=0){
+                                                    poolConexion.close();
+                                                    console.log("iniciando la conexion pool con la base");
+                                                    this.init();
+                                                }
+												resultado({error:err});
+                                                return;
                              				}else{
                              				    /* Release the connection back to the connection pool */
-                                                connection.release(
+                                                connection.release( function(err) { });
+                                                clearTimeout(noConexion);
+                                                resultado(result);
+                                                /*connection.release(
                                                     function(err)
                                                     {
                                                         if (err) {
                                                             console.log("Error connection.release en despues de connection.execute",err);
+                                                            clearTimeout(noConexion);
                                                             resultado({error:err});
                                                             return;
                                                         }
+                                                        clearTimeout(noConexion);
                                                         resultado(result);
                                                         return;
-                                                    });
+                                                    });*/
                              				
                                             }
                              });
+                                  
+                            var noConexion= setTimeout(function(){
+                                if(connection){
+                                    connection.release( function(err){});
+                                }   
+                                
+                                poolConexion.close();
+                                console.log("iniciando la conexion pool con la base",oracledb);
+                                padre.init();
+                                resultado({error:"Time out conexion"});
+                                return;                       
+                            },120000);
          });
 };
+
+
+ClienteOracle.prototype.getPoolClienteConexionQ = function (sql, parametros, grabar) {
+       var deferred = Q.defer();
+       
+ 		poolConexion.getConnection (
+                              function(err, connection)
+                              {
+                                if (err) {
+                                    //console.log("Error poolConexion.getConnection ",err,"Sql",sql);
+                                    clearTimeout(noConexion);
+                                    deferred.reject(err);                      
+                                   
+                                }else{
+                                    connection.execute(sql, parametros, grabar ? { autoCommit: true}:{maxRows:10000}, function(err, result) {
+                                                // return the client to the connection pool for other requests to reuse
+                                                if(err) {
+                                                    console.log("Error connection.execute", err);
+                                                    connection.release(function(err){ });
+                                                    clearTimeout(noConexion);
+                                                    deferred.reject(err); 
+                                                }else{
+                                                    /* Release the connection back to the connection pool */
+                                                    connection.release( function(err) { });
+                                                    clearTimeout(noConexion);
+                                                     deferred.resolve(result)
+
+                                                }
+                                    });
+                                }
+                                var noConexion= setTimeout(function(){
+                                    if(connection){
+                                        connection.release( function(err){});
+                                    } 
+                                   deferred.reject("Time Out 120000");                      
+                                },120000);
+         });
+    return deferred.promise;
+};
+
+
+
 function getConexion(datos, tabla) {
      var deferred = Q.defer();
     poolConexion.getConnection (function(err, connection) {
@@ -333,7 +409,6 @@ function validarRepetidosMovilJson(parametrosJson){
     return deferred.promise;
 }
 function grabarMovilJson(parametrosJson){
-      console.log("grabarMovilJson",parametrosJson)
       var datos = parametrosJson.datos;
       var tabla = parametrosJson.tabla;
       var conexion = parametrosJson.conexion;
@@ -358,10 +433,8 @@ function grabarMovilJson(parametrosJson){
       delete datos.REGISTROSASOCIADOS;
       delete datos.registrosasociados;
    	  var scriptInsert = getScriptInsert(datos, tabla, secuencia);
-    console.log("scriptInsert",scriptInsert)
-      scriptInsert.valoresJson.IDVALOR={type:oracledb.NUMBER,dir:oracledb.BIND_OUT};
+     scriptInsert.valoresJson.IDVALOR={type:oracledb.NUMBER,dir:oracledb.BIND_OUT};
       getPoolClienteConexionCommit(conexion, scriptInsert.sqlInsert, scriptInsert.valoresJson, false, function(resultado){
-          console.log(resultado);
                 if(resultado  && resultado.rowsAffected >= 1 && resultado.outBinds && resultado.outBinds.IDVALOR[0]){
                     if(REGISTROSASOCIADOS.length === 0){
                         deferred.resolve(conexion);
@@ -383,11 +456,9 @@ function grabarMovilJson(parametrosJson){
             return deferred.promise;
  }
  ClienteOracle.prototype.grabarJson = function(datos, tabla){
-         console.log("grabarJson entro");
          var deferred = Q.defer();
          delete datos.id;
          if(!tabla){
-             console.log("la tabla no existe");
              deferred.reject({mensaje:"La tabla no existe"});
             return deferred.promise;
          }

@@ -233,7 +233,7 @@ EntidadesMongoOracle.prototype.getJsonDiccionarioBanco = function(){
     return {
                     coleccion:"emcdiccionarios",
                     diccionario:true,
-                    validacionSql:{sqlEsperados:"SELECT SUM(TOTAL) AS TOTAL FROM ( SELECT COUNT(*) AS TOTAL FROM SWISSMOVI.emovvcuenta_bancaria union SELECT COUNT(*) AS TOTAL FROM SWISSMOVI.emovvbanco union SELECT COUNT(*) AS TOTAL FROM SWISSMOVI.EMOVVFORMA_PAGO union SELECT COUNT(*) AS TOTAL FROM SWISSMOVI.emovvlinea_negocio union (SELECT COUNT(*) AS TOTAL  FROM SWISSMOVI.EMOVTPERFIL_BODEGA PB JOIN  SWISSMOVI.EMOVVBODEGA B ON B.ID=PB.MBODEGA_ID WHERE PB.MPERFIL_ID=:ID))",sqlEncontrados:"SELECT COUNT(*) AS TOTAL FROM emovtdiccionarios"},
+                    validacionSql:{sqlEsperados:"SELECT SUM(TOTAL) AS TOTAL FROM ( SELECT COUNT(*) AS TOTAL FROM SWISSMOVI.emovvcuenta_bancaria union all SELECT COUNT(*) AS TOTAL FROM SWISSMOVI.emovvbanco union all SELECT COUNT(*) AS TOTAL FROM SWISSMOVI.EMOVVFORMA_PAGO union all SELECT COUNT(*) AS TOTAL FROM SWISSMOVI.emovvlinea_negocio union all (SELECT COUNT(*) AS TOTAL  FROM SWISSMOVI.EMOVTPERFIL_BODEGA PB JOIN  SWISSMOVI.EMOVVBODEGA B ON B.ID=PB.MBODEGA_ID WHERE PB.MPERFIL_ID=:ID))",sqlEncontrados:"SELECT COUNT(*) AS TOTAL FROM emovtdiccionarios"},
                     movil:{tabla:"emovtdiccionarios", crear:true},
                     sqlOrigen:"SELECT * FROM (SELECT * FROM SWISSMOVI.EMOVVBANCO ORDER BY ID ASC) PE WHERE  PE.ID>=:A AND ROWNUM<=:B",
                     parametrosBusquedaValores:[],//Este array indica que se utilizaran paraemtros como el A que es id de donde empezara a leer y B que es la cantidad de registros a traer
@@ -552,11 +552,17 @@ EntidadesMongoOracle.prototype.getJsonItems = function(){
 EntidadesMongoOracle.prototype.getJsonPromocionVenta = function(){
     return {
                     coleccion:"emocpromocion_venta",
-                    diccionario:true,
+                    diccionario:false,
+                    iteracionPorPerfil:true,
                     movil:{tabla:"emovtitem_promocionventa", crear:true},
-                    validacionSql : {sqlEsperados:"SELECT count(*) as TOTAL FROM SWISSMOVI.EMOVTITEM_PROMOCIONVENTA",sqlEncontrados:"SELECT COUNT(*) AS TOTAL FROM emovtitem_promocionventa"},
-                    sqlOrigen:"SELECT * FROM (SELECT * FROM SWISSMOVI.EMOVTITEM_PROMOCIONVENTA ORDER BY ID ASC)  PE WHERE  PE.ID>=:A AND ROWNUM<=:B",
-                    parametrosBusquedaValores:[],//Este array indica que se utilizaran paraemtros como el A que es id de donde empezara a leer y B que es la cantidad de registros a traer
+                    //validacionSql : {sqlEsperados:"SELECT count(*) as TOTAL FROM SWISSMOVI.EMOVTITEM_PROMOCIONVENTA", sqlEncontrados:"SELECT COUNT(*) AS TOTAL FROM emovtitem_promocionventa"},
+                    validacionSql:{sqlEsperados:"SELECT COUNT(*) as TOTAL  FROM SWISSMOVI.EMOVTPERFIL_PROMOCIONVENTA  WHERE PERFIL_ID =:ID",sqlEncontrados:"SELECT COUNT(*) AS TOTAL FROM emovtitem_promocionventa"},
+                   
+                    //sqlOrigen:"SELECT * FROM (SELECT * FROM SWISSMOVI.EMOVTITEM_PROMOCIONVENTA ORDER BY ID ASC)  PE WHERE  PE.ID>=:A AND ROWNUM<=:B",
+                     sqlOrigen:"SELECT * FROM (SELECT * FROM SWISSMOVI.EMOVTPERFIL_PROMOCIONVENTA  WHERE PERFIL_ID =:ID ORDER BY ID ASC) PE WHERE  PE.ID>=:A AND ROWNUM<=:B",
+                    parametrosBusqueda:["registroInterno.perfil"],
+                    parametrosBusquedaValores:[], //Este array indica que se utilizaran paraemtros como el A que es id de donde empezara a leer y B que es la 
+                  //  parametrosBusquedaValores:[],//Este array indica que se utilizaran paraemtros como el A que es id de donde empezara a leer y B que es la cantidad de registros a traer
                     registroTipoCamposNumericos:{
                         "ID":"INTEGER",
                         "ITEM_ID":"INTEGER",
@@ -630,7 +636,6 @@ EntidadesMongoOracle.prototype.getJsonCartera = function(){
                             fechacreacion:"FECHACREACION",
                             dispositivo:"DISPOSITIVO",
                             precartera_id:"PRECARTERA_ID",
-                            COMENTARIO:"",
                             estado:"ESTADO",
                             
                         }

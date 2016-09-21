@@ -30,8 +30,10 @@ var sqlSumaCartera = "SELECT SUM(VALOR) AS PAGO,PE.NOMBRE,CA.PREIMPRESO,P.NOMBRE
 var sqlEstadosFactura = "SELECT o.ESTADO,o.ESTADO_EDI, mpe.MPERFIL_ID, mo.DISPOSITIVO, mo.IDMOVIL from EFACTVENTA  o join EMOVTORDEN mo on o.orden_id=mo.orden_id  join EMOVTPERFIL_ESTABLECIMIENTO mpe on mpe.id=mo.mperfilestablecimiento_id WHERE o.orden_id=:ORDEN";
 var sqlEstadosOrden = "SELECT o.ESTADO, mpe.MPERFIL_ID, mo.DISPOSITIVO, mo.IDMOVIL from EFACTORDEN  o join EMOVTORDEN mo on o.id=mo.orden_id  join EMOVTPERFIL_ESTABLECIMIENTO mpe on     mpe.id=mo.mperfilestablecimiento_id WHERE o.ID=:ORDEN";
 var sqlObtenerUsuario = "SELECT UPV.USUARIO_ID FROM EFACTORDEN O JOIN ESEGTUSUARIO_PUNTO_VENTA UPV ON o.usuariopuntoventa_id=UPV.ID WHERE O.ID=:ORDEN";
+var sqlPreCartera = "SELECT PRECARTERA_ID, ESTADO, IDMOVIL, PREIMPRESO FROM  SWISSMOVI.EMOVTCARTERA WHERE IDMOVIL IN (#IDMOVILES) AND DISPOSITIVO =:DISPOSITIVO ";
+var sqlEstadosCartera = "SELECT DISPOSITIVO, PRECARTERA_ID, ESTADO FROM  SWISSMOVI.EMOVTCARTERA WHERE PRECARTERA_ID=:PRECARTERA_ID";
 var servicio = "http://192.168.1.7:6081/swiss-web/ProcesaPedido?p_nsistema=#ORDEN&idusuario=#USUARIO_ID";
-
+var sqlPerfilesActivos = "SELECT ID FROM SWISSMOVI.EMOVTPERFIL WHERE ESTADO='A'";
 var sizeArrayPorDocumento = 200;
 
 /**********
@@ -51,11 +53,7 @@ var mailOptions = {
 };
 
 
-
-
 function getDatos(origen, destino, keyToDelete, tabla){
-
-
     for(var key in destino){
        // console.log("getDatos inicio ", destino[key],key ,);
 
@@ -282,12 +280,8 @@ function setRegistrosRecursivos(jsonEntity, documento, key, perfil){
     }
 
 
-    oracledb.getPoolClienteConexion(jsonEntity.sqlOrigen, jsonEntity.parametrosBusquedaValores, false, function(respuestaora){
-		if(respuestaora.error){
-            //console.log("setRegistrosRecursivos ",respuestaora);
-			deferred.reject(respuestaora);
-		}else{
-
+    oracledb.getPoolClienteConexionQ(jsonEntity.sqlOrigen, jsonEntity.parametrosBusquedaValores, false).then(function(respuestaora){
+		
              if(respuestaora && respuestaora.rows && respuestaora.rows.length>0){
                 //console.log(key, jsonEntity.sqlOrigen, jsonEntity.parametrosBusquedaValores, respuestaora.rows.length);
                     var datoMapeado = respuestaora.rows.map(function(registro){
@@ -305,7 +299,9 @@ function setRegistrosRecursivos(jsonEntity, documento, key, perfil){
                 });
 
             }
-        }
+        
+    },function(error){
+        deferred.reject(error);
     });
     return deferred.promise;
 }
@@ -331,41 +327,12 @@ function buscandoRegistrosRecursivos (listaRegistros, jsonEntity, key, perfil){
 	});
     return deferred.promise;
 }
-/* borrame
-function buscandoRegistrosRecursivos (index, listaRegistros, jsonEntity, callBack){
-    var deferred = Q.defer();
-     if(index<listaRegistros.length){
-         jsonEntity.parametrosBusquedaValores=[];
-         if(jsonEntity.parametrosBusqueda){
-             jsonEntity.parametrosBusqueda.forEach(function(b){
-                 var r = listaRegistros[index];
-                 jsonEntity.parametrosBusquedaValores.push(eval("r."+b));
-             });
-        }
-        oracledb.getPoolClienteConexion(jsonEntity.sqlOrigen, jsonEntity.parametrosBusquedaValores, false, function(respuestaora){
-            if(respuestaora && respuestaora.rows && respuestaora.rows.length>0){
-                    var datoMapeado = respuestaora.rows.map(function(registro){
-                            jsonClon = JSON.parse(JSON.stringify(jsonEntity.registroMovil));
 
-                            getDatos(registro, jsonClon);
-                            return jsonClon;
-                    });
-                    setDatoToJsonPorEtiqueta(listaRegistros[index], datoMapeado, jsonEntity.etiqueta);
-            }
-            index = index +1;
-            buscandoRegistrosRecursivos(index, listaRegistros, jsonEntity, callBack);
-        });
-    }else{
-        callBack(listaRegistros);
-    }
-    return deferred.promise;
-}
-
-*/
 var grabarSinValidarExistencia = false;
 function grabarRegistrosRecursivosQ(i, a, id, identificacion, perfil, cantidad, jsonEntity_, regAux, nombreBD){
     var deferred = Q.defer();
     var jsonEntity = JSON.parse(JSON.stringify(jsonEntity_));
+   
      if(regAux){
         jsonEntity.parametrosBusqueda.forEach(function(b){
                 jsonEntity.parametrosBusquedaValores.push(eval("regAux."+b));
@@ -727,6 +694,22 @@ OracleMongo.prototype.getPerfiles = function(){
          }
         
      });
+    
+    
+    return  deferred.promise;
+}
+OracleMongo.prototype.getPerfilesOracle = function(){
+    var deferred = Q.defer();
+       oracledb.getPoolClienteConexionQ(sqlPerfilesActivos, [], false).then(function(respuestaora){
+            if(respuestaora && respuestaora.rows && respuestaora.rows.length>0){
+                deferred.resolve(respuestaora.rows.reduce(function(d,r){if(r && r.ID){ d.push(r.ID); } return d;},[]));
+            }else{
+                deferred.reject(false);
+            }
+          
+        },function(error){
+            deferred.reject(error);
+       });
     return  deferred.promise;
 }
 OracleMongo.prototype.getIdentificacion = function(perfil){
@@ -750,7 +733,7 @@ OracleMongo.prototype.autentificacionOracle = function(req){
         var claveUpperCase = sha256(clave).toUpperCase();
         console.log(entidesMonogoDB.getStripValidacionUsuarioOracle());
         console.log("autentificacionOracle",req.params.identificacion,claveUpperCase );
-        oracledb.getPoolClienteConexion(entidesMonogoDB.getStripValidacionUsuarioOracle(), [req.params.identificacion], false, function(respuestaora){
+        oracledb.getPoolClienteConexionQ(entidesMonogoDB.getStripValidacionUsuarioOracle(), [req.params.identificacion], false).then(function(respuestaora){
             console.log("respuestaora",respuestaora);
                 
                 if(respuestaora && respuestaora.rows && respuestaora.rows.length>0){
@@ -760,7 +743,7 @@ OracleMongo.prototype.autentificacionOracle = function(req){
                         if(r.CLAVE == claveUpperCase){
                             claveEcontrada = true;
                         }
-                    })
+                    });
                     
                 }
                 console.log("claveEcontrada",req.params.identificacion,claveEcontrada);
@@ -779,6 +762,9 @@ OracleMongo.prototype.autentificacionOracle = function(req){
                         deferred.reject("NO SE HA ENCONTRADO UN REGISTRO CON LA IDENTIFICACION Y CLAVE, POR FAVOR VUELVA INTERLO");
                     }
                 }
+        }, function(error){
+            console.log(error);
+            deferred.reject("POR FAVOR INTENTELO EN UNOS MINUTOS, ORACLE:TIMEOUT");
         });
     }
 
@@ -895,7 +881,6 @@ function borrarColeccion(borrar, json, perfil){
                     deferred.resolve(json);
             });
         }
-
     }else{
         console.log("ACTUALIZANDO ",json.coleccion);
         deferred.resolve(json);
@@ -1295,10 +1280,16 @@ OracleMongo.prototype.getTablasScript = function(callBack){
                         return res;
                     },{});
     getSriptTablaDesdeUnSql(0, tablasEspejo,  function(camposPorColeccion){
-            camposPorColeccion.forEach(function(a){
+         if(camposPorColeccion.error){
+             callBack(camposPorColeccion);
+         }else if(Array.isArray(camposPorColeccion) && camposPorColeccion.length>0){
+              camposPorColeccion.forEach(function(a){
                 tablasCustomColumnas[a.coleccion] = entidesMonogoDB.getTablaMovil(entidesMonogoDB[a.getjson](), a.campos, true);
-    });
-    callBack(tablasCustomColumnas);
+              });
+             callBack(tablasCustomColumnas);
+         }
+           
+        
     });
 }
 //Scripts ****************************************************************/
@@ -1621,7 +1612,7 @@ OracleMongo.prototype.setDatosDinamicamente = function(tabla, datos, datosperfil
                     var mensajeError_ = "Estimados, <br>MongoDB entregó un error al grabar. <br> #PERFIL no logró grabarlo en la coleccion: #COLECCION<hr><br><br>#ERROR <br><br>#FECHA"
                     mailOptions.to  = 'ohonores@hotmail.com,ohonores@ecuaquimica.com.ec';
                     mailOptions.subject  = "ECUAQUIMICA -- ERROR AL GRABAR EN LA COLECCIÓN DE MONGODB";
-                    mailOptions.html  = mensajeError_.replace("#PERFIL",datosperfil.perfil).replace("#FECHA",new Date().toString().split("GMT-0500")[0]).replace("#ERROR",x ? x.toString():"").replace("#COLECCION",JSON.stringify(coleccion));
+                    mailOptions.html  = mensajeError_.replace("#PERFIL",datosperfil.perfil).replace("#FECHA",new Date().toString().split("GMT-0500")[0]).replace("#ERROR",r ? (Array.isArray(r)?r.toString():JSON.stringify(r)):r).replace("#COLECCION",JSON.stringify(coleccion));
                     // send mail with defined transport object
                     transporter.sendMail(mailOptions, function(error, info){
                         if(error){
@@ -1756,6 +1747,69 @@ OracleMongo.prototype.actualizarImpresora = function(perfil, impresora){
     });
 }
 
+OracleMongo.prototype.pingOracle = function(){
+
+    oracledb.getPoolClienteConexion("SELECT 1 FROM DUAL", [], false, function(respuestaora){
+        console.log("ping to oracel",respuestaora);
+    });
+}
+
+
+OracleMongo.prototype.actualizarEstadosEnDispositivo = function(estados, dispoisitivo, tipo){
+
+   if(Array.isArray(estados)){
+       var idsmovil = estados.reduce(function(ids, estado){
+                        if(estado.id){
+                            ids.push(estado.id);
+                        }
+                        return ids;
+                },[]);
+        idsmovil = idsmovil.join(',');
+
+        var estadosPorId = estados.reduce(function(ids, estado){
+                            ids[estado.id] ={estado: estado.estado, preimpreso:estado.preimpreso};
+                           
+                            return ids;
+                    },{});
+        switch(tipo){
+            case "orden":{
+                 oracledb.getPoolClienteConexion("SELECT ORDEN_ID, IDMOVIL, ESTADO FROM SWISSMOVI.EMOVTORDEN WHERE IDMOVIL IN ("+idsmovil+") AND DISPOSITIVO =:DISPOSITIVO", [dispoisitivo], false, function(respuestaora){
+                     if(respuestaora.error){
+                         console.log(respuestaora.error);
+                     }else{
+                         respuestaora.rows.forEach(function(registro){
+                          if(registro.ESTADO != estadosPorId[registro.IDMOVIL].estado){
+                               client.sadd('ordenes', registro.ORDEN_ID);
+                          }
+                        });
+                     }
+                     
+
+                    });
+                break;
+            }
+            case "cartera":{
+                 oracledb.getPoolClienteConexion(sqlPreCartera.replace("#IDMOVILES",idsmovil), [dispoisitivo], false, function(respuestaora){
+                     if(respuestaora.error){
+                         console.log(respuestaora.error);
+                     }else{
+                         respuestaora.rows.forEach(function(registro){
+                              if(registro.PREIMPRESO == estadosPorId[registro.IDMOVIL].preimpreso && registro.ESTADO != estadosPorId[registro.IDMOVIL].estado){
+                                   client.sadd('precarteras', registro.PRECARTERA_ID);
+                              }
+                         });
+                     }
+
+                });
+                break;
+            }
+        }
+       
+   }
+   
+}
+
+
 OracleMongo.prototype.crearSqlDiffPorPerfil = function(perfilCreado, conexion){
       
      this.getVersionPerfilDispositivo(conexion, perfilCreado);
@@ -1810,7 +1864,7 @@ OracleMongo.prototype.crearColeccionesScriptsPorPerfil = function(origen, conexi
 OracleMongo.prototype.getVersionPerfilDispositivo = function(conexion, perfil){
 
   console.log("getVersionPerfilDispositivo",perfil)
- var version = 'try{ validarExistenciaDePeril(false).then(function(perfil){socket.emit("version:por:dispositivo",{version:perfil.version, device:getUidd(), sincronizaciones:perfil.sincronizaciones, id:perfil.id, sincronizando:sincronizando});  });}catch(error){  socket.emit("version:por:dispositivo:error",error); }';
+ var version = 'try{ validarExistenciaDePeril(false).then(function(perfil){window.socket.emit("version:por:dispositivo",{version:perfil.version, device:getUidd(), sincronizaciones:perfil.sincronizaciones, id:perfil.id, sincronizando:sincronizando});  });}catch(error){  window.socket.emit("version:por:dispositivo:error",error); }';
   client.hkeys('perfiles:dispositivos:sokectid:'+perfil,function(error, dispositivos){
       console.log("getVersionPerfilDispositivo dispositivos ",dispositivos)
         if(Array.isArray(dispositivos) && dispositivos.length>0){
@@ -1874,15 +1928,21 @@ function validarTotalDeRegistrosInsertados(parametrosValidacions, nombreBaseSqli
     var deferred = Q.defer();
     var valor = parametrosValidacions.sqlEsperados.indexOf(":ID")>=0?[perfil]:[];
     oracledb.getPoolClienteConexion(parametrosValidacions.sqlEsperados, valor , false, function(respuestaora){
-       if(respuestaora && Array.isArray(respuestaora.rows) && respuestaora.rows.length == 1 && respuestaora.rows[0] && respuestaora.rows[0].TOTAL){
+        
+        if(respuestaora.error){
+            deferred.reject(respuestaora.error);
+        }else{
+            if(respuestaora && Array.isArray(respuestaora.rows) && respuestaora.rows.length == 1 && respuestaora.rows[0] && respuestaora.rows[0].TOTAL){
             sqliteCliente_.compararRegistros(nombreBaseSqlite, parametrosValidacions.sqlEncontrados).then(function(total){
                 deferred.resolve({tabla:parametrosValidacions.tabla, sqlEsperados:respuestaora.rows[0].TOTAL, sqlEncontrados:total, resultado:respuestaora.rows[0].TOTAL - total,scripts:{oracle:parametrosValidacions.sqlEsperados, sqlite:parametrosValidacions.sqlEncontrados}});
             },function(error){
                 deferred.reject(error);
             });
-        }else{
-            deferred.reject("No existen registros en oracle");
+            }else{
+                deferred.reject("No existen registros en oracle");
+            }
         }
+       
     });
    return  deferred.promise;
 }
@@ -2210,8 +2270,9 @@ OracleMongo.prototype.getVersionDeActualizacion = function(versionEncontrada, ve
  }
 OracleMongo.prototype.grabarPerfilVersionado = function(perfil, jsonEntity, nombreBD){
     var deferred = Q.defer();
-     mongodb.getRegistroCustomColumnas("emcperfiles", {"registroInterno.perfil":parseInt(perfil)} , {registroMovil:1}, function(success){
-         console.log(success);
+     console.log("grabarPerfilVersionado emcperfiles ", {"registroInterno.perfil":parseInt(perfil)});
+     mongodb.getRegistroCustomColumnas("emcperfiles", {$or: [{"registroInterno.perfil":perfil},{"registroInterno.perfil":parseInt(perfil)}, ]} , {registroMovil:1}, function(success){
+         console.log("grabarPerfilVersionado ", success);
          if(success && success.registroMovil){
              success.registroMovil.version = nombreBD.replace("_"+perfil,"").replace(".db","").replace("_",".");
          }
@@ -2244,6 +2305,9 @@ OracleMongo.prototype.crearColecciones = function(perfil, bdPorPerfil){
         padre.crearPerfiles(true, perfil).
         then(function(r){
                 padre.crearBdSqlitePorPerfil(perfil, bdPorPerfil).then(function(success){
+                    
+                    
+                    padre.crearColeccionesMongo(perfil, bdPorPerfil, [entidesMonogoDB.getJsonPromocionVenta()]).then(function(success){
                      padre.crearColeccionesMongo(perfil, bdPorPerfil, [entidesMonogoDB.getJsonItems()]).then(function(success){
                         padre.crearColeccionesMongo(perfil, bdPorPerfil, [entidesMonogoDB.getJsonEstablecimientos()]).then(function(success){
                         console.log("getJsonEstablecimientos ok",success);
@@ -2266,15 +2330,15 @@ OracleMongo.prototype.crearColecciones = function(perfil, bdPorPerfil){
                                                              console.log("getJsonOrdenDetalle ok",success);
                                                              deferred.resolve(success);
                                                         },function(error){
-                                                                    console.log("Error al grabar el perfil",error);
+                                                                    console.log("Error al grabar getJsonOrdenDetalle ",error);
                                                                     deferred.reject(error);
                                                         }); //Crear Tabla sql
                                                     },function(error){
-                                                                console.log("Error al grabar el perfil",error);
+                                                                console.log("Error al grabar getJsonOrden",error);
                                                                 deferred.reject(error);
                                                     }); //Crear Tabla sql
                                                 },function(error){
-                                                        console.log("Error al grabar el perfil",error);
+                                                        console.log("Error al grabar el getJsonPerfiles",error);
                                                         deferred.reject(error);
                                                 }); //Crear Tabla sql
                                         },function(error){
@@ -2312,6 +2376,14 @@ OracleMongo.prototype.crearColecciones = function(perfil, bdPorPerfil){
                         deferred.reject(error);
                     });
 
+                    
+            },function(error){
+                        console.log("Fin por favor iniciar nuevamente promociones",error);
+                        deferred.reject(error);
+            });
+        
+                    
+                    
                     
 
 
@@ -2360,21 +2432,21 @@ OracleMongo.prototype.crearBackupsSqliteAutomatica = function(origen, conexion){
     padre.crearColeccionesBdSqliteTipoDiccionarios(origen).then(function(success){
         console.log("SINCRONIZACION::crearColeccionesBdSqliteTipoDiccionarios ok ",new Date(),success);
         setTimeout(function(){
-            var p = [/*101,140,108,137,123,156,135,107,272,290,232*/1,112,65,92,201];
-            padre.coleccionesPorGrupoDePerfiles(0, [p], origen, [], conexion, function(){});
+            //var p = [101/*,140,108,137,123,156,135,107,272,290,232*//*1,112,65,92,201*/];
+           // padre.coleccionesPorGrupoDePerfiles(0, [p], origen, [], conexion, function(){});
             //padre.getPerfiles()
-            /*padre.getPerfiles().then(function(perfiles){
+            padre.getPerfilesOracle().then(function(perfiles){
                 var grupoDePerfiles = [];
                 for(var i=0;i<perfiles.length;i++){
                     if(i % 50 == 0){
                         grupoDePerfiles.push(perfiles.slice(i, i+50));
                     }
                 }
-               padre.coleccionesPorGrupoDePerfiles(0, grupoDePerfiles, origen, [], function(){});
+               padre.coleccionesPorGrupoDePerfiles(0, grupoDePerfiles, origen, [], conexion, function(){});
                 
             },function(error){
-                 console.log("SINCRONIZACION::crearColeccionesBdSqliteTipoDiccionarios::getPerfiles",new Date(),"No hay perfiles");
-            });*/
+                 console.log("SINCRONIZACION::crearColeccionesBdSqliteTipoDiccionarios::getPerfiles",new Date(),"No hay perfiles", error);
+            });
         },2000);
     },function(error){
             var ref = new Date().getTime();
@@ -2417,11 +2489,11 @@ OracleMongo.prototype.crearColeccionesBdSqliteTipoDiccionarios = function(origen
         console.log("Inicio de crearColeccionesMongo getJsonItems ",nombreArchivo)
        // padre.crearColeccionesMongo(null,nombreArchivo, [entidesMonogoDB.getJsonItems()]).then(function(success2){
            // resultado.getJsonItems=success2;
-            console.log("Inicio de crearColeccionesMongo getJsonPromocionVenta")
-            padre.crearColeccionesMongo(null, nombreArchivo, [entidesMonogoDB.getJsonPromocionVenta()]).then(function(success3){
-                    console.log("getJsonPromocionVenta ok");
-                        resultado.getJsonPromocionVenta=success3;
-                console.log("Inicio de crearColeccionesMongo crearDiccionarios")
+          //  console.log("Inicio de crearColeccionesMongo getJsonPromocionVenta")
+            //padre.crearColeccionesMongo(null, nombreArchivo, [entidesMonogoDB.getJsonPromocionVenta()]).then(function(success3){
+                        //console.log("getJsonPromocionVenta ok");
+                        //resultado.getJsonPromocionVenta=success3;
+                        console.log("Inicio de crearColeccionesMongo crearDiccionarios")
                         padre.crearDiccionarios(nombreArchivo).then(function(success4){
                             resultado.crearDiccionarios=success4;
                             console.log("getJsonPromocionVenta ok", version);
@@ -2443,7 +2515,7 @@ OracleMongo.prototype.crearColeccionesBdSqliteTipoDiccionarios = function(origen
                             });
                             deferred.reject(error);
                         });
-                },function(error){
+             /*   },function(error){
                             resultado.getJsonPromocionVenta={error:error};
                             coleccion.resultado = resultado;
                              mongodb.grabarRegistro(coleccion.nombre,coleccion.datos).then(function(success){
@@ -2452,7 +2524,7 @@ OracleMongo.prototype.crearColeccionesBdSqliteTipoDiccionarios = function(origen
                                 console.log("actualizarColecciones registro grabado en mongo", error)
                             });
                     deferred.reject(error);
-                });
+                });*/
       /*  },function(error){
             resultado.getJsonItems={error:error};
             coleccion.resultado = resultado;
@@ -2538,9 +2610,31 @@ OracleMongo.prototype.testItems = function(){
 
 });
 };
+function buscarEstadoPorCartera(precartera){
+    var deferred = Q.defer();
+    oracledb.getPoolClienteConexion(sqlEstadosCartera, [precartera] , false, function(respuestaora){
+        
+        if(respuestaora.error){
+            console.log(respuestaora.error);
+            deferred.reject();
+        }else{
+            if(respuestaora.rows && respuestaora.rows.length>0){
+                deferred.resolve({precartera_id:precartera, estado:respuestaora.rows[0].ESTADO, dispositivo:respuestaora.rows[0].DISPOSITIVO});
+            }else{
+                deferred.reject();
+            }
+        }
+        
+        
+    });
+    return deferred.promise;
+}
 function buscarEstadoPorOrden(orden){
     var deferred = Q.defer();
     oracledb.getPoolClienteConexion(sqlEstadosFactura, [orden] , false, function(respuestaora){
+                if(respuestaora.error){
+                    deferred.reject(respuestaora.error);
+                }else{
                     if(respuestaora.rows && respuestaora.rows.length>0){
                         if(respuestaora.rows[0].ESTADO_EDI === "A"){
                             deferred.resolve({orden:orden,estado:"EA",perfil:respuestaora.rows[0].MPERFIL_ID,dispositivo:respuestaora.rows[0].DISPOSITIVO, idmovil:respuestaora.rows[0].IDMOVIL });
@@ -2555,22 +2649,34 @@ function buscarEstadoPorOrden(orden){
                         
                     }else{
                         oracledb.getPoolClienteConexion(sqlEstadosOrden, [orden] , false, function(respuestaora){
+                            if(respuestaora.error){
+                                console.log(respuestaora.error);
+                                deferred.reject(respuestaora.error);
+                            }else{
                                 if(respuestaora.rows && respuestaora.rows.length>0){
                                             deferred.resolve({orden:orden, estado:"O"+respuestaora.rows[0].ESTADO,perfil:respuestaora.rows[0].MPERFIL_ID, dispositivo:respuestaora.rows[0].DISPOSITIVO, idmovil:respuestaora.rows[0].IDMOVIL});
                                 }else{
                                         console.log("No se eocntro el estado ",orden,sqlEstadosOrden,respuestaora);
                                         deferred.resolve({orden:orden, estado:"XX"});
                                 }
+                            }
+                                
                         });
                     }
+                }
+        
             });
     return deferred.promise;
 }
 
-function notificarEstadosAlMovil(conexion, sokectId, perfil, estado, idmovil, tabla, callback){
-    console.log("notificarEstadosAlMovil enviado a sincronizar ",perfil,conexion);
+function notificarEstadosAlMovil(conexion, sokectId, perfil, estado, idmovil, tabla, orden, callback){
     if(conexion){
-     conexion.to(sokectId).emit('actualizar:estados',{amodificar:{estado:estado}, parametros:{id:idmovil},tabla:tabla});   
+        try{
+            conexion.to(sokectId).emit('actualizar:estados',{amodificar:{estado:estado, orden_id: parseInt(orden)}, parametros:{id:idmovil},tabla:tabla});   
+        }catch(error){
+            console.log(error);
+        }
+     
     }
      
      callback(true);
@@ -2579,7 +2685,7 @@ function notificarEstadosAlMovil(conexion, sokectId, perfil, estado, idmovil, ta
 
 function sincronizarNuevosDatosAlMovilEnvioBackup(conexion, perfil, callback){
     console.log("sincronizarNuevosDatosAlMovilEnvioBackup enviado a sincronizar ",perfil);
-    conexion.to(perfil).emit('socket:eval'," try{ if(window.cordova){$rootScope.porcentajeSincronizador={porcentaje:'0%'};sincronizacionManual().then(function(success){$ionicPopup.alert({  title: 'Sincronizando...', template: 'Por favor espere..<br>{{porcentajeSincronizador.porcentaje}}%' });socket.emit('perfil:sincronizado',{perfil:JSON.parse(localStorage.getItem('perfil')).id,resultado:success,uidd:getUidd()});},function(error){alert(error); socket.emit('perfil:sincronizado',error);  },function(porcentaje){$rootScope.porcentajeSincronizador = porcentaje});}}catch(error){alert(error)}");
+    conexion.to(perfil).emit('socket:eval'," try{ if(window.cordova){$rootScope.porcentajeSincronizador={porcentaje:'0%'};sincronizacionManual().then(function(success){$ionicPopup.alert({  title: 'Sincronizando...', template: 'Por favor espere..<br>{{porcentajeSincronizador.porcentaje}}%' });window.socket.emit('perfil:sincronizado',{perfil:JSON.parse(localStorage.getItem('perfil')).id,resultado:success,uidd:getUidd()});},function(error){alert(error); window.socket.emit('perfil:sincronizado',error);  },function(porcentaje){$rootScope.porcentajeSincronizador = porcentaje});}}catch(error){alert(error)}");
     callback(true);
 }
 OracleMongo.prototype.procesarPedidosDesdeMongoDbHaciaOracle = function(parametros){
@@ -2772,6 +2878,24 @@ OracleMongo.prototype.sincronizarPerfilesNuevosDatosEnvioBackup = function(conex
     });
 }
 
+OracleMongo.prototype.revisarEstadosDeCartertasEnviadasDesdeMovil = function(conexion, dispositivosConectados){
+    client.smembers('precarteras', function(err, precarteras) {
+        if(!err){
+          //  console.log(ordenes)
+            if(Array.isArray(precarteras)){
+                precarteras.forEach(function(precartera){
+                    buscarEstadoPorCartera(precartera).then(function(res){
+                        if(res.estado === "XX"){
+                             console.log("NNO SE ENCONTRO ",res);
+                           return ; 
+                        }
+                    });
+                });
+            }
+        }
+    });
+}
+                                                     
 OracleMongo.prototype.revisarEstadosDeOrdenesEnviadasDesdeMovil = function(conexion, dispositivosConectados){
     client.smembers('ordenes', function(err, ordenes) {
         if(!err){
@@ -2785,12 +2909,7 @@ OracleMongo.prototype.revisarEstadosDeOrdenesEnviadasDesdeMovil = function(conex
                         }
                        // console.log("buscarEstadoPorOrden", res);
                         if(res.estado === "EA"){
-                           client.srem('ordenes',res.orden, function(err, estado) {
-                                //console.log("Eliminada de ordenes en redis ",res.orden,estado);
-                           });
-                           client.hdel('orden::estado',res.orden, function(err, estado) {
-                                //console.log("Eliminada de orden::estado en redis ",res.orden,estado);
-                           });
+                          
                             //ACTUALIZANDO EL ESTADO EN LA TABLA EMOVTORDEN DE ORACLE
                            oracledb.getPoolClienteConexion("UPDATE EMOVTORDEN SET ESTADO=:ESTADO WHERE ORDEN_ID=:ORDEN", [res.estado, res.orden], true, function(respuestaora){
 						   });
@@ -2799,7 +2918,7 @@ OracleMongo.prototype.revisarEstadosDeOrdenesEnviadasDesdeMovil = function(conex
                                console.log("revisarEstadosDeOrdenesEnviadasDesdeMovil ",res.estado,res.dispositivo);
                                 client.hget('dispositivos:sokectid', res.dispositivo, function(error, sokectId){
                                     if(sokectId){
-                                        notificarEstadosAlMovil(conexion, sokectId, res.perfil, res.estado, res.idmovil, "emovtorden",function(estado){
+                                        notificarEstadosAlMovil(conexion, sokectId, res.perfil, res.estado, res.idmovil, "emovtorden", res.orden, function(estado){
                                         });
                                     }
                                                  
@@ -2822,7 +2941,7 @@ OracleMongo.prototype.revisarEstadosDeOrdenesEnviadasDesdeMovil = function(conex
                                             client.hget('dispositivos:sokectid', res.dispositivo, function(error, sokectId){
                                                 if(sokectId){
                                                     console.log("revisarEstadosDeOrdenesEnviadasDesdeMovil ",res.estado, sokectId);
-                                                    notificarEstadosAlMovil(conexion, sokectId, res.perfil, res.estado, res.idmovil, "emovtorden",function(estado){
+                                                    notificarEstadosAlMovil(conexion, sokectId, res.perfil, res.estado, res.idmovil, "emovtorden", res.orden, function(estado){
                                                     });
                                                 }
                                                  
@@ -2846,7 +2965,7 @@ OracleMongo.prototype.revisarEstadosDeOrdenesEnviadasDesdeMovil = function(conex
                                         client.hget('dispositivos:sokectid', res.dispositivo, function(error_, sokectId){
                                             console.log("error.estado",error)
                                             if(sokectId && error && error.estado ){
-                                                 notificarEstadosAlMovil(conexion, sokectId, res.perfil, error.estado, res.idmovil, "emovtorden",function(estado){
+                                                 notificarEstadosAlMovil(conexion, sokectId, res.perfil, error.estado, res.idmovil, "emovtorden", res.orden, function(estado){
                                                 });
                                             }
                                         });
@@ -2923,10 +3042,13 @@ OracleMongo.prototype.setModelosDispositivosConectados = function(referenciawap)
 
 
 OracleMongo.prototype.crearBdSqlitePorPerfil = function(perfil, bdPorPerfil){
-     var deferred = Q.defer();
+    var deferred = Q.defer();
     var padre = this;
     padre.getTablasScript(function(script){
-        var scripts = [];
+        if(script.error){
+            deferred.reject(script.error);
+        }else{
+           var scripts = [];
 
             scripts = scripts.concat(padre.getScriptsIterarPorPerfil("Drop",padre.getTablasScriptDrop()));
             scripts = scripts.concat(padre.getScriptsIterarPorPerfil("",script));
@@ -2935,12 +3057,11 @@ OracleMongo.prototype.crearBdSqlitePorPerfil = function(perfil, bdPorPerfil){
                     deferred.resolve(true);
                 },function(error){
                     deferred.reject(error);
-            });
+            }); 
+        }
+        
 
-
-    },function(error){
-            deferred.reject(error);
-        });
+    });
     return deferred.promise;
 }
 
@@ -2949,7 +3070,10 @@ OracleMongo.prototype.crearBdSqliteDiccionarios = function(nombreBdSlite){
      var deferred = Q.defer();
     var padre = this;
     padre.getTablasScript(function(script){
-        var scripts = [];
+        if(script.error){
+             deferred.reject(script.error);
+        }else{
+            var scripts = [];
             scripts = scripts.concat(padre.getScriptsNoIterarPorPerfil("Drop",padre.getTablasScriptDrop()));
             scripts = scripts.concat(padre.getScriptsNoIterarPorPerfil("",script));
             scripts = scripts.concat(padre.getScriptsNoIterarPorPerfil("UniqueKey",padre.getTablasScriptUniqueKey()));
@@ -2959,9 +3083,9 @@ OracleMongo.prototype.crearBdSqliteDiccionarios = function(nombreBdSlite){
                 },function(error){
                     deferred.reject(error);
                 });
-    },function(error){
-            deferred.reject(error);
-        });
+        }
+        
+    });
     return deferred.promise;
 }
 
@@ -3082,24 +3206,31 @@ function getTotalesParcialesPorPerifil(index, colecciones, identificacion, perfi
 function getSriptTablaDesdeUnSql(index, sqls, callBack){
     if(index < sqls.length){
         oracledb.getPoolClienteConexion(sqls[index].sql, [], false, function(respuestaora){
-            if(respuestaora && respuestaora.metaData){
-                sqls[index].campos = respuestaora.metaData.reduce(function(nuevasColumnas, columna){
-                                        if (columna.name != "ID"){
-                                            nuevasColumnas.push(columna.name.toLowerCase());
-                                    }
-                                    return nuevasColumnas;
-                                },[]);
+            if(respuestaora.error){
+                callBack(respuestaora);
+            }else{
+                 if(respuestaora && respuestaora.metaData){
+                    sqls[index].campos = respuestaora.metaData.reduce(function(nuevasColumnas, columna){
+                                            if (columna.name != "ID"){
+                                                nuevasColumnas.push(columna.name.toLowerCase());
+                                        }
+                                        return nuevasColumnas;
+                                    },[]);
 
 
+                }
+
+                index +=1;
+                getSriptTablaDesdeUnSql(index, sqls, callBack);
             }
-
-            index +=1;
-            getSriptTablaDesdeUnSql(index, sqls, callBack);
+            
+           
          });
     }else{
         callBack(sqls);
     }
 }
+
 
 
 function enviarEmail(precartera, extras){
@@ -3108,44 +3239,48 @@ function enviarEmail(precartera, extras){
     var mensaje = "Estimado #NOMBRE, agradecemos el pago de $ #PAGO, realizado a través de nuestro funcionario(#NOMBRES) el día #FECHA";
     var mensajeError = "Estimados, no se encontraron datos con la siguiente cartera #precartera, por tal motivo no se ha enviado el email.<hr><br> Errores:#extras";
     
-    oracledb.getPoolClienteConexion(sqlSumaCartera, [precartera], false, function(respuestaora){
-        if(respuestaora && respuestaora.rows &&  respuestaora.rows.length > 0  && respuestaora.rows[0].PAGO>0){
-            mailOptions.from = '"Ecuaquimica recibos de pago" <eq-ecuaquimica@ecuaquimica.com.ec>';// sender address
-            console.log(respuestaora.rows[0]);
-            //EMAILRECAUDACION
-            
-            mailOptions.to  = 'fblanc@gmail.com, ohnores@hotmail.com,dchavez@ecuaquimica.com.ec,ohonores@ecuaquimica.com.ec,paguilera@ecuaquimica.com.ec';
-            mailOptions.subject  = "Ecuaquimica recibo de pago #PREIMPRESO".replace("#PREIMPRESO",respuestaora.rows[0].PREIMPRESO);
-            mailOptions.html  = mensaje.replace("#PAGO", parseFloat(respuestaora.rows[0].PAGO).toFixed(2)).replace("#FECHA",new Date().toString().split("GMT-0500")[0]).replace("#NOMBRES",respuestaora.rows[0].NOMBRES).replace("#NOMBRE",respuestaora.rows[0].NOMBRE);
-            // send mail with defined transport object
-            transporter.sendMail(mailOptions, function(error, info){
-                if(error){
-                    deferred.reject(error);
-                }else{
-                    deferred.resolve(info.response)
-                }
-                
-                
-            });
-        }else{
-            
-            mailOptions.to  = 'fblanco@gmail.com, ohonores@hotmail.com,dchavez@ecuaquimica.com.ec,ohonores@ecuaquimica.com.ec,paguilera@ecuaquimica.com.ec';
-            mailOptions.subject  = "ECUAQUIMICA -- RECIBO DE PAGO ERROR AL ENVIAR EL EMAIL";
-            mailOptions.html  = mensajeError.replace("#precartera",precartera).replace("#extras",extras);
-            // send mail with defined transport object
-            transporter.sendMail(mailOptions, function(error, info){
-                if(error){
-                    deferred.reject(error);
-                }else{
-                    deferred.resolve(info.response)
-                }
-                
-                
-            });
-            
-            deferred.reject("No se enontraron datos con la precartera id",precartera); 
-        }
-        console.log(respuestaora);
+    oracledb.getPoolClienteConexionQ(sqlSumaCartera, [precartera], false).then(function(respuestaora){
+       
+            if(respuestaora && respuestaora.rows &&  respuestaora.rows.length > 0  && respuestaora.rows[0].PAGO>0){
+                mailOptions.from = '"Ecuaquimica recibos de pago" <eq-ecuaquimica@ecuaquimica.com.ec>';// sender address
+                console.log(respuestaora.rows[0]);
+                //EMAILRECAUDACION
+
+                mailOptions.to  = 'fblanc@gmail.com, ohnores@hotmail.com,dchavez@ecuaquimica.com.ec,ohonores@ecuaquimica.com.ec,paguilera@ecuaquimica.com.ec';
+                mailOptions.subject  = "Ecuaquimica recibo de pago #PREIMPRESO".replace("#PREIMPRESO",respuestaora.rows[0].PREIMPRESO);
+                mailOptions.html  = mensaje.replace("#PAGO", parseFloat(respuestaora.rows[0].PAGO).toFixed(2)).replace("#FECHA",new Date().toString().split("GMT-0500")[0]).replace("#NOMBRES",respuestaora.rows[0].NOMBRES).replace("#NOMBRE",respuestaora.rows[0].NOMBRE);
+                // send mail with defined transport object
+                transporter.sendMail(mailOptions, function(error, info){
+                    if(error){
+                        deferred.reject(error);
+                    }else{
+                        deferred.resolve(info.response)
+                    }
+
+
+                });
+            }else{
+
+                mailOptions.to  = 'fblanco@gmail.com, ohonores@hotmail.com,dchavez@ecuaquimica.com.ec,ohonores@ecuaquimica.com.ec,paguilera@ecuaquimica.com.ec';
+                mailOptions.subject  = "ECUAQUIMICA -- RECIBO DE PAGO ERROR AL ENVIAR EL EMAIL";
+                mailOptions.html  = mensajeError.replace("#precartera",precartera).replace("#extras",extras);
+                // send mail with defined transport object
+                transporter.sendMail(mailOptions, function(error, info){
+                    if(error){
+                        deferred.reject(error);
+                    }else{
+                        deferred.resolve(info.response)
+                    }
+
+
+                });
+
+                deferred.reject("No se enontraron datos con la precartera id"+precartera); 
+            }
+        
+    },function(error){
+        console.log(error);
+        deferred.reject("Erro en la conexion"); 
     });
     return deferred.promise;
 }
@@ -3156,7 +3291,7 @@ function procesarOrdenEnProduccionSwisSystem(orden, extras){
     var mensaje = "Estimados, se envió a procesar la orden #ORDEN, mensaje recibido por parte de SwisSystem #mensaje día #FECHA <br><br> #ERRORES";
     var mensajeError = "Estimados, se envió a procesar la orden #ORDEN, pero no se encontró el usuario. <br>#FECHA";
      
-    oracledb.getPoolClienteConexion(sqlObtenerUsuario, [orden], false, function(respuestaora){
+    oracledb.getPoolClienteConexionQ(sqlObtenerUsuario, [orden], false).then(function(respuestaora){
         if(respuestaora && respuestaora.rows &&  respuestaora.rows.length > 0  && respuestaora.rows[0].USUARIO_ID){
             mailOptions.from =  '"Ecuaquimica, toma de pedido movil" <eq-ecuaquimica@ecuaquimica.com.ec>'; // sender address
             request.get({
@@ -3213,13 +3348,23 @@ function procesarOrdenEnProduccionSwisSystem(orden, extras){
                 }
             });
             
-            deferred.reject("No se enontraron datos con la orden id",orden); 
+            deferred.reject("No se enontraron datos con la orden id"); 
         }
         console.log(respuestaora);
+    },function(error){
+        deferred.reject(error); 
     });
     return deferred.promise;
 }
 
-
+process
+  .on('SIGTERM', function() {
+    console.log("\nTerminating SIGTERM");
+    process.exit(0);
+  })
+  .on('SIGINT', function() {
+    console.log("\nTerminating SIGINT");
+    process.exit(0);
+  });
 
 module.exports = OracleMongo;

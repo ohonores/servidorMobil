@@ -15,7 +15,7 @@ var http = require('http');
  /****************************************
  	SERVICIOS CON EL SERVLET DE WS
  ****************************************/
-var puertoPrincipal = {"development":{"1":{puerto:8080}},"production":{"1":{puerto:8080}}};  //8080;Conauto//8084;QUI; //80; Farmagro
+var puertoPrincipal = {"development":{"1":{puerto:8080},"2":{puerto:8080}},"production":{"1":{puerto:8080},"2":{puerto:8080}}};  //8080;Conauto//8084;QUI; //80; Farmagro
 var port = puertoPrincipal[process.env.NODE_ENV][process.env.GRUPO].puerto;
 app.set('port', normalizePort(process.env.PORT || port ));
 app.set('ipaddr', "0.0.0.0");
