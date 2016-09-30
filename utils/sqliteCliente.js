@@ -1,4 +1,4 @@
-var sqlite3 = require('sqlite3').verbose();
+ var sqlite3 = require('sqlite3').verbose();
 var TransactionDatabase = require("sqlite3-transactions").TransactionDatabase;
 var Q = require('q');
 
@@ -10,11 +10,13 @@ var SqliteCliente = function(directorio_, mongodb_){
 }
 SqliteCliente.prototype.crearTablas = function(nombreBaseDatos, scriptsTablas){
     var deferred = Q.defer();
+    console.log("crearTablas", scriptsTablas)
     try{
         // Wrap sqlite3 database
         /*var db = new TransactionDatabase(
             new sqlite3.Database(directorio+nombreBaseDatos, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE)
         );*/
+        console.log(directorio+nombreBaseDatos)
         var db = new sqlite3.Database(directorio+nombreBaseDatos);
         //Estableciendo modo timeout,synchronous y WAL, con el objetivo de aumentar el performnce
       //  db.configure("busyTimeout", 30000);
@@ -24,8 +26,10 @@ SqliteCliente.prototype.crearTablas = function(nombreBaseDatos, scriptsTablas){
         
         try{
             db.serialize(function() {
+               
                 db.exec('BEGIN IMMEDIATE');
                 scriptsTablas.forEach(function(scriptTabla){
+                      console.log("crearTablas BEGIN IMMEDIATE")
                         db.run(scriptTabla);
                 });
                  db.exec("COMMIT")
@@ -87,18 +91,20 @@ insertarRegistros { [Error: SQLITE_CONSTRAINT: UNIQUE constraint failed: emovtaf
 SqliteCliente.prototype.insertarRegistros = function(nombre, tabla, arrayDeRegistros){
     var deferred = Q.defer();
     var padre = this;
+   
     try{
         if(!db[nombre]){
 
             db[nombre] = new sqlite3.Database(directorio+nombre);
            // db[nombre].configure("busyTimeout", 30000);
-            db[nombre].run('PRAGMA busy_timeout = 20000');
+            db[nombre].run('PRAGMA busy_timeout = 40000');
           //  db[nombre].run('PRAGMA synchronous=OFF');
         //    db[nombre].run('PRAGMA journal_mode = WAL');
         }
         try{
             db[nombre].serialize(function() {
-                 db[nombre].exec('BEGIN IMMEDIATE');
+                
+                db[nombre].exec('BEGIN IMMEDIATE');
                 var stmt = db[nombre].prepare(padre.getSqlInsercion(arrayDeRegistros[0].registroMovil, tabla));
 
 
@@ -266,8 +272,10 @@ SqliteCliente.prototype.compararRegistros = function(nombre, sql){
         //    db[nombre].run('PRAGMA journal_mode = WAL');
         }
         try{
+            console.log("compararRegistros ********************",nombre);
             db[nombre].serialize(function() {
                 db[nombre].each(sql, function(err, row) {
+                    console.log("ERRROR  compararRegistros ********************",err);
                     if(row && row.TOTAL){
                         deferred.resolve(row.TOTAL);
                     }else{
@@ -276,6 +284,8 @@ SqliteCliente.prototype.compararRegistros = function(nombre, sql){
                     }
                     
                 });
+            },function(){
+                
             });
         }catch(error){
             // db[nombre].close();

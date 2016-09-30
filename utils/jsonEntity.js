@@ -204,7 +204,7 @@ EntidadesMongoOracle.prototype.getJsonDiccionarioBodegaVentaPorPefil = function(
                     diccionario:false,
                     //sqlOrigen:"SELECT distinct ID,CODIGO,DESCRIPCION,TIPOBODEGA,ESTABLECIMIENTO_ID FROM (SELECT B.* FROM SWISSMOVI.EMOVTPERFIL_BODEGA PB JOIN  SWISSMOVI.EMOVVBODEGA B ON B.ID=PB.MBODEGA_ID WHERE PB.MPERFIL_ID=:ID ORDER BY PB.ID ASC) PE WHERE  PE.ID>=:A AND ROWNUM<=:B",
                    // sqlOrigen:"SELECT * FROM (SELECT * FROM SWISSMOVI.EMOVVBODEGA  WHERE MPERFIL_ID =:ID  ORDER BY ID ASC) PE WHERE  PE.ID>=:A AND ROWNUM<=:B",
-                    sqlOrigen:"SELECT * FROM (SELECT B.ID, B.CODIGO, B.DESCRIPCION, B.TIPOBODEGA, B.ESTABLECIMIENTO_ID, PB.OFICINA_ID FROM SWISSMOVI.EMOVTPERFIL_BODEGA PB JOIN  SWISSMOVI.EMOVVBODEGA B ON B.ID=PB.MBODEGA_ID WHERE PB.MPERFIL_ID=:ID ORDER BY PB.ID ASC) PE WHERE  PE.ID>=:A AND ROWNUM<=:B",
+                    sqlOrigen:"SELECT * FROM (SELECT B.ID, B.CODIGO, B.DESCRIPCION, B.TIPOBODEGA, B.ESTABLECIMIENTO_ID, PB.OFICINA_ID FROM SWISSMOVI.EMOVTPERFIL_BODEGA PB JOIN  SWISSMOVI.EMOVVBODEGA B ON B.ID=PB.MBODEGA_ID WHERE PB.MPERFIL_ID=:ID ORDER BY B.ID ASC) PE WHERE  PE.ID>=:A AND ROWNUM<=:B",
                     parametrosBusqueda:["registroInterno.perfil"],
                     parametrosBusquedaValores:[],//Este array indica que se utilizaran paraemtros como el A que es id de donde empezara a leer y B que es la cantidad de registros a traer
                     registroMongo:{
@@ -376,7 +376,9 @@ EntidadesMongoOracle.prototype.getJsonEstadoDeCuenta = function(){
                         "RETENCIONFUENTE":"REAL",
                         "DIFERIDO":"REAL",
                         "FECHACARTERA":"INTEGER",
-                        "FECHAVENCIMIENTO":"INTEGER"
+                        "FECHAVENCIMIENTO":"INTEGER",
+                        "BASEIMPONIBLEIVA":"REAL",
+                        "BASEIMPONIBLEFUENTE":"REAL"
                     },
                     registroMongo:{
                         registroMovil:{
@@ -391,7 +393,9 @@ EntidadesMongoOracle.prototype.getJsonEstadoDeCuenta = function(){
                             valor:"VALOR",
                             saldo:"SALDO",
                             escartera:"ESCARTERA",
-                            diferido:"DIFERIDO"
+                            diferido:"DIFERIDO",
+                            baseImponibleIva:"BASEIMPONIBLEIVA",
+                            baseImponibleFuente:"BASEIMPONIBLEFUENTE"
 
                         },
                         registroInterno:{
@@ -569,7 +573,8 @@ EntidadesMongoOracle.prototype.getJsonPromocionVenta = function(){
                         "DIAS":"INTEGER",
                         "VENTA":"REAL",
                         "ESTABLECIMIENTO_ID":"INTEGER",
-                        "PROMOCIONVENTA_ID":"INTEGER"
+                        "PROMOCIONVENTA_ID":"INTEGER",
+                         "LOTE_ID":"INTEGER"
 
                     },
                     registroMongo:{
@@ -588,6 +593,7 @@ EntidadesMongoOracle.prototype.getJsonPromocionVenta = function(){
                                 bonifica:"BONIFICA"
                             },
                             infoBonifica:"",
+                            lote_id:"LOTE_ID"
                             arrayJson1:{
                                 sqlOrigen:"SELECT * FROM SWISSMOVI.EMOVTPROMOCION_BONIFICACION  WHERE MPROMOCIONVENTA_ID =:ID ORDER BY ID ASC",
                                 parametrosBusqueda:["registroInterno.emovtitem_promocionventa"],
@@ -637,7 +643,7 @@ EntidadesMongoOracle.prototype.getJsonCartera = function(){
                             dispositivo:"DISPOSITIVO",
                             precartera_id:"PRECARTERA_ID",
                             estado:"ESTADO",
-                            
+                            comentario:"COMENTARIO"
                         }
                     }
                 };//FIN DEL JSON
@@ -784,7 +790,8 @@ EntidadesMongoOracle.prototype.getJsonOrdenDetalle = function(){
                         "DESCUENTO":"REAL",
                         "DESCUENTOORIGINAL":"REAL",
                         "CANTIDAD":"INTEGER",
-                        "MPROMOCIONBONIFICACION_ID":"INTEGER"
+                        "MPROMOCIONBONIFICACION_ID":"INTEGER",
+                        "LOTE_ID":"INTEGER"
                     },
                     updateOrigen:"",
                     registroMongo:{
@@ -802,7 +809,8 @@ EntidadesMongoOracle.prototype.getJsonOrdenDetalle = function(){
                             mpromocionbonificacion_id:"MPROMOCIONBONIFICACION_ID",
                             preciooriginal:"PRECIOORIGINAL",
                             descuentooriginal:"DESCUENTOORIGINAL",
-                            hash:"HASH"
+                            hash:"HASH",
+                            lote_id:"LOTE_ID"
                         }
                     }
                 };//Fin del json

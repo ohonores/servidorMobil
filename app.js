@@ -167,32 +167,56 @@ rule2.hour = 05;//4 de la mañana
 rule2.minute = 07;//Con 06 minutos
 var urlSincronizarPerifil = "http://documentos.ecuaquimica.com.ec:8080/movil/sincronizacion/actualizar/perfil-sinc/:coleccion/:index";
 
+console.log("app.get('port'",app.get('port'));
+//if(app.get('port') == "8091"){ //
+    console.log("entro...a scheduleJob");
+    var cronOrdenes = schedule.scheduleJob('10 * * * * *', function(){
+        if(app.dispositivosConectados  && app.empresas[0] && app.empresas[0].ruc && app.conexiones[app.empresas[0].ruc]){
+            oracleMongo.revisarEstadosDeOrdenesEnviadasDesdeMovil(app.conexiones[app.empresas[0].ruc], app.dispositivosConectados);
+        }
 
+    });
+    var cronCarteras = schedule.scheduleJob('10 * * * * *', function(){
+        if(app.dispositivosConectados  && app.empresas[0] && app.empresas[0].ruc && app.conexiones[app.empresas[0].ruc]){
+            oracleMongo.revisarEstadosDeCartertasEnviadasDesdeMovil(app.conexiones[app.empresas[0].ruc], app.dispositivosConectados);
+        }
 
-var cronOrdenes = schedule.scheduleJob('10 * * * * *', function(){
-    if(app.dispositivosConectados  && app.empresas[0] && app.empresas[0].ruc && app.conexiones[app.empresas[0].ruc]){
-        oracleMongo.revisarEstadosDeOrdenesEnviadasDesdeMovil(app.conexiones[app.empresas[0].ruc], app.dispositivosConectados);
-    }
-    
-});
+    });
 
-var sincronizarPerfilesConNuevosDatos = schedule.scheduleJob('10 * * * * *', function(){
-    if(app.dispositivosConectados  && app.empresas[0] && app.empresas[0].ruc && app.conexiones[app.empresas[0].ruc]){
-        oracleMongo.sincronizarPerfilesNuevosDatos(app.conexiones[app.empresas[0].ruc], app.dispositivosConectados);
-        //sincronizar:perfiles
-       
-    }
+    var sincronizarPerfilesConNuevosDatos = schedule.scheduleJob('10 * * * * *', function(){
+        if(app.dispositivosConectados  && app.empresas[0] && app.empresas[0].ruc && app.conexiones[app.empresas[0].ruc]){
+            oracleMongo.sincronizarPerfilesNuevosDatos(app.conexiones[app.empresas[0].ruc], app.dispositivosConectados);
+            //sincronizar:perfiles
 
-});
+        }
+
+    });
+
+//}
+
 
 if(process.env.GRUPO == "2"){
     var rule = new schedule.RecurrenceRule();
     rule.minute = 5;
-    var crearBases = schedule.scheduleJob(rule, function(){
-       oracleMongo.crearBackupsSqliteAutomatica({cron:"Automatico","mensaje":"Cada hora despues de 5 minutos"});
+     var crearBases = schedule.scheduleJob(rule, function(){
+            oracleMongo.crearBackupsSqliteAutomatica({cron:"Automatico","mensaje":"Cada hora despues de 5 minutos"});
 
     });
-    var pingOracle = schedule.scheduleJob('*/1 * * * *', function(){
+   /* if(app.get('port') == "8091"){ //
+        
+        var crearBases = schedule.scheduleJob(rule, function(){
+            oracleMongo.crearBackupsSqliteAutomatica({cron:"Automatico","mensaje":"Cada hora despues de 5 minutos"});
+
+        });
+    
+    }*/
+    var pingOracle = schedule.scheduleJob('*/30 * * * * *', function(){
+        try{
+            console.log(app.get('port'));
+        }catch(error){
+            console.log(error);
+        }
+        
          oracleMongo.pingOracle();
      });
 
@@ -212,190 +236,8 @@ if(process.env.GRUPO == "2"){
 */
 
 
-var j = schedule.scheduleJob('59 * * * * *', function(){
-        if(Array.isArray(app.periflesConectados) && app.periflesConectados.length>0){
-            
-        
-        oracleMongo.getTodosLosCambiosPorSincronizarPorPerfil(app.periflesConectados,  urlSincronizarPerifil).then(function(resultados){
-           // app.empresas.forEach(function(empresa){
-            var empresa = app.empresas[0];
-                resultados.forEach(function(resultado){
-                    if(resultado.urls.NOPERFIL){
-                       app.periflesConectados.forEach(function(perfil){
-                           resultado.urls[perfil] = resultado.urls.NOPERFIL;
-                       });
-                       delete resultado.urls.NOPERFIL;
-                      
-                    }
-                    for(perfil in resultado.urls){
-                        console.log("PERFIL **************** ",perfil);
-                        try{
-                            var nuevoResultado = JSON.parse(JSON.stringify(resultado));
-                            nuevoResultado.urls = resultado.urls[perfil];
-                            delete nuevoResultado.perfiles;
-                           //app.conexiones[empresa.ruc].to(perfil).emit('sincronizar',{token:oracleMongo.getTokens()[perfil],sincronizacion:[nuevoResultado]});
-                            
-                            oracleMongo.getTotalRegistrosPorPerfil(perfil, nuevoResultado).then(function(resultadoValidacioes){
-                                if(Array.isArray(resultadoValidacioes.datos)){
-                                    var validarSincronizacion =[];
-                                    try{
-                                        validarSincronizacion = resultadoValidacioes.datos.map(function(script){
-                                            var map = {};
-                                            for(var key in script){
-                                                map.sql = key;
-                                                map.total = script[key];
-                                                map.tabla = key.split("FROM")[1].trim();
-                                            }
-                                            return map;
-                                        });
-                                      
-                                    
-                                        validarSincronizacion.push({sql:oracleMongo.validarExistenciaPerfilMobil(),total:1, tabla:oracleMongo.validarExistenciaPerfilMobil().split("FROM")[1].trim()});
-                                        
-                                        /**
-                                            Se obtiene los dispositivos que fueron sincronizados
-                                            Se hace un cruce con aquellos que hace falta por sincronizar
-                                            Ejemplo.
-                                                Un perfil puede tener varios dispositivos:
-                                                1 samsung
-                                                1 ipod
-                                                1 tablet
-                                                Los tres iniciarion sesion con el perfil 101, pero con diferente dispositivo
-                                                Es decir se creó un room que tiene tres usuarios.
-                                                El objetivo es sincrinizar a los tres:
-                                                    1. Opción se envia una sincronizacion a los tres, una vez realizado se adjunta el uidd registro que se actualizara
-                                                        con el objetivo de no volverlo a sincronizar
-                                                    2.  
-                                                
-                                        */
-                                       
-                                        oracleMongo.getDispositivosYaSincronizados(resultado.coleccion, resultadoValidacioes.perfil).then(function(dispositivos){
-                                           console.log("getDispositivosYaSincronizados",resultado.coleccion,dispositivos)
-                                           console.log("getDispositivosYaSincronizados app.dispositivosConectados[resultadoValidacioes.perfil]",app.dispositivosConectados[resultadoValidacioes.perfil])
-                                            if(dispositivos.length>0){
-                                               
-                                                for(dispositivoIniciado  in app.dispositivosConectados[resultadoValidacioes.perfil] ){
-                                                    if(dispositivos.indexOf(dispositivoIniciado)<0){
-                                                        if(app.dispositivosConectados[resultadoValidacioes.perfil][dispositivoIniciado]){
-                                                                   console.log("notificando a ", d, app.dispositivosConectados[resultadoValidacioes.perfil][dispositivoIniciado]);
-                                                                    client.get(resultadoValidacioes.perfil).then(function(token){
-                                                                        app.conexiones[empresa.ruc].to(app.dispositivosConectados[resultadoValidacioes.perfil][dispositivoIniciado]).emit('sincronizar',{token:token,sincronizacion:[resultadoValidacioes.nuevoResultado],validarSincronizacion:validarSincronizacion,"registroInterno":{perfil:resultadoValidacioes.perfil}});
-                                                                    });
-                                                                }
-                                                    }
-                                                    
-                                                    
-                                                }
-                                               
-                                            }else{
-                                                console.log("notificando a todos del room",resultadoValidacioes.perfil)
-                                                client.get(resultadoValidacioes.perfil).then(function(token){
-                                                    app.conexiones[empresa.ruc].to(resultadoValidacioes.perfil).emit('sincronizar',{token:token,sincronizacion:[resultadoValidacioes.nuevoResultado],validarSincronizacion:validarSincronizacion,"registroInterno":{perfil:resultadoValidacioes.perfil}});
-                                                });
-                                                
-                                            }
-                                            
-                                        });
-                                        
-
-                                    }catch(er){
-                                           validarSincronizacion=[];
-                                           console.log("getTotalRegistrosPorPerfiles erroiiii ", er);
-                                    }
-                                }else{
-                                    console.log("getTotalRegistrosPorPerfiles error ::validar ",perfil, validar);
-                                }
-                                
-                            },function(x){
-                                console.log("getTotalRegistrosPorPerfiles errro ",x);
-                            });
-                           
-                           
-                        }catch(e){
-                            console.log(e);
-                       
-                        } 
-                    }
-                    
-                })
-                
-           // })
-                   
-        });
-        }
-});
-
-/*var j = schedule.scheduleJob(rule2, function(){
-        //oracleMongo.crearColecciones(true);
-});*/
 setTimeout(function () {
-    
-    /**************
-    SINCRONIZADOR CADA 
-    **************/
-    
-    
-    /*oracleMongo.getTotalRegistrosPorPerfiles("1714417035").then(function(validar){
-                                   console.log(validar);
-                               });
-*/
-        //oracleMongo.testItems();
-    //oracleMongo.crearItemPromocionVenta();
-   // oracleMongo.llamarProcedimiento("cargarpedido(:pvcodret,:pvmsret)",{pvcodret:"out",pvmsret:"out"});
-  //  oracleMongo.crearColecciones(true);
-    /*oracleMongo.getColumnasOracle("select * from SWISSMOVI.emovtafecta where rownum=1", function(d){
-        console.log(d);
-
-    });*/
-    /*oracleMongo.getTablasScript(function(script){
-            console.log(script);
-    });*/
-    /*var datos = {
-        ID:2,
-        MPERFILESTABLECIMIENTO_ID:14779,
-        PREIMPRESO:"001-001-000012345",
-        FECHACREACION:new Date(),
-        DISPOSITIVO:"03030303",
-        ESTADO:1,
-        REGISTROSASOCIADOS:[{tabla:"emovtcartera_detalle", registros:[
-            {MFORMAPAGO_ID:1,
-                MDOCUMENTO_ID:1,
-                VALOR:1,
-                SALDO:1,
-                REFERENCIA:1,
-                CUENTA:"TEST",
-                FECHACARTERA:new Date(),
-                FECHAVENCIMIENTO:new Date(),
-                FECHAFINANCIERA:new Date(),
-                FECHADOCUMENTO:new Date(),
-                MCUENTABANCARIA_ID:1,
-                MBANCO_ID:1,
-                IDENTIFICACION:"161616",
-                RAZONSOCIAL:"ORLANDO HOONRES",
-                REGISTROSASOCIADOS:[
-                                    {
-                                        tabla:"emovtafecta",
-                                        registros:[
-                                                    {
-                                                        MDETALLECREDITO_ID:1,
-                                                        MDETALLEDEBITO_ID:1,
-                                                        VALOR:1,
-                                                        FECHAAFECTA:new Date()
-                                                    }
-                                                ]
-                                    }
-                                    ]
-            }
-
-            ]}
-        ]
-
-
-    }*/
-    /*oracleMongo.setDatosDinamicamente("emovtcartera", datos, function(estado, resultado){
-            console.log(estado);
-            console.log(resultado);
-    });*/
+  
     console.log(app.empresas);
     rutasPublicas.conexiones = app.conexiones;
 },20000);
@@ -410,13 +252,12 @@ app.oracleMongo = oracleMongo;
 app.get('/*', function(req, res, next){
       res.status(400);
      res.render("404/404.html", {title: '404: File Not Found'});
-   // res.render('404', { status: 404, url: "404/404.html" });
-    //res.render("404/404.html",404);
+   
 });
 
 
 
 
 
-
+require('./utils/validarAmbientePorEmpresa.js');
 module.exports = app;

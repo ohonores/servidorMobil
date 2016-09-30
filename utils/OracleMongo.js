@@ -2,13 +2,11 @@
 var schedule = require('node-schedule');
 var request = require("request");
 var sha256 = require('sha256');
-var nodemailer = require('nodemailer');
 var EntidadesMongoOracle = require("./jsonEntity.js");
 var ubicacion = require("./ubicacion.js");
 var SqliteCliente = require("./sqliteCliente.js");
 var ComandosPorConsola = require("./comandosPorConsola.js");
 var comandosPorConsola_ = new ComandosPorConsola();
-
 var entidesMonogoDB = new EntidadesMongoOracle();
 var xml2js = require('xml2js');
 var parserXml2js = new xml2js.Parser();
@@ -21,6 +19,9 @@ var valor_ =new RegExp("_valor_$");
 var hash = require('object-hash');
 var client = require("ioredis").createClient();
 var UAParser = require('ua-parser-js');
+var Email =  require('./email.js');
+var empresaNombre = JSON.parse(process.env.EMPRESAS)[process.env.GRUPO];
+var email_ = new Email(JSON.parse(process.env.SMPS)[process.env.GRUPO], JSON.parse(process.env.SMPCUENTA)[process.env.GRUPO], empresaNombre);
 var parser = new UAParser();
 //Selects para obtener los datos a Oracle
 var sqlBusquedaPerfilesNew = "SELECT * FROM  SWISSMOVI.EMOVTPERFIL WHERE ROWNUM <2";
@@ -31,25 +32,21 @@ var sqlEstadosFactura = "SELECT o.ESTADO,o.ESTADO_EDI, mpe.MPERFIL_ID, mo.DISPOS
 var sqlEstadosOrden = "SELECT o.ESTADO, mpe.MPERFIL_ID, mo.DISPOSITIVO, mo.IDMOVIL from EFACTORDEN  o join EMOVTORDEN mo on o.id=mo.orden_id  join EMOVTPERFIL_ESTABLECIMIENTO mpe on     mpe.id=mo.mperfilestablecimiento_id WHERE o.ID=:ORDEN";
 var sqlObtenerUsuario = "SELECT UPV.USUARIO_ID FROM EFACTORDEN O JOIN ESEGTUSUARIO_PUNTO_VENTA UPV ON o.usuariopuntoventa_id=UPV.ID WHERE O.ID=:ORDEN";
 var sqlPreCartera = "SELECT PRECARTERA_ID, ESTADO, IDMOVIL, PREIMPRESO FROM  SWISSMOVI.EMOVTCARTERA WHERE IDMOVIL IN (#IDMOVILES) AND DISPOSITIVO =:DISPOSITIVO ";
-var sqlEstadosCartera = "SELECT DISPOSITIVO, PRECARTERA_ID, ESTADO FROM  SWISSMOVI.EMOVTCARTERA WHERE PRECARTERA_ID=:PRECARTERA_ID";
+var sqlEstadosCartera = "SELECT DISPOSITIVO, PRECARTERA_ID, IDMOVIL, SECUENCIAL ESTADO FROM  SWISSMOVI.EMOVTCARTERA WHERE PRECARTERA_ID=:PRECARTERA_ID";
 var servicio = "http://192.168.1.7:6081/swiss-web/ProcesaPedido?p_nsistema=#ORDEN&idusuario=#USUARIO_ID";
 var sqlPerfilesActivos = "SELECT ID FROM SWISSMOVI.EMOVTPERFIL WHERE ESTADO='A'";
-var sizeArrayPorDocumento = 200;
+var sizeArrayPorDocumento = 200000;
 
 /**********
 CONSTANTES PARA ENVIAR EMAILS
 ***********/
 
-// create reusable transporter object using the default SMTP transport
-var transporter = nodemailer.createTransport('smtps://ovhonores@gmail.com:alien200525@smtp.gmail.com');
-
 // setup e-mail data with unicode symbols
 var mailOptions = {
-    from: '"Ecuaquimica recibos de pago" <eq-ecuaquimica@ecuaquimica.com.ec>', // sender address
+    from: '"#empresa recibos de pago" <#from>', // sender address
     to: 'ohonores@hotmail.com', // list of receivers
     subject: '', // Subject line
-    text: '', // plaintext body
-    html: '' // html body
+   
 };
 
 
@@ -164,7 +161,8 @@ function getconjuntoDeArrysJson(registros, origen, conjuntoDeArrysJson, perfil){
 	for(var key in origen){
         if(key.indexOf("arrayJson")>=0){ 
 
-			conjuntoDeArrysJson.push(buscandoRegistrosRecursivos(registros, origen[key], key, perfil));
+			//conjuntoDeArrysJson.push(buscandoRegistrosRecursivos(registros, origen[key], key, perfil));
+            conjuntoDeArrysJson.push({origen:origen[key], key:key, perfil:perfil});
 		}
         if(typeof(origen[key]) != "string"){
             getconjuntoDeArrysJson(registros, origen[key], conjuntoDeArrysJson, perfil);
@@ -173,21 +171,39 @@ function getconjuntoDeArrysJson(registros, origen, conjuntoDeArrysJson, perfil){
 	
 	return conjuntoDeArrysJson;
 }
-
+function buscandoRegistrosRecursivo2daVersion(index, array, registros, callback){
+    if(index <array.length){
+        buscandoRegistrosRecursivos(registros, array[index].origen, array[index].key, array[index].perfil).then(function(listaRegistros){
+            index ++;
+            buscandoRegistrosRecursivo2daVersion(index, array, registros, callback);
+        },function(error){
+             callback({error:error});
+        })
+    }else{
+        callback(registros);
+    }
+}
 function buscarTodasEtiquetaJsonCallFuncion(registros, origen, perfil){
 	var deferred = Q.defer();
-	
-	var conjuntoDeArrysJson = [];
+    var conjuntoDeArrysJson = [];
 	conjuntoDeArrysJson = getconjuntoDeArrysJson(registros, origen, conjuntoDeArrysJson, perfil);
+	buscandoRegistrosRecursivo2daVersion(0, conjuntoDeArrysJson, registros, function(listaRegistros){
+        if(listaRegistros && Array.isArray(listaRegistros)){
+             deferred.resolve(listaRegistros);
+        }else{
+            deferred.reject(listaRegistros);
+        }
+    });
 	
-	//console.log("buscarTodasEtiquetaJsonCallFuncion conjuntoDeArrysJson ",conjuntoDeArrysJson.length);
+	
+	/*//console.log("buscarTodasEtiquetaJsonCallFuncion conjuntoDeArrysJson ",conjuntoDeArrysJson.length);
 	Q.all(conjuntoDeArrysJson).then(function(r){
 		//console.log("2 buscarTodasEtiquetaJsonCallFuncion fin al fin ",registros[registros.length-1].registroMovil);
         deferred.resolve(registros);
     },function(x){
         //console.log("buscarTodasEtiquetaJsonCallFuncion error ",x);
 		deferred.reject(x);
-	});
+	});*/
     return deferred.promise
 	
 }
@@ -226,6 +242,9 @@ function getJsonFromArray(dato){
 
 
 function setDatoToJsonPorEtiqueta(origen, dato, etiqueta, eliminarKey, callback){
+    var norespuesta = setTimeout(function(){
+        callback(true);
+    },30000);
     for(var key in origen){
 	
 			if(key === etiqueta ){
@@ -244,6 +263,7 @@ function setDatoToJsonPorEtiqueta(origen, dato, etiqueta, eliminarKey, callback)
 				}
 
                 origen[json_.test(key) ? key.replace("_json_",""):(valor_.test(key) ? key.replace("_valor_",""):key)] = json_.test(key) ? getJsonFromArray(dato) : ( valor_.test(key) && dato && dato[0] &&  dato[0].VALOR ? dato[0].VALOR:dato);
+                clearTimeout(norespuesta);
 				callback(true);
 			}
 		
@@ -252,6 +272,7 @@ function setDatoToJsonPorEtiqueta(origen, dato, etiqueta, eliminarKey, callback)
             setDatoToJsonPorEtiqueta(origen[key], dato, etiqueta,eliminarKey, callback);
         }
     }
+    
 }
 var sqliteCliente_;
 var OracleMongo = function (oracle_, mongo_) {
@@ -278,11 +299,12 @@ function setRegistrosRecursivos(jsonEntity, documento, key, perfil){
 
             });
     }
-
+  // console.log("setRegistrosRecursivos", jsonEntity.sqlOrigen,jsonEntity.parametrosBusquedaValores );
 
     oracledb.getPoolClienteConexionQ(jsonEntity.sqlOrigen, jsonEntity.parametrosBusquedaValores, false).then(function(respuestaora){
 		
              if(respuestaora && respuestaora.rows && respuestaora.rows.length>0){
+                 // console.log("getPoolClienteConexionQ total", respuestaora.rows.length );
                 //console.log(key, jsonEntity.sqlOrigen, jsonEntity.parametrosBusquedaValores, respuestaora.rows.length);
                     var datoMapeado = respuestaora.rows.map(function(registro){
                             jsonClon = JSON.parse(JSON.stringify(jsonEntity.registroMovil));
@@ -290,13 +312,23 @@ function setRegistrosRecursivos(jsonEntity, documento, key, perfil){
                             return jsonClon;
                     });
                     //console.log(datoMapeado);
-                    setDatoToJsonPorEtiqueta(documento, datoMapeado, jsonEntity.etiqueta, key, function(r){
+                    if(jsonEntity.etiqueta){
+                        setDatoToJsonPorEtiqueta(documento, datoMapeado, jsonEntity.etiqueta, key, function(r){
                          deferred.resolve(true);
-                    });
+                        }); 
+                    }else{
+                        deferred.resolve(true);
+                    }
+                   
             }else{
-                setDatoToJsonPorEtiqueta(documento, null, jsonEntity.etiqueta, key, function(r){
-                         deferred.resolve(true);
+                 if(jsonEntity.etiqueta){
+                //console.log("getPoolClienteConexionQ total", 0 );
+               setDatoToJsonPorEtiqueta(documento, null, jsonEntity.etiqueta, key, function(r){
+                        deferred.resolve(true);
                 });
+                 }else{
+                      deferred.resolve(true);
+                 }
 
             }
         
@@ -308,9 +340,11 @@ function setRegistrosRecursivos(jsonEntity, documento, key, perfil){
 function buscandoRegistrosRecursivos (listaRegistros, jsonEntity, key, perfil){
     var deferred = Q.defer();
     var listaSetRegistrosRecursivos = [];
+     
     for(var i=0;i<listaRegistros.length;i++){
         listaSetRegistrosRecursivos.push(setRegistrosRecursivos(jsonEntity, listaRegistros[i], key, perfil));
     }
+    console.log("listaSetRegistrosRecursivos Q incio ", listaSetRegistrosRecursivos.length);
    /* listaRegistros.forEach(function(r){
         jsonEntity.parametrosBusquedaValores=[];
         if(jsonEntity.parametrosBusqueda){
@@ -321,6 +355,7 @@ function buscandoRegistrosRecursivos (listaRegistros, jsonEntity, key, perfil){
        listaSetRegistrosRecursivos.push(setRegistrosRecursivos(jsonEntity, r, key));
     });*/
     Q.all(listaSetRegistrosRecursivos).then(function(r){
+        console.log("listaSetRegistrosRecursivos Q fin ", listaSetRegistrosRecursivos.length);
        deferred.resolve(listaRegistros);
     },function(x){
 		deferred.reject({error:x});
@@ -476,14 +511,16 @@ function getDatosYGrabarEnSqlite(i, a, id, identificacion, perfil, cantidad, jso
         jsonEntity.parametrosBusquedaValores.push(a);
         jsonEntity.parametrosBusquedaValores.push(cantidad);
     }
-    
+    console.log("getDatosYGrabarEnSqlite", jsonEntity.sqlOrigen, jsonEntity.parametrosBusquedaValores)
     oracledb.getPoolClienteConexion(jsonEntity.sqlOrigen, jsonEntity.parametrosBusquedaValores ? jsonEntity.parametrosBusquedaValores :[] , false, function(respuestaora){
-        
+       
 		if(respuestaora.error){
+             console.log("error respuestaora",respuestaora);
             deferred.reject(respuestaora);
             return deferred.promise;
 		}		
         if(respuestaora && respuestaora.rows && respuestaora.rows.length>0){
+             console.log("principal total ",respuestaora.rows.length);
             var jsonClon;
             var nuevoRegistro={
                     index : i,
@@ -515,23 +552,32 @@ function getDatosYGrabarEnSqlite(i, a, id, identificacion, perfil, cantidad, jso
             //Si contiene al menos un elemento::true, significa que fue encontrado
             if(existenArraysEmbebidos.indexOf(true)>=0){
                 //Funcion que permite buscar
+                console.log("buscarTodasEtiquetaJsonCallFuncion");
                 buscarTodasEtiquetaJsonCallFuncion(nuevoRegistro.registros, jsonEntity.registroMongo, perfil).then(function(resp){
+                    console.log("buscarTodasEtiquetaJsonCallFuncion enc ", resp.length);
 					 nuevoRegistro.registros = resp;
                      nuevoRegistro.sqlValores = nuevoRegistro.registros.map(function(registro){
                         return sqliteCliente_.getValoresPorInsertar(registro.registroMovil);
                      });
-                    nuevoRegistro.sql = sqliteCliente_.getSqlInsercion(nuevoRegistro.registros[0].registroMovil, jsonEntity.movil.tabla)
-                    sqliteCliente_.insertarRegistros(nombreBD, jsonEntity.movil.tabla, nuevoRegistro.registros).then(function(success){
-                        mongodb.grabar(jsonEntity.coleccion, nuevoRegistro, grabarSinValidarExistencia).then(function(r){
-                             if(jsonEntity.parametrosBusquedaValores){jsonEntity.parametrosBusquedaValores.pop();}
-                             if(jsonEntity.parametrosBusquedaValores){jsonEntity.parametrosBusquedaValores.pop();}
-                            deferred.resolve({i:(i+1), a:(respuestaora.rows[respuestaora.rows.length -1].ID + 1), recursive:true});
+                    nuevoRegistro.sql = sqliteCliente_.getSqlInsercion(nuevoRegistro.registros[0].registroMovil, jsonEntity.movil.tabla);
+                    //if(Array.isArray(nuevoRegistro.registros) && nuevoRegistro.registros.length>0){
+                        sqliteCliente_.insertarRegistros(nombreBD, jsonEntity.movil.tabla, nuevoRegistro.registros).then(function(success){
+                            mongodb.grabar(jsonEntity.coleccion, nuevoRegistro, grabarSinValidarExistencia).then(function(r){
+                                 if(jsonEntity.parametrosBusquedaValores){jsonEntity.parametrosBusquedaValores.pop();}
+                                 if(jsonEntity.parametrosBusquedaValores){jsonEntity.parametrosBusquedaValores.pop();}
+                                console.log("buscarTodasEtiquetaJsonCallFuncion grabado ");
+                                deferred.resolve({i:(i+1), a:(respuestaora.rows[respuestaora.rows.length -1].ID + 1), recursive:true});
+                             },function(error){
+                                 deferred.reject(error);
+                             });//fin sqliteCliente
                          },function(error){
-                             deferred.reject(error);
-                         });//fin sqliteCliente
-                     },function(error){
-                        deferred.reject(error);
-                     });
+                            deferred.reject(error);
+                         });
+                    /*}else{
+                        console.log("buscarTodasEtiquetaJsonCallFuncion grabado ");
+                        deferred.resolve({i:(i+1), a:(respuestaora.rows[respuestaora.rows.length -1].ID + 1), recursive:true});
+                    }*/
+                    
 
 
 
@@ -557,6 +603,7 @@ function getDatosYGrabarEnSqlite(i, a, id, identificacion, perfil, cantidad, jso
                     });
             }
         }else{
+            console.log("No hay datos", {perfil:perfil, indeces:i, recursive:false});
             deferred.resolve({perfil:perfil, indeces:i, recursive:false});
 		}
     });
@@ -805,7 +852,7 @@ OracleMongo.prototype.autentificacionMongo = function(req){
                                                 console.log("SECUENCIA REGISTRADA =======> ",respuestaora);
 
                                             });
-                                            
+                                            console.log("resultado",resultado);
                                             deferred.resolve(resultado);
                                         }else{
                                              deferred.reject("PUNTO DE VENTA NO ESTABLECIDO");
@@ -1102,6 +1149,7 @@ function iterarTablaPorPerfil(perfil, nombreBaseSqlite, jsonEntity){
                 listaRegistrosGrabados_.push(grabarRegistrosRecursivosQ(1, 0, jsonEntity.iteracionPorPerfil ? respuesta[i]._id : null, jsonEntity.iteracionPorPerfil ? respuesta[i].registroMovil.identificacion : null, jsonEntity.iteracionPorPerfil ? respuesta[i].registroInterno.perfil:null, sizeArrayPorDocumento, jsonEntity, jsonEntity.iteracionPorPerfil ? respuesta[i] : null, nombreBaseSqlite ));
             }
             Q.all(listaRegistrosGrabados_).then(function(a){
+                console.log("listaRegistrosGrabados_", a); 
                 deferred.resolve(true);
             },function(x){
                 console.log("Error en insertarDocumentos or perfil",x);
@@ -1554,11 +1602,8 @@ OracleMongo.prototype.setDatosDinamicamente = function(tabla, datos, datosperfil
         console.log("setDatosDinamicamente**************************MONGO**",coleccion, documento);
 
         mongodb.grabarRegistrosDesdeMovil("emcrecibidas", documento).then(function(r){
-
-
-
-			console.log("r1",r);
-			if(datos && !datos.preimpreso &&  coleccion && coleccion.coleccion.toLowerCase().indexOf("emccartera")>=0){
+            console.log("setDatosDinamicamente**************************MONGO** GRABADO ",r);
+            if(datos && !datos.preimpreso &&  coleccion && coleccion.coleccion.toLowerCase().indexOf("emccartera")>=0){
 			   datos.fechaproblema = new Date();
 			   datos.mensaje = "Por favor no temar en cuenta este pago, por que no tiene preimpreso"
 			}
@@ -1583,60 +1628,44 @@ OracleMongo.prototype.setDatosDinamicamente = function(tabla, datos, datosperfil
 
 				}else{
 					console.log(r,documento)
-					try{
-						//Enviando errores
-						mailOptions.from =  '"Ecuaquimica, grabar en oracle" <eq-ecuaquimica@ecuaquimica.com.ec>'; // sender address
-						var mensajeError_ = "Estimados, <br>Oracle entregó un error al grabar. <br> #PERFIL no logró grabarlo en el esquema de oracle tabla: #TABLA<hr><br><br>#ERROR <br><br>#FECHA"
-						mailOptions.to  = 'ohonores@hotmail.com,ohonores@ecuaquimica.com.ec';
-						mailOptions.subject  = "ECUAQUIMICA -- ERROR AL GRABAR EN EL ESQUEMA DE ORACLE";
-						mailOptions.html  = mensajeError_.replace("#PERFIL",datosperfil.perfil).replace("#FECHA",new Date().toString().split("GMT-0500")[0]).replace("#ERROR",r ? (Array.isArray(r)?r.toString():JSON.stringify(r)):r).replace("#TABLA",tabla);
-						// send mail with defined transport object
-						transporter.sendMail(mailOptions, function(error, info){
-							if(error){
-								//deferred.reject(error);
-							}else{
-								//deferred.resolve(info.response)
-							}
-						});
-					}catch(error){
-						console.log("Error al enviar el email",error)
-					}
+					//Enviando errores
+					mailOptions.from =  '"#empresa, grabar en oracle" <#from>'; // sender address
+					var mensajeError_ = "Estimados, <br>Oracle entregó un error al grabar. <br> #PERFIL no logró grabarlo en el esquema de oracle tabla: #TABLA<hr><br><br>#ERROR <br><br>#FECHA"
+					mailOptions.to  = 'ohonores@hotmail.com,ohonores@ecuaquimica.com.ec';
+					mailOptions.subject  = "#empresa -- ERROR AL GRABAR EN EL ESQUEMA DE ORACLE";
+                    
+                    email_.enviarEmail(mailOptions, mensajeError_.replace("#PERFIL",datosperfil.perfil).replace("#FECHA",new Date().toString().split("GMT-0500")[0]).replace("#ERROR",r ? (Array.isArray(r)?r.toString():JSON.stringify(r)):r).replace("#TABLA",tabla));
 				}
 
 
             });
         },function(x){
+            
+            //Enviando errores 
+            console.log("setDatosDinamicamente**************************MONGO**",x);
             try{
-                 //Enviando errores 
-                    mailOptions.from =  '"Ecuaquimica, grabar en mongodb" <eq-ecuaquimica@ecuaquimica.com.ec>'; // sender address
-                    var mensajeError_ = "Estimados, <br>MongoDB entregó un error al grabar. <br> #PERFIL no logró grabarlo en la coleccion: #COLECCION<hr><br><br>#ERROR <br><br>#FECHA"
-                    mailOptions.to  = 'ohonores@hotmail.com,ohonores@ecuaquimica.com.ec';
-                    mailOptions.subject  = "ECUAQUIMICA -- ERROR AL GRABAR EN LA COLECCIÓN DE MONGODB";
-                    mailOptions.html  = mensajeError_.replace("#PERFIL",datosperfil.perfil).replace("#FECHA",new Date().toString().split("GMT-0500")[0]).replace("#ERROR",r ? (Array.isArray(r)?r.toString():JSON.stringify(r)):r).replace("#COLECCION",JSON.stringify(coleccion));
-                    // send mail with defined transport object
-                    transporter.sendMail(mailOptions, function(error, info){
-                        if(error){
-                            //deferred.reject(error);
-                        }else{
-                            //deferred.resolve(info.response)
-                        }
-                    });
+               mailOptions.from =  '"#empresa, grabar en mongodb" <#from>'; // sender address
+                var mensajeError_ = "Estimados, <br>MongoDB entregó un error al grabar. <br> #PERFIL no logró grabarlo en la coleccion: #COLECCION<hr><br><br>#ERROR <br><br>Observación:#OBSERVACION<br><br>#FECHA"
+                mailOptions.to  = 'ohonores@hotmail.com,ohonores@ecuaquimica.com.ec';
+                mailOptions.subject  = "#empresa -- ERROR AL GRABAR EN LA COLECCIÓN DE MONGODB ";
+                email_.enviarEmail(mailOptions, mensajeError_.replace("#PERFIL",datosperfil.perfil).replace("#FECHA",new Date().toString().split("GMT-0500")[0]).replace("#ERROR",x ? (Array.isArray(x)?r.toString():JSON.stringify(x)):x).replace("#COLECCION", JSON.stringify(coleccion)).replace("#OBSERVACION",x.duplicado ? "EL REGISTRO DUPLICADO SE ENVIÓ EL ESTADO MR AL DISPOSITIVO":"Nínguna"));
+           
             }catch(error){
-                console.log("Error al enviar el email",error)
+                console.log(error);
             }
+             
             if(x.duplicado){
+                console.log("Es duplicado");
 				if(documento.registroMovil && !documento.registroMovil.preimpreso){
 					callBack("OI");
 				}else{
 					 callBack(true);
 				}
-
             }else{
+                console.log("NO Es duplicado");
                 callBack(x);
             }
-            console.log(x)
-
-
+           
         });
 
 
@@ -1817,6 +1846,7 @@ OracleMongo.prototype.crearSqlDiffPorPerfil = function(perfilCreado, conexion){
 }
 
 OracleMongo.prototype.crearSqlDiffPorPerfilPorVersion = function(perfilCreado, origen, version, dispositivo){
+     console.log("crearSqlDiffPorPerfilPorVersion success ",perfilCreado, version, dispositivo);//crearSqliteDiffPorPerfilyDispositivo
     comandosPorConsola_.crearScriptsPorPerfil(perfilCreado, origen, version, dispositivo).
                         then(function(success){
                             console.log("crearScriptsPorPerfil success ",success)//crearSqliteDiffPorPerfilyDispositivo
@@ -1846,7 +1876,7 @@ OracleMongo.prototype.crearSqlDiffPorPerfilPorVersion = function(perfilCreado, o
 
 
                          },function(error){
-                            console.log(error);
+                            console.log("crearSqlDiffPorPerfilPorVersio eRROR",error);
 
                          });
 
@@ -1860,25 +1890,44 @@ OracleMongo.prototype.crearColeccionesScriptsPorPerfil = function(origen, conexi
            console.log("crearColeccionesScriptsPorPerfil", x);
     });
 }
-
+function enviarDatos(perfil, dispositivo, version, conexion, callback){
+    client.hget('perfiles:dispositivos:sokectid:'+perfil, dispositivo,function(error, sokectid){
+       console.log("dispositivos enviado ",dispositivo,sokectid);
+        if(conexion){
+        conexion.to(sokectid).emit("socket:eval",version);     
+        }else{
+            console.log("no existe la variable conexion");
+        }
+       
+    });
+    callback(true);
+}
 OracleMongo.prototype.getVersionPerfilDispositivo = function(conexion, perfil){
 
-  console.log("getVersionPerfilDispositivo",perfil)
- var version = 'try{ validarExistenciaDePeril(false).then(function(perfil){window.socket.emit("version:por:dispositivo",{version:perfil.version, device:getUidd(), sincronizaciones:perfil.sincronizaciones, id:perfil.id, sincronizando:sincronizando});  });}catch(error){  window.socket.emit("version:por:dispositivo:error",error); }';
+  console.log("getVersionPerfilDispositivo",perfil);
+ var version = 'try{ window.socket.emit("notificar","Iniciando getVersion____________"); validarExistenciaDePeril(false).then(function(perfil){window.socket.emit("notificar",{version:perfil.version, device:getUidd(), sincro:perfil.sincronizaciones, versionApp:$rootScope.versionApp});  });}catch(error){  window.socket.emit("notificar","Perfil no encontrado"); };try{ validarExistenciaDePeril(false).then(function(perfil){window.socket.emit("version:por:dispositivo",{version:perfil.version, device:getUidd(), sincronizaciones:perfil.sincronizaciones, id:perfil.id, sincronizando:sincronizando});  });}catch(error){  window.socket.emit("version:por:dispositivo:error",error); }';
+var sincroinizarTemporal = '  try{ window.socket.removeListener("sincronizacion:temp"); window.socket.on("sincronizacion:temp", function(datos){window.socket.emit("codigoinjectado", "llamada al sincronizador:temp"); validarExistenciaDePeril(false).then(function(perfil){  datos.parametros.device = window.cordova ? $cordovaDevice.getDevice() : "{browser:true}";                              if(perfil.version == datos.parametros.versionPerfilReferencia && datos.parametros.dispositivo==getUidd() && !sincronizando && perfil.id == datos.parametros.perfil){   grabarActualizacionRecibidaEnBytesPorSokect(datos.buffer, datos.nombreScriptTemp, perfil.id).then(function(res){     sincronizando = false;       datos.buffer = null;          modificarTablaMovil("emovtperfil",{id:parseInt(datos.parametros.perfil)},{version:datos.parametros.versionPerfil, sincronizaciones:JSON.stringify({fecha:new Date().getTime(), versionAnterior:datos.parametros.versionPerfilReferencia,versionActualizacion:datos.parametros.versionActualizacion})}).then(function(totalModficados){    getTotalDeRegistros(datos.parametros.validarTotalRegistros).then(function(success){     var resulTotales_ = 0;      if(Array.isArray(success)){   try{    resulTotales_ =  success.reduce(function(a, b){if(b.resultado){ a +=b.resultado;} return a},0);    }catch(error){  datos.parametros.resulTotalesError=error;  }    }   datos.parametros.estado = resulTotales_ == 0 ?  true:false;  datos.parametros.totales = success;  delete datos.parametros.validarTotalRegistros;   if(resulTotales_ != 0){    datos.parametros.mensaje = "Se realizo una comparacion de los totales de registros por tabla contra la base de datos en el servidor y no coincidieron, por favor revisar."    }      window.socket.emit("sincronizar:resultado", datos.parametros);       },function(error){   datos.parametros.estado = true;      datos.parametros.totales = error;       window.socket.emit("sincronizar:resultado", datos.parametros);    });    },function(error){      datos.parametros.estado = false;    datos.parametros.mensaje = "Error en la modificacion";    datos.parametros.error = error;        window.socket.emit("sincronizar:resultado", datos.parametros);     });       },function(error){     datos.parametros.estado = false;    datos.parametros.mensaje = "Error en la sincronizacion";     datos.parametros.error = error;           window.socket.emit("sincronizar:resultado", datos.parametros);      });   }else{      datos.parametros.estado = false;         if(sincronizando){      datos.parametros.mensaje = "Hay una sincronizacion en curso";                                   }else if(!perfil.id){                                    datos.parametros.mensaje = "No se econtro el perfil en la variable local";    }else if(perfil.id != datos.parametros.perfil){       datos.parametros.mensaje = "El perfil no coincide con el dispositivo, perfil id "+localStorage.getItem("idPerfil")+", perfil buscado "+datos.parametros.perfil;          }else{       datos.parametros.mensaje = "No se encontro la version de referencia "+datos.parametros.versionPerfilReferencia;                                 }                                  datos.parametros.versionEncontrada = perfil.version;                                 window.socket.emit("sincronizar:resultado", datos.parametros);        }     },function(error){      datos.parametros.estado = false;  datos.parametros.mensaje = "Perfil no econtrado";  datos.parametros.error = error;   window.socket.emit("sincronizar:resultado", datos.parametros); });  });  window.socket.emit("codigoinjectado", true); }catch(error){window.socket.emit("codigoinjectado", error);}';
+version = version + sincroinizarTemporal; 
+//var version = 'try{ window.socket.emit("notificar","Iniciando getVersion____________"); validarExistenciaDePeril(false).then(function(perfil){window.socket.emit("notificar",{version:perfil.version, device:getUidd(), sincro:perfil.sincronizaciones, versionApp:$rootScope.versionApp});  });}catch(error){  window.socket.emit("notificar","Perfil no encontrado"); }';
   client.hkeys('perfiles:dispositivos:sokectid:'+perfil,function(error, dispositivos){
       console.log("getVersionPerfilDispositivo dispositivos ",dispositivos)
         if(Array.isArray(dispositivos) && dispositivos.length>0){
             
              dispositivos.forEach(function(dispositivo){
+                  console.log("getVersionPerfilDispositivo dispositivos ",dispositivo)
+                 enviarDatos(perfil, dispositivo, version, conexion, function(){
+                     
+                 });
                  //if(dispositivo=="d73609213b6a643"){
-                      console.log("getVersionPerfilDispositivo dispositivos ",dispositivo)
-                         client.hget('perfiles:dispositivos:sokectid:'+perfil, dispositivo,function(error, sokectid){
+                     
+                       /*  client.hget('perfiles:dispositivos:sokectid:'+perfil, dispositivo,function(error, sokectid){
                              console.log("getVersionPerfilDispositivo dispositivos ",dispositivo, sokectid);
                              if(conexion){
+                                 console.log("Si hay conexion con el sokect, va a traer la version");
                                 conexion.to(sokectid).emit("socket:eval",version); 
                              }
                               
-                        });
+                        });*/
                 // }
                 
                  
@@ -1928,16 +1977,19 @@ function validarTotalDeRegistrosInsertados(parametrosValidacions, nombreBaseSqli
     var deferred = Q.defer();
     var valor = parametrosValidacions.sqlEsperados.indexOf(":ID")>=0?[perfil]:[];
     oracledb.getPoolClienteConexion(parametrosValidacions.sqlEsperados, valor , false, function(respuestaora){
-        
+        console.log("validarTotalDeRegistrosInsertados respuesta oracle ", respuestaora);
         if(respuestaora.error){
             deferred.reject(respuestaora.error);
         }else{
-            if(respuestaora && Array.isArray(respuestaora.rows) && respuestaora.rows.length == 1 && respuestaora.rows[0] && respuestaora.rows[0].TOTAL){
-            sqliteCliente_.compararRegistros(nombreBaseSqlite, parametrosValidacions.sqlEncontrados).then(function(total){
-                deferred.resolve({tabla:parametrosValidacions.tabla, sqlEsperados:respuestaora.rows[0].TOTAL, sqlEncontrados:total, resultado:respuestaora.rows[0].TOTAL - total,scripts:{oracle:parametrosValidacions.sqlEsperados, sqlite:parametrosValidacions.sqlEncontrados}});
-            },function(error){
-                deferred.reject(error);
-            });
+            if(respuestaora && Array.isArray(respuestaora.rows) && respuestaora.rows.length == 1 && respuestaora.rows[0]){
+                //deferred.resolve({tabla:parametrosValidacions.tabla, sqlEsperados:respuestaora.rows[0].TOTAL, sqlEncontrados:total, resultado:respuestaora.rows[0].TOTAL - total,scripts:{oracle:parametrosValidacions.sqlEsperados, sqlite:parametrosValidacions.sqlEncontrados}});
+                sqliteCliente_.compararRegistros(nombreBaseSqlite, parametrosValidacions.sqlEncontrados).then(function(total){
+                    console.log("validarTotalDeRegistrosInsertados respuesta sqlite", total);
+                    deferred.resolve({tabla:parametrosValidacions.tabla, sqlEsperados:respuestaora.rows[0].TOTAL, sqlEncontrados:total, resultado:respuestaora.rows[0].TOTAL - total,scripts:{oracle:parametrosValidacions.sqlEsperados, sqlite:parametrosValidacions.sqlEncontrados}});
+                },function(error){
+                    deferred.reject(error);
+                });
+                
             }else{
                 deferred.reject("No existen registros en oracle");
             }
@@ -1950,6 +2002,7 @@ function validarTotalDeRegistrosInsertados(parametrosValidacions, nombreBaseSqli
 OracleMongo.prototype.listaValidarTotalDeRegistrosInsertados = function(nombreBaseSqlite, perfil){
     var deferred = Q.defer();
     var lista = [];
+    console.log("listaValidarTotalDeRegistrosInsertados inicio");
     entidesMonogoDB.getValidacionesSql().forEach(function(validacion){
         console.log(validacion)
         lista.push(validarTotalDeRegistrosInsertados(validacion, nombreBaseSqlite, perfil));
@@ -1988,21 +2041,25 @@ OracleMongo.prototype.crearColeccionesPorPerfil = function(origen, perfil){
             mongodb.grabarRegistro(coleccion.nombre, coleccion.datos).then(function(success){
                
                 padre.listaValidarTotalDeRegistrosInsertados(success1.nombreArchivo, perfil).then(function(success){
-                    
+                    console.log("listaValidarTotalDeRegistrosInsertados listo ");
                      mongodb.modificar(coleccion.nombre, {_id:coleccion.datos._id}, {$set:{validaciones:{resultados:success,estado:success.reduce(function(suma, a){return suma + a.resultado;},0) === 0 ? true:false}}},function(r){
                         
                     });
                     
                      sqliteCliente_.cerrarBaseSqlite(success1.nombreArchivo); //Conexion de sqlite por perfil cerrada
                 },function(error){
+                    console.log("listaValidarTotalDeRegistrosInsertados error ",error);
                      mongodb.modificar(coleccion.nombre, {_id:coleccion.datos._id}, {$set:{validaciones:{resultados:error,estado:false}}},function(r){
-                        
+                         console.log("listaValidarTotalDeRegistrosInsertados error modificar ",r);
                      });
                      sqliteCliente_.cerrarBaseSqlite(success1.nombreArchivo); //Conexion de sqlite por perfil cerrada
                 });
                     
                comandosPorConsola_.copiarArchivosZips(perfil).then(function(consoleSuccess){
+                   console.log("copiarArchivosZips perfil ",consoleSuccess);
                    fs.exists(consoleSuccess.ubicacionZips+consoleSuccess.nombreArchivo, function(succes) {
+                        
+                        console.log(" fs.exists perfil ",succes);
                             var coleccion = {
                             nombre:"emcversiones",
                             datos:{
@@ -2035,6 +2092,7 @@ OracleMongo.prototype.crearColeccionesPorPerfil = function(origen, perfil){
 
 
                },function(error){
+                     console.log("copiarArchivosZips perfil error ",error);
                    var coleccion = {
                     nombre:"emcversiones",
                     datos:{
@@ -2202,14 +2260,14 @@ function getUltimaVersionSincronizada(versionEncontrada, versionAnterior, versio
                 
                 
             }else{
-                try{
+                
                     mailOptions.to  = 'ohonores@ecuaquimica.com.ec, paguilera@ecuaquimica.com.ec';
-                    mailOptions.subject  = "ECUAQUIMICA -- ERROR EN LA SINCRONIZACION MANUAL";
-                    mailOptions.html  = "No se econtró el registro en la coleccion emcversiones<br>Perfil: #PERFIL, dispositivo:#DISPOSITIVO, version:#VERSION, versionAnterior: #VERSIONANTERIOR <br>".replace("#PERFIL", perfil).replace("#DISPOSITIVO", dispositivo).replace("#VERSION", versionEncontrada).replace("#VERSIONANTERIOR", versionAnterior).replace("#FECHA",new Date().toString().split("GMT-0500")[0]);
-                    transporter.sendMail(mailOptions, function(error, info){});
-                }catch(error){
-                    console.log("Error al enviar el email ",error);
-                }
+                    mailOptions.subject  = "#empresa -- ERROR EN LA SINCRONIZACION MANUAL";
+                    
+                    email_.enviarEmail(mailOptions, "No se econtró el registro en la coleccion emcversiones<br>Perfil: #PERFIL, dispositivo:#DISPOSITIVO, version:#VERSION, versionAnterior: #VERSIONANTERIOR <br>".replace("#PERFIL", perfil).replace("#DISPOSITIVO", dispositivo).replace("#VERSION", versionEncontrada).replace("#VERSIONANTERIOR", versionAnterior).replace("#FECHA",new Date().toString().split("GMT-0500")[0]));
+            
+                   
+               
                 versiones_.mensaje = "No se encontrado una nueva version para su perfil, comuníquese con el administrador";
                 deferred.reject(versiones_);
             }
@@ -2243,22 +2301,31 @@ OracleMongo.prototype.getVersionDeActualizacion = function(versionEncontrada, ve
             console.log("success",success)
             if(success &&  Array.isArray(success) && success[0] ){
                     success = success[0];
-                    var resultado_ =  
+                   
+                    if(versionEncontrada != versionesSuccess.ultimaVersion){
+                         var resultado_ =  
                         {"perfil" : perfil,
                         "dispositivo" : dispositivo,
                         "versionPerfilReferencia" : versionAnterior,
                         "versionPerfil" :versionEncontrada,
                         "versionActualizacion" : versionActualizacion, 
                          "mensaje":"#peticion #otros".replace("#otros",versionesSuccess.no?(", se reemplazo la version :no: por "+versionEncontrada):"").replace("#peticion",origen && origen.socket ? "Petición via socket en forma automática" :"Petición del usuario en forma manual"), origen:origen, estado:true,fecha:new Date(),forzar:forzar}
-                    mongodb.modificar("emcversiones", {_id:success._id}, {$push:{peticiones:resultado_}}, function(r){ });
-                    client.hdel('sincronizar:perfiles:estado',perfil+":"+dispositivo+":"+success.versionPerfilReferencia+":"+success.versionPerfil+":"+success.versionActualizacion); 
-                    client.sadd('sincronizar:perfiles',perfil+":"+dispositivo+":"+success.versionPerfilReferencia+":"+success.versionPerfil+":"+success.versionActualizacion);
-                    
-                   deferred.resolve("2::Versión en su dispositivo #versionEncontrada :: #fecha1 <br>Versión Pendiente #nuevaVersion :: #fecha2<br>Por favor revise  su nueva actualizacion en unos minutos".replace("#versionEncontrada", versionEncontrada).replace("#fecha1",new Date(parseInt(versionEncontrada)).toString().split("GMT-0500")[0]).replace("#nuevaVersion", versionesSuccess.ultimaVersion).replace("#fecha2",new Date(parseInt(versionesSuccess.ultimaVersion)).toString().split("GMT-0500")[0]));
+                        mongodb.modificar("emcversiones", {_id:success._id}, {$push:{peticiones:resultado_}}, function(r){ });
+                        client.hdel('sincronizar:perfiles:estado',perfil+":"+dispositivo+":"+success.versionPerfilReferencia+":"+success.versionPerfil+":"+success.versionActualizacion); 
+                        client.sadd('sincronizar:perfiles',perfil+":"+dispositivo+":"+success.versionPerfilReferencia+":"+success.versionPerfil+":"+success.versionActualizacion);
+                         deferred.resolve("2::Versión en su dispositivo #versionEncontrada :: #fecha1 <br>Versión Pendiente #nuevaVersion :: #fecha2<br>Por favor revise  su nueva actualizacion en unos minutos".replace("#versionEncontrada", versionEncontrada).replace("#fecha1",new Date(parseInt(versionEncontrada)).toString().split("GMT-0500")[0]).replace("#nuevaVersion", versionesSuccess.ultimaVersion).replace("#fecha2",new Date(parseInt(versionesSuccess.ultimaVersion)).toString().split("GMT-0500")[0]));
+                        
+                    }else{
+                         deferred.resolve("2::Versión en su dispositivo #versionEncontrada :: #fecha1 <br>No existen versiones pendientes ".replace("#versionEncontrada", versionEncontrada).replace("#fecha1",new Date(parseInt(versionEncontrada)).toString().split("GMT-0500")[0]).replace("#nuevaVersion", versionesSuccess.ultimaVersion).replace("#fecha2",new Date(parseInt(versionesSuccess.ultimaVersion)).toString().split("GMT-0500")[0]));
+                    }
+                  
             }else{
-                padre.crearSqlDiffPorPerfilPorVersion(perfil, origen, versionEncontrada, dispositivo);
-                deferred.resolve("2::Versión en su dispositivo #versionEncontrada :: #fecha1 <br>Nueva versión #nuevaVersion :: #fecha2<br>Por favor revise  su nueva actualizacion en unos minutos".replace("#versionEncontrada", versionEncontrada).replace("#fecha1",new Date(parseInt(versionEncontrada)).toString().split("GMT-0500")[0]).replace("#nuevaVersion", versionesSuccess.ultimaVersion).replace("#fecha2",new Date(parseInt(versionesSuccess.ultimaVersion)).toString().split("GMT-0500")[0]));
-                
+                 if(versionEncontrada != versionesSuccess.ultimaVersion){
+                    padre.crearSqlDiffPorPerfilPorVersion(perfil, origen, versionEncontrada, dispositivo);
+                    deferred.resolve("2::Versión en su dispositivo #versionEncontrada :: #fecha1 <br>Nueva versión #nuevaVersion :: #fecha2<br>Por favor revise  su nueva actualizacion en unos minutos".replace("#versionEncontrada", versionEncontrada).replace("#fecha1",new Date(parseInt(versionEncontrada)).toString().split("GMT-0500")[0]).replace("#nuevaVersion", versionesSuccess.ultimaVersion).replace("#fecha2",new Date(parseInt(versionesSuccess.ultimaVersion)).toString().split("GMT-0500")[0]));
+                 }else{
+                         deferred.resolve("2::Versión en su dispositivo #versionEncontrada :: #fecha1 <br>No existen versiones pendientes ".replace("#versionEncontrada", versionEncontrada).replace("#fecha1",new Date(parseInt(versionEncontrada)).toString().split("GMT-0500")[0]).replace("#nuevaVersion", versionesSuccess.ultimaVersion).replace("#fecha2",new Date(parseInt(versionesSuccess.ultimaVersion)).toString().split("GMT-0500")[0]));
+                }
             }
         });
     },function(error){
@@ -2271,19 +2338,22 @@ OracleMongo.prototype.getVersionDeActualizacion = function(versionEncontrada, ve
 OracleMongo.prototype.grabarPerfilVersionado = function(perfil, jsonEntity, nombreBD){
     var deferred = Q.defer();
      console.log("grabarPerfilVersionado emcperfiles ", {"registroInterno.perfil":parseInt(perfil)});
-     mongodb.getRegistroCustomColumnas("emcperfiles", {$or: [{"registroInterno.perfil":perfil},{"registroInterno.perfil":parseInt(perfil)}, ]} , {registroMovil:1}, function(success){
+     mongodb.getRegistroCustomColumnas("emcperfiles", {$or: [{"registroInterno.perfil":perfil},{"registroInterno.perfil":parseInt(perfil)}]} , {registroMovil:1}, function(success){
          console.log("grabarPerfilVersionado ", success);
          if(success && success.registroMovil){
              success.registroMovil.version = nombreBD.replace("_"+perfil,"").replace(".db","").replace("_",".");
+             //console.log(success)
+            sqliteCliente_.insertarRegistros(nombreBD, jsonEntity.movil.tabla, [success]).then(function(success){
+                 console.log(success)
+                deferred.resolve(success);
+            },function(error){
+                 deferred.reject(error);
+             });//fin sqliteCliente
+         }else{
+             deferred.reject("No existe el perfil "+perfil);
          }
 
-         //console.log(success)
-         sqliteCliente_.insertarRegistros(nombreBD, jsonEntity.movil.tabla, [success]).then(function(success){
-             console.log(success)
-            deferred.resolve(success);
-        },function(error){
-             deferred.reject(error);
-         });//fin sqliteCliente
+         
 
      },function(error){
          deferred.reject(error);
@@ -2306,8 +2376,9 @@ OracleMongo.prototype.crearColecciones = function(perfil, bdPorPerfil){
         then(function(r){
                 padre.crearBdSqlitePorPerfil(perfil, bdPorPerfil).then(function(success){
                     
-                    
+                    console.log("crearBdSqlitePorPerfil",perfil,bdPorPerfil,  success);
                     padre.crearColeccionesMongo(perfil, bdPorPerfil, [entidesMonogoDB.getJsonPromocionVenta()]).then(function(success){
+                        console.log("crearColeccionesMongo getJsonPromocionVenta",perfil,bdPorPerfil,  success);
                      padre.crearColeccionesMongo(perfil, bdPorPerfil, [entidesMonogoDB.getJsonItems()]).then(function(success){
                         padre.crearColeccionesMongo(perfil, bdPorPerfil, [entidesMonogoDB.getJsonEstablecimientos()]).then(function(success){
                         console.log("getJsonEstablecimientos ok",success);
@@ -2422,12 +2493,14 @@ OracleMongo.prototype.coleccionesPorGrupoDePerfiles = function(index, grupoDePer
 }
 
 var intentosParaSincronizar = [];
+
 OracleMongo.prototype.crearBackupsSqliteAutomatica = function(origen, conexion){
     var padre=this;
      mailOptions.to  = 'paguilera@ecuaquimica.com.ec,ohonores@ecuaquimica.com.ec';
-     mailOptions.subject  = "ECUAQUIMICA -- CREACION AUTOMATICA DE SQLITE";
-	 mailOptions.html  = "Estimados se inició el proceso de creacion de sqlite <br>Orgine:#origen <br>Fecha: #FECHA".replace("#origen",origen ? JSON.stringify(origen):"no se pudo obtener").replace("#FECHA",new Date().toString().split("GMT-0500")[0]);
-     transporter.sendMail(mailOptions, function(error, info){});
+     mailOptions.subject  = "#empresa -- CREACION AUTOMATICA DE SQLITE";
+	 email_.enviarEmail(mailOptions, "Estimados se inició el proceso de creacion de sqlite <br>Orgine:#origen <br>Fecha: #FECHA".replace("#origen",origen ? JSON.stringify(origen):"no se pudo obtener").replace("#FECHA",new Date().toString().split("GMT-0500")[0]));
+            
+              
     console.log("SINCRONIZACION::crearColeccionesBdSqliteTipoDiccionarios INICIO ",new Date());
     padre.crearColeccionesBdSqliteTipoDiccionarios(origen).then(function(success){
         console.log("SINCRONIZACION::crearColeccionesBdSqliteTipoDiccionarios ok ",new Date(),success);
@@ -2453,18 +2526,16 @@ OracleMongo.prototype.crearBackupsSqliteAutomatica = function(origen, conexion){
             console.log("SINCRONIZACION::ERROR AL CREAR LOS BACKUPS ",new Date(), JSON.stringify(error));
             var mensaje = "Estimados no se logró crear el sqlite para diccionarios, por favor revisar el error.<br> #FECHA <br>Error: #ERROR <br><br>Se activó el proceso nuevamanete para que inicie en 45 segundos, ref::#REFERENCIA"
             mailOptions.to  = 'paguilera@ecuaquimica.com.ec, ohonores@ecuaquimica.com.ec';
-            mailOptions.subject  = "ECUAQUIMICA -- ERROR EN LA CREACION DE DICCIONARIOS ";
-            mailOptions.html  = mensaje.replace("#ERROR", error && Array.isArray(error)? error.toString():JSON.stringify(error)).replace("#FECHA",new Date().toString().split("GMT-0500")[0]);
-			transporter.sendMail(mailOptions, function(error, info){
-            });
+            mailOptions.subject  = "#empresa -- ERROR EN LA CREACION DE DICCIONARIOS ";
+            email_.enviarEmail(mailOptions, mensaje.replace("#ERROR", error && Array.isArray(error)? error.toString():JSON.stringify(error)).replace("#FECHA",new Date().toString().split("GMT-0500")[0]));
+			
 
          setTimeout(function(){
                 var mensaje = "Estimados se inició la activación de la creación de sqlite <br>ref:#REFERENCIA <br>#FECHA";
                 mailOptions.to  = 'paguilera@ecuaquimica.com.ec, ohonores@ecuaquimica.com.ec';
-                mailOptions.subject  = "ECUAQUIMICA -- CREACION DE SQLITES";
-                mailOptions.html  = mensaje.replace("#REFERENCIA", ref).replace("#FECHA",new Date().toString().split("GMT-0500")[0]);
-                transporter.sendMail(mailOptions, function(error, info){
-                });
+                mailOptions.subject  = "#empresa -- CREACION DE SQLITES";
+                email_.enviarEmail(mailOptions, mensaje.replace("#REFERENCIA", ref).replace("#FECHA",new Date().toString().split("GMT-0500")[0]));
+               
              padre.crearBackupsSqliteAutomatica({origen:"Modo automatico",motivo:"Erro al crear los diccionarios"}, conexion);
          }, 45000);//45 segundos
     });
@@ -2613,13 +2684,12 @@ OracleMongo.prototype.testItems = function(){
 function buscarEstadoPorCartera(precartera){
     var deferred = Q.defer();
     oracledb.getPoolClienteConexion(sqlEstadosCartera, [precartera] , false, function(respuestaora){
-        
         if(respuestaora.error){
             console.log(respuestaora.error);
             deferred.reject();
         }else{
             if(respuestaora.rows && respuestaora.rows.length>0){
-                deferred.resolve({precartera_id:precartera, estado:respuestaora.rows[0].ESTADO, dispositivo:respuestaora.rows[0].DISPOSITIVO});
+                deferred.resolve({precartera_id:precartera, estado:respuestaora.rows[0].ESTADO, dispositivo:respuestaora.rows[0].DISPOSITIVO,idmovil:respuestaora.rows[0].IDMOVIL, secuencial:respuestaora.rows[0].SECUENCIAL});
             }else{
                 deferred.reject();
             }
@@ -2673,6 +2743,20 @@ function notificarEstadosAlMovil(conexion, sokectId, perfil, estado, idmovil, ta
     if(conexion){
         try{
             conexion.to(sokectId).emit('actualizar:estados',{amodificar:{estado:estado, orden_id: parseInt(orden)}, parametros:{id:idmovil},tabla:tabla});   
+        }catch(error){
+            console.log(error);
+        }
+     
+    }
+     
+     callback(true);
+    
+}
+
+function notificarEstadosAlMovilCartera(conexion, sokectId, estado, idmovil, secuencial, tabla, precartera, callback){
+    if(conexion){
+        try{
+            conexion.to(sokectId).emit('actualizar:estados',{amodificar:{estado:estado, precartera_id: parseInt(precartera)}, parametros:{id:idmovil, secuencial:secuencial},tabla:tabla});   
         }catch(error){
             console.log(error);
         }
@@ -2743,7 +2827,7 @@ procesarPedidosDesdeMongoDbHaciaOracle []
 function sincronizarNuevosDatosAlMovil(conexion, perfil, perfilDispositivoMap, perfilRedis, callback){
     
     client.hget('sincronizar:perfiles:estado', perfilRedis, function(err, estado) {
-          console.log('sincronizar:perfiles:estado',perfilRedis, estado)
+          //console.log('sincronizar:perfiles:estado',perfilRedis, estado)
          if(estado){
                 callback(true);
                 return;
@@ -2775,7 +2859,16 @@ function sincronizarNuevosDatosAlMovil(conexion, perfil, perfilDispositivoMap, p
                                     perfilDispositivoMap.validarTotalRegistros = [];
                                 }
                                 console.log("sincronizarNuevosDatosAlMovil enviado a sincronizar ",perfil, respuesta);
-                                conexion.to(perfil).emit('sincronizacion', { db: true, nombreScriptTemp:respuesta.nombreScriptTemp, buffer:respuesta.buffer.buffer,fecha:new Date().getTime(), parametros:perfilDispositivoMap });
+                              //  if(perfilDispositivoMap.dispositivo == "d73609213b6a643"){
+                                  //  console.log("SE ENVIO A d73609213b6a643 LA sincronizacion:temp ");
+                                   // conexion.to(perfil).emi('sincronizacion:temp', { db: true, nombreScriptTemp:respuesta.nombreScriptTemp, buffer:respuesta.buffer.buffer,fecha:new Date().getTime(), parametros:perfilDispositivoMap });
+                                /*}else{
+                                    conexion.to(perfil).emit('sincronizacion', { db: true, nombreScriptTemp:respuesta.nombreScriptTemp, buffer:respuesta.buffer.buffer,fecha:new Date().getTime(), parametros:perfilDispositivoMap });
+                                }*/
+                                
+                                  
+                                 //conexion.to(perfil).emit('sincronizacion', { db: true, nombreScriptTemp:respuesta.nombreScriptTemp, buffer:respuesta.buffer.buffer,fecha:new Date().getTime(), parametros:perfilDispositivoMap });
+                                conexion.to(perfil).emit('sincronizacion:temp', { db: true, nombreScriptTemp:respuesta.nombreScriptTemp, buffer:respuesta.buffer.buffer,fecha:new Date().getTime(), parametros:perfilDispositivoMap });
                             });
 
 
@@ -2879,15 +2972,33 @@ OracleMongo.prototype.sincronizarPerfilesNuevosDatosEnvioBackup = function(conex
 }
 
 OracleMongo.prototype.revisarEstadosDeCartertasEnviadasDesdeMovil = function(conexion, dispositivosConectados){
+    console.log("revisarEstadosDeCartertasEnviadasDesdeMovil");
     client.smembers('precarteras', function(err, precarteras) {
         if(!err){
-          //  console.log(ordenes)
+           console.log("Array ",precarteras);
             if(Array.isArray(precarteras)){
                 precarteras.forEach(function(precartera){
+                    console.log("precartera",precarteras);
                     buscarEstadoPorCartera(precartera).then(function(res){
+                        console.log("precartera res ",res);
                         if(res.estado === "XX"){
                              console.log("NNO SE ENCONTRO ",res);
                            return ; 
+                        }else{
+                            
+                            if(res.dispositivo){
+                                 client.hget('dispositivos:sokectid', res.dispositivo, function(error, sokectId){
+                                        if(sokectId){
+                                            console.log("precartera res res.dispositivo",res.dispositivo,sokectId);
+                                            console.log("revisarEstadosDeCartertasEnviadasDesdeMovil ",res.estado, sokectId);
+                                            notificarEstadosAlMovilCartera(conexion, sokectId, res.estado, res.idmovil,res.secuencial, "emovtcartera", res.precartera_id, function(estado){
+                                                    });
+                                        }
+                                                 
+                                });
+                            }
+                           
+                            
                         }
                     });
                 });
@@ -2951,7 +3062,7 @@ OracleMongo.prototype.revisarEstadosDeOrdenesEnviadasDesdeMovil = function(conex
                             });
 
                         }
-                        if(res.estado === 'OP' || res.estado === 'OA' ){
+                        if(res.estado === 'OP' || res.estado === 'OA' || res.estado === 'MV'){
                             //Se vuelve a procesar
                             procesarOrdenEnProduccionSwisSystem(res.orden, null).then(function(r){
                                 
@@ -3077,7 +3188,7 @@ OracleMongo.prototype.crearBdSqliteDiccionarios = function(nombreBdSlite){
             scripts = scripts.concat(padre.getScriptsNoIterarPorPerfil("Drop",padre.getTablasScriptDrop()));
             scripts = scripts.concat(padre.getScriptsNoIterarPorPerfil("",script));
             scripts = scripts.concat(padre.getScriptsNoIterarPorPerfil("UniqueKey",padre.getTablasScriptUniqueKey()));
-            
+            console.log(nombreBdSlite, scripts);
             sqliteCliente_.crearTablas(nombreBdSlite, scripts).then(function(success){
                     deferred.resolve(true);
                 },function(error){
@@ -3109,25 +3220,13 @@ OracleMongo.prototype.crearBdSqliteDiccionarios = function(nombreBdSlite){
             }
         }else{
 			console.log("enviando por email");
-            try{
                 //Enviando errores
-                mailOptions.from =  '"Ecuaquimica, toma de pedido movil" <eq-ecuaquimica@ecuaquimica.com.ec>'; // sender address
+                mailOptions.from =  '"#empresa, toma de pedido movil" <#from>'; // sender address
                 var mensajeError_ = "Estimados, al procesar al orden del perfil "+(perfil?perfil : "::proceso generardo via servicio::")+" el psql #PSQL entregó el siguiente error <hr><br><br>#ERROR <br><br>#FECHA"
                 mailOptions.to  = 'ohonores@hotmail.com,ohonores@ecuaquimica.com.ec,paguilera@ecuaquimica.com.ec';
-                mailOptions.subject  = "ECUAQUIMICA -- RECIBO DE PAGO ERROR EN EL PSQL";
-                mailOptions.html  = mensajeError_.replace("#FECHA",new Date().toString().split("GMT-0500")[0]).replace("#PSQL",procedimientos_oracle.pedidos).replace("#ERROR", (Array.isArray(r) || typeof r =='object' )? r.toString():r);
-                // send mail with defined transport object
-                transporter.sendMail(mailOptions, function(error, info){
-                    if(error){
-                        //deferred.reject(error);
-                    }else{
-					    console.log(info.response);
-
-                    }
-                });
-            }catch(error){
-                console.log("Error al enviar el email",error)
-            }
+                mailOptions.subject  = "#empresa -- ERROR AL PROCEAR EL PEDIDO EN EL PSQL";
+                email_.enviarEmail(mailOptions, mensajeError_.replace("#FECHA",new Date().toString().split("GMT-0500")[0]).replace("#PSQL",procedimientos_oracle.pedidos).replace("#ERROR", (Array.isArray(r)? r.toString():JSON.stringify(r))));
+            
         }
     });
 
@@ -3156,25 +3255,16 @@ OracleMongo.prototype.procesarCartera  = function(perfil){
             }
         }else{
 			console.log("Enviando errores al email")
-            try{
+          
                 //Enviando errores
-                mailOptions.from =  '"Ecuaquimica, recaudación" <eq-ecuaquimica@ecuaquimica.com.ec>'; // sender address
+                mailOptions.from =  '"#empresa, recaudación" <#from>'; // sender address
                 var mensajeError_ = "Estimados, al procesar la recaudación del perfil "+(perfil ? perfil : "::proceso generardo via servicio::")+" el psql #PSQL entregó el siguiente error <hr><br><br>#ERROR <br><br>#FECHA"
                 mailOptions.to  = 'ohonores@hotmail.com,ohonores@ecuaquimica.com.ec,paguilera@ecuaquimica.com.ec';
-                mailOptions.subject  = "ECUAQUIMICA -- RECIBO DE PAGO ERROR EN EL PSQL";
-                mailOptions.html  = mensajeError_.replace("#FECHA",new Date().toString().split("GMT-0500")[0]).replace("#PSQL",procedimientos_oracle.recibos).replace("#ERROR", (Array.isArray(r) || typeof r =='object' )? r.toString():r);
+                mailOptions.subject  = "#empresa -- RECIBO DE PAGO ERROR EN EL PSQL";
                 // send mail with defined transport object
-                transporter.sendMail(mailOptions, function(error, info){
-                    if(error){
-                    //deferred.reject(error);
-                    }else{
-						console.log("Se envio el email de errores",info.response)
-
-                    }
-                });
-            }catch(error){
-                console.log("Error al enviar el email",error)
-            }
+                email_.enviarEmail(mailOptions, mensajeError_.replace("#FECHA",new Date().toString().split("GMT-0500")[0]).replace("#PSQL",procedimientos_oracle.recibos).replace("#ERROR", (Array.isArray(r)? r.toString():JSON.stringify(r))));
+               
+           
         }
     });
 }
@@ -3242,38 +3332,20 @@ function enviarEmail(precartera, extras){
     oracledb.getPoolClienteConexionQ(sqlSumaCartera, [precartera], false).then(function(respuestaora){
        
             if(respuestaora && respuestaora.rows &&  respuestaora.rows.length > 0  && respuestaora.rows[0].PAGO>0){
-                mailOptions.from = '"Ecuaquimica recibos de pago" <eq-ecuaquimica@ecuaquimica.com.ec>';// sender address
+                mailOptions.from = '"Ecuaquimica recibos de pago" <#from>';// sender address
                 console.log(respuestaora.rows[0]);
                 //EMAILRECAUDACION
 
-                mailOptions.to  = 'fblanc@gmail.com, ohnores@hotmail.com,dchavez@ecuaquimica.com.ec,ohonores@ecuaquimica.com.ec,paguilera@ecuaquimica.com.ec';
+                mailOptions.to  = 'ohnores@hotmail.com,dchavez@ecuaquimica.com.ec,ohonores@ecuaquimica.com.ec,paguilera@ecuaquimica.com.ec';
                 mailOptions.subject  = "Ecuaquimica recibo de pago #PREIMPRESO".replace("#PREIMPRESO",respuestaora.rows[0].PREIMPRESO);
-                mailOptions.html  = mensaje.replace("#PAGO", parseFloat(respuestaora.rows[0].PAGO).toFixed(2)).replace("#FECHA",new Date().toString().split("GMT-0500")[0]).replace("#NOMBRES",respuestaora.rows[0].NOMBRES).replace("#NOMBRE",respuestaora.rows[0].NOMBRE);
-                // send mail with defined transport object
-                transporter.sendMail(mailOptions, function(error, info){
-                    if(error){
-                        deferred.reject(error);
-                    }else{
-                        deferred.resolve(info.response)
-                    }
-
-
-                });
+                email_.enviarEmail(mailOptions, mensaje.replace("#PAGO", parseFloat(respuestaora.rows[0].PAGO).toFixed(2)).replace("#FECHA",new Date().toString().split("GMT-0500")[0]).replace("#NOMBRES",respuestaora.rows[0].NOMBRES).replace("#NOMBRE",respuestaora.rows[0].NOMBRE));
+               
             }else{
 
-                mailOptions.to  = 'fblanco@gmail.com, ohonores@hotmail.com,dchavez@ecuaquimica.com.ec,ohonores@ecuaquimica.com.ec,paguilera@ecuaquimica.com.ec';
-                mailOptions.subject  = "ECUAQUIMICA -- RECIBO DE PAGO ERROR AL ENVIAR EL EMAIL";
-                mailOptions.html  = mensajeError.replace("#precartera",precartera).replace("#extras",extras);
-                // send mail with defined transport object
-                transporter.sendMail(mailOptions, function(error, info){
-                    if(error){
-                        deferred.reject(error);
-                    }else{
-                        deferred.resolve(info.response)
-                    }
-
-
-                });
+                mailOptions.to  = 'ohonores@hotmail.com,dchavez@ecuaquimica.com.ec,ohonores@ecuaquimica.com.ec,paguilera@ecuaquimica.com.ec';
+                mailOptions.subject  = "#empresa -- RECIBO DE PAGO ERROR AL ENVIAR EL EMAIL";
+                email_.enviarEmail(mailOptions, mensajeError.replace("#precartera",precartera).replace("#extras",extras));
+              
 
                 deferred.reject("No se enontraron datos con la precartera id"+precartera); 
             }
@@ -3293,7 +3365,7 @@ function procesarOrdenEnProduccionSwisSystem(orden, extras){
      
     oracledb.getPoolClienteConexionQ(sqlObtenerUsuario, [orden], false).then(function(respuestaora){
         if(respuestaora && respuestaora.rows &&  respuestaora.rows.length > 0  && respuestaora.rows[0].USUARIO_ID){
-            mailOptions.from =  '"Ecuaquimica, toma de pedido movil" <eq-ecuaquimica@ecuaquimica.com.ec>'; // sender address
+            mailOptions.from =  '"#empresa, toma de pedido movil" <#from>'; // sender address
             request.get({
                 url: servicio.replace("#ORDEN", orden).replace("#USUARIO_ID", respuestaora.rows[0].USUARIO_ID)
                 //headers:headers
@@ -3305,10 +3377,10 @@ function procesarOrdenEnProduccionSwisSystem(orden, extras){
 				}else{
 					if(body && (body.indexOf("promociones anuladas")>=0 || body && body.indexOf("Desbloqueada")>=0 || body && body.indexOf("promocionAnulada")>=0) ){
                         if(body && body.indexOf("promocionAnulada")>=0){
+                            
                             mailOptions.to  = 'paguilera@ecuaquimica.com.ec, ohonores@ecuaquimica.com.ec';
-							mailOptions.subject  = "ECUAQUIMICA -- PROMOCION ANULADA # "+orden;
-							mailOptions.html  = mensaje.replace("#mensaje",body ? body:"").replace("#ORDEN",orden).replace("#FECHA",new Date().toString().split("GMT-0500")[0]).replace("#ERRORES","PROMOCION ANULADA, SE CAMBIO A ESTADO OI");
-							transporter.sendMail(mailOptions, function(error, info){});
+							mailOptions.subject  = "#empresa -- PROMOCION ANULADA # "+orden;
+							email_.enviarEmail(opciones, mensaje.replace("#mensaje",body ? body:"").replace("#ORDEN",orden).replace("#FECHA",new Date().toString().split("GMT-0500")[0]).replace("#ERRORES","PROMOCION ANULADA, SE CAMBIO A ESTADO OI"));
                         }
 						deferred.reject({estado:"OI",mensaje:body.replace(/>/g,"").replace(/</g,"")});
 					}else
@@ -3316,15 +3388,9 @@ function procesarOrdenEnProduccionSwisSystem(orden, extras){
 						if(body && (body + "").indexOf("Procesado")>=0){
 
 							mailOptions.to  = 'fblanc@gmail.com, ohonores@hotmail.com,dchavez@ecuaquimica.com.ec,ohonores@ecuaquimica.com.ec,paguilera@ecuaquimica.com.ec';
-							mailOptions.subject  = "ECUAQUIMICA -- PROCESO DE ORDEN # "+orden;
-							mailOptions.html  = mensaje.replace("#mensaje",body ? body:"").replace("#ORDEN",orden).replace("#FECHA",new Date().toString().split("GMT-0500")[0]).replace("#ERRORES",error ? "Error al llamar el servico::<br>"+error : "");
-							transporter.sendMail(mailOptions, function(error, info){
-								if(error){
-									deferred.reject(error);
-								}else{
-									deferred.resolve(info.response)
-								}
-							});
+							mailOptions.subject  = "#empresa -- PROCESO DE ORDEN # "+orden;
+							email_.enviarEmail(opciones, mensaje.replace("#mensaje",body ? body:"").replace("#ORDEN",orden).replace("#FECHA",new Date().toString().split("GMT-0500")[0]).replace("#ERRORES",error ? "Error al llamar el servico::<br>"+error : ""));
+							
 						}else{
                             deferred.reject(false);
 							//deferred.reject({estado:"OI",mensaje:body.replace(/>/g,"").replace(/</g,"")});
@@ -3336,18 +3402,11 @@ function procesarOrdenEnProduccionSwisSystem(orden, extras){
             sqlObtenerUsuario.replace("#ORDEN", orden).replace("#USUARIO_ID",respuestaora.rows[0].USUARIO_ID)
             
         }else{
-            mailOptions.to  = 'fblanco@gmail.com, ohonores@hotmail.com,dchavez@ecuaquimica.com.ec,ohonores@ecuaquimica.com.ec,paguilera@ecuaquimica.com.ec';
-            mailOptions.subject  = "ECUAQUIMICA -- AL PROCESAR A ORDEN #";
-            mailOptions.html  = "No se encontro el usuario correspondiente a la orden #".replace("#ORDEN",orden).replace("#FECHA",new Date().toString().split("GMT-0500")[0]);
-            // send mail with defined transport object
-            transporter.sendMail(mailOptions, function(error, info){
-                if(error){
-                    //deferred.reject(error);
-                }else{
-                    //deferred.resolve(info.response)
-                }
-            });
+            mailOptions.to  = 'ohonores@hotmail.com,dchavez@ecuaquimica.com.ec,ohonores@ecuaquimica.com.ec,paguilera@ecuaquimica.com.ec';
+            mailOptions.subject  = "#empresa -- AL PROCESAR A ORDEN #";
             
+            email_.enviarEmail(opciones, "No se encontro el usuario correspondiente a la orden #".replace("#ORDEN",orden).replace("#FECHA",new Date().toString().split("GMT-0500")[0]));
+          
             deferred.reject("No se enontraron datos con la orden id"); 
         }
         console.log(respuestaora);

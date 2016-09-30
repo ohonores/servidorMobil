@@ -43,7 +43,7 @@ var conexion;
 var poolConexion;
 var ClienteOracle = function () {this.init();};
 
- ClienteOracle.prototype.init = function () {
+ClienteOracle.prototype.init = function () {
  		oracledb.createPool (
           {
             user          : "swissmovi",
@@ -51,10 +51,10 @@ var ClienteOracle = function () {this.init();};
             connectString : "swiss01",
             queueRequests : true,  // default is true
             _enableStats  : true,   // default is false
-            poolMax       : 100, // maximum size of the pool
-            poolMin       : 10, // let the pool shrink completely
-            poolIncrement : 20, // only grow the pool by one connection at a time
-            poolTimeout   : 60  // never terminate idle connections
+            poolMax       : 20, // maximum size of the pool
+            poolMin       : 5, // let the pool shrink completely
+            poolIncrement : 2, // only grow the pool by one connection at a time
+            poolTimeout   : 0  // never terminate idle connections
           },
           function(err, pool)
           {
@@ -129,7 +129,14 @@ ClienteOracle.prototype.getPoolClienteConexion = function (sql, parametros, grab
                                     clearTimeout(noConexion);
                                     //[Error: NJS-040: connection request timeout]
                                     if(err && err.toString().indexOf("NJS-040: connection request timeout")>=0){
-                                        poolConexion.close();
+                                        try{
+                                           poolConexion.close(function(error){
+                                               console.log(error);
+                                           }); 
+                                        }catch(error){
+                                            console.log();
+                                        }
+                                        
                                         console.log("iniciando la conexion pool con la base");
                                         padre.init();
                                     }
@@ -145,7 +152,13 @@ ClienteOracle.prototype.getPoolClienteConexion = function (sql, parametros, grab
                 								connection.release(function(err) {});
                                                 clearTimeout(noConexion);
                                                  if(err && err.toString().indexOf("NJS-040: connection request timeout")>=0){
-                                                    poolConexion.close();
+                                                     try{
+                                                       poolConexion.close(function(error){
+                                                           console.log(error);
+                                                       }); 
+                                                    }catch(error){
+                                                        console.log();
+                                                    }
                                                     console.log("iniciando la conexion pool con la base");
                                                     this.init();
                                                 }
@@ -178,7 +191,13 @@ ClienteOracle.prototype.getPoolClienteConexion = function (sql, parametros, grab
                                     connection.release( function(err){});
                                 }   
                                 
-                                poolConexion.close();
+                                 try{
+                                        poolConexion.close(function(error){
+                                          console.log(error);
+                                         }); 
+                                                    }catch(error){
+                                                        console.log();
+                                                    }
                                 console.log("iniciando la conexion pool con la base",oracledb);
                                 padre.init();
                                 resultado({error:"Time out conexion"});
@@ -225,7 +244,6 @@ ClienteOracle.prototype.getPoolClienteConexionQ = function (sql, parametros, gra
          });
     return deferred.promise;
 };
-
 
 
 function getConexion(datos, tabla) {

@@ -88,10 +88,11 @@ ComandosPorConsola.prototype.copiarArchivosZips = function(perfil){
 }
 
 function getDispositivosSincronizados(parametros){
-     var deferred = Q.defer();
-    console.log("getDispositivosSincronizados",parametros);
+    var deferred = Q.defer();
     var parametrosBusqueda = {tipo:"zip", perfil:parametros.perfilDestino.toString(),"dispositivos.origen":{$exists:true}};
+    //console.log("getDispositivosSincronizados parametros",parametrosBusqueda);
     mongodb.getRegistrosCustomColumnasOrdenLimite(coleccion.nombre, parametrosBusqueda, {versionPerfil:1,dispositivos:1}, {versionPerfil:-1}, 1, function(dispositivosEncontrados){
+      //  console.log("getDispositivosSincronizados dispositivosEncontrados");
         if(dispositivosEncontrados && dispositivosEncontrados[0] && Array.isArray(dispositivosEncontrados[0].dispositivos) && dispositivosEncontrados[0].dispositivos.length>0){
              
              parametros.dispositivos = dispositivosEncontrados[0].dispositivos.reduce(function(nuevo,disp){if(nuevo.indexOf(disp.uidd)<0){nuevo.push(disp.uidd)}return nuevo;},[]);
@@ -105,6 +106,7 @@ function getDispositivosSincronizados(parametros){
             parametros.listaPerfilVersion = [parseInt(parametros.versionEncontrada)];
             deferred.resolve(parametros);
         }else{
+             console.log("No se encontraron dispositivos sincronizados para el perfil",parametros);
             deferred.reject({mensaje:"No se encontraron dispositivos sincronizados para el perfil ", parametros:parametros, metodo:"getDispositivosSincronizados"});
         }
         
@@ -132,11 +134,11 @@ function crearSqliteDiffPorPerfilyDispositivoRecursive(index, versionesPorPerfil
 
 function crearSqliteDiffPorPerfilyDispositivo(parametros){
     var deferred = Q.defer();
-      console.log("crearSqliteDiffPorPerfilyDispositivo ",parametros);
+     // console.log("crearSqliteDiffPorPerfilyDispositivo ",parametros);
    
     parametrosBusqueda = {tipo:"perfiles",estado:true, perfil:parametros.perfilDestino.toString(), versionPerfil:{ $in: parametros.listaPerfilVersion }}; 
     mongodb.getRegistrosCustomColumnas(coleccion.nombre, parametrosBusqueda, {nombreBackupSql:1,ubicacion:1,version:1,versionPerfil:1,dispositivos:1}, function(resultadoVersionesEntregadas){
-        console.log("crearSqliteDiffPorPerfilyDispositivo",resultadoVersionesEntregadas)
+        //console.log("crearSqliteDiffPorPerfilyDispositivo",resultadoVersionesEntregadas)
         if(resultadoVersionesEntregadas && Array.isArray(resultadoVersionesEntregadas) && resultadoVersionesEntregadas.length>0){
             crearSqliteDiffPorPerfilyDispositivoRecursive(0, resultadoVersionesEntregadas, parametros, [], [], function(resultados, errores){
                 deferred.resolve({success:resultados,error:errores});
@@ -211,76 +213,7 @@ function getUltimaSincronizacion(perfilDestino, dispositivo, versionEncontrada){
     return deferred.promise;
 }
 
- /* 
- BORRAME CUANDO TODO ESTE SUPERADO O DESPUES DE 1MES
  
- var parametrosBusqueda = {tipo:"perfiles",estado:true, perfil:perfilDestino.toString(),dispositivos:{"$exists":true}, versionPerfil:{$lt:res[0].versionPerfil}};
-                        mongodb.getRegistrosCustomColumnasOrdenLimite(coleccion.nombre, parametrosBusqueda, {nombreBackupSql:1,ubicacion:1,version:1,versionPerfil:1,dispositivos:1}, {versionPerfil:-1}, 1, function(resultadoVersionesEntregadas){
-                        console.log("getRegistrosCustomColumnasOrdenLimite 2 ", resultadoVersionesEntregadas);
-                        
-                            if(resultadoVersionesEntregadas && Array.isArray(resultadoVersionesEntregadas) && resultadoVersionesEntregadas.length>0){
-                                console.log("getRegistrosCustomColumnasOrdenLimite 3 ", resultadoVersionesEntregadas);
-                                resultadoVersionesEntregadas.forEach(function(resultado){
-                                    if(resultado && resultado.ubicacion && resultado.nombreBackupSql && resultado.versionPerfil){
-                                        var ubicacionArchivoSqliteActual = resultado.ubicacion + resultado.nombreBackupSql;
-                                        crearArchivoSqlParaActualizacion(ubicacionArchivoSqliteActual, ubicacionArchivoSqlite, res[0].versionPerfil, perfilDestino, origen, resultado.dispositivos, resultado.versionPerfil).then(function(success){
-                                            deferred.resolve(success);
-                                        },function(error){
-                                            deferred.reject(error);
-                                        });
-                                    }
-                                });
-                            }else{
-                                console.log("getRegistrosCustomColumnasOrdenLimite  4 no entro ",perfilDestino,parametrosBusqueda);
-                               deferred.reject({mensaje:"No existen versiones entregadas a los disposivivos con el perfil "+perfilDestino, parametros:parametrosBusqueda});
-                            }
-
- });
- mongodb.getRegistrosCustomColumnasOrdenLimite(coleccion.nombre, {tipo:"perfiles",estado:true, perfil:perfilDestino.toString()}, {nombreBackupSql:1, ubicacion:1,version:1,versionPerfil:1}, {versionPerfil:-1}, 1, function(res){
-              if(res && res[0] &&  res[0].ubicacion && res[0].nombreBackupSql && res[0].versionPerfil){
-                  
-                   var ubicacionArchivoSqlite = res[0].ubicacion + res[0].nombreBackupSql;
-                   getDispositivosSincronizados(perfilDestino).then(function(dispositivosSincronizados){
-                      dispositivosSincronizados.dispositivos.forEach(function(dispositivo){
-                                getUltimaSincronizacion(perfilDestino, dispositivo).then(function(ultimaSincronizacion_){
-                                    var parametrosBusqueda = {};
-                                    if(ultimaSincronizacion_ != 0){
-                                        console.log("ENCONTRADO ULTIMA SINCRONIZACION***************");
-                                        parametrosBusqueda = {tipo:"perfiles",estado:true, perfil:perfilDestino.toString(), versionPerfil:parseInt(ultimaSincronizacion_)};     
-                                    }else{
-
-                                    }
-                                    mongodb.getRegistrosCustomColumnasOrdenLimite(coleccion.nombre, parametrosBusqueda, {nombreBackupSql:1,ubicacion:1,version:1,versionPerfil:1,dispositivos:1}, {versionPerfil:-1}, 1, function(resultadoVersionesEntregadas){
-                                    console.log("getRegistrosCustomColumnasOrdenLimite 2 ", resultadoVersionesEntregadas);
-
-                                        if(resultadoVersionesEntregadas && Array.isArray(resultadoVersionesEntregadas) && resultadoVersionesEntregadas.length>0){
-                                            console.log("getRegistrosCustomColumnasOrdenLimite 3 ", resultadoVersionesEntregadas);
-                                            resultadoVersionesEntregadas.forEach(function(resultado){
-                                                if(resultado && resultado.ubicacion && resultado.nombreBackupSql && resultado.versionPerfil){
-                                                    var ubicacionArchivoSqliteActual = resultado.ubicacion + resultado.nombreBackupSql;
-                                                    crearArchivoSqlParaActualizacion(ubicacionArchivoSqliteActual, ubicacionArchivoSqlite, res[0].versionPerfil, perfilDestino, origen, resultado.dispositivos, resultado.versionPerfil).then(function(success){
-                                                        deferred.resolve(success);
-                                                    },function(error){
-                                                        deferred.reject(error);
-                                                    });
-                                                }
-                                            });
-                                        }else{
-                                            console.log("getRegistrosCustomColumnasOrdenLimite  4 no entro ",perfilDestino,parametrosBusqueda);
-                                           deferred.reject({mensaje:"No existen versiones entregadas a los disposivivos con el perfil "+perfilDestino, parametros:parametrosBusqueda});
-                                        }
-
-                                    });//fin getRegistrosCustomColumnasOrdenLimite
-                               });//fin getUltimaSincronizacion
-                          });//Fin forEach
-                    },function(){
-                       deferred.reject({mensaje:"No existen dispositivos sincronizados con  el perfil "+perfilDestino, parametros:{tipo:"perfiles",estado:true, perfil:perfilDestino.toString()}});
-                   });//fin getDispositivosSincronizados
-            }else{
-                deferred.reject({mensaje:"No existen registros con los parametros ingresados con el perfil "+perfilDestino, parametros:{tipo:"perfiles",estado:true, perfil:perfilDestino.toString()}});
-            }
-        });
- */
 function getUltimaBaseSqlitePorPerfilServidor(perfilDestino, origen, versionEncontrada, dispositivo){
      var deferred = Q.defer();
     console.log("getUltimaBaseSqlitePorPerfilServidor",perfilDestino,versionEncontrada);
@@ -326,7 +259,7 @@ function crearArchivoSqlParaActualizacion(actual, nuevo, versionPerfil, perfil, 
     var sqliteB = "swissB"+versionActualizacion + ".db";
     var copiar = "cp -rf  #actual #areaTrabajo#sqliteA;cp -rf  #nuevo #areaTrabajo#sqliteB";
     var nombreScript = "srcript_"+versionActualizacion+"_"+perfil+".sql"
-    //var sqldiff = "LD_PRELOAD=/opt/glibc-2.14/lib/libc.so.6 /usr/bin/sqldiff #areaTrabajo#sqliteA #areaTrabajo#sqliteB > #areaTrabajo#nombreScript";
+   // var sqldiff = "LD_PRELOAD=/opt/glibc-2.14/lib/libc.so.6 /usr/bin/sqldiff #areaTrabajo#sqliteA #areaTrabajo#sqliteB > #areaTrabajo#nombreScript";
     var sqldiff = "sqldiff #areaTrabajo#sqliteA #areaTrabajo#sqliteB > #areaTrabajo#nombreScript";
     copiar = copiar.replace("#actual",actual).replace("#nuevo",nuevo).replace(/#areaTrabajo/g,areaTrabajo).replace("#sqliteB",sqliteB).replace("#sqliteA",sqliteA);
     console.log(copiar);
@@ -339,10 +272,11 @@ function crearArchivoSqlParaActualizacion(actual, nuevo, versionPerfil, perfil, 
             sqldiff = sqldiff.replace(/#areaTrabajo/g,areaTrabajo).replace("#sqliteA",sqliteA).replace("#sqliteB",sqliteB).replace("#nombreScript",nombreScript);
             console.log(sqldiff);
             exec(sqldiff, function(error1, stdout1, stderr1){
-                console.log("error1",error1,"stdout1",stdout1,"stderr1",stderr1);
+                console.log("SQLDIFF *****************  error1",error1,"stdout1",stdout1,"stderr1",stderr1);
                 if(error1 || stderr1){
                      deferred.reject(error1 || stderr1)
                 }else{
+                    console.log("SQLDIFF *****************paso la prueba");
                     setTimeout(function(){
 
                         leerArchivoSqlParaInsertarloEnMongo(

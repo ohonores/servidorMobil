@@ -1,33 +1,43 @@
-var nodemailer = require('nodemailer');
-
-// create reusable transporter object using the default SMTP transport
-var transporter = nodemailer.createTransport('smtps://ovhonores@gmail.com:alien200525@smtp.gmail.com');
-
-// setup e-mail data with unicode symbols
-var mailOptions = {
-    from: '"Ecuaquimica recibos de pago" <eq-ecuaquimica@ecuaquimica.com.ec>', // sender address
-    to: 'ohonores@hotmail.com', // list of receivers
-    subject: '', // Subject line
-    text: '', // plaintext body
-    html: '' // html body
-};
-
-
-
-var Email = function(){
-
+var email   = require("emailjs");
+var server;
+var from;
+var empresa;
+var Email = function(conf, from_, empresa_){
+    if(!conf){
+        throw new Error('No se encontro el SMTP');
+    }
+    server = email.server.connect("smtp",conf);
+    from = from_;
+    empresa = empresa_;
 }
-Email.prototype.enviarEmail(datos){
-    mailOptions.to  = datos.to;
-    mailOptions.subject  = "Ecuaquimica recibo de pago #numero".replace("#numero",datos.numero);
-    mailOptions.html  = "Estimado #cliente hemos recibido su pago, realizado el día #fecha con nuestro vendedor #vendedor.<br> Forma de pago #fpago # #cantidad";
-    // send mail with defined transport object
-    transporter.sendMail(mailOptions, function(error, info){
-        if(error){
-            return console.log(error);
+
+/**
+    Enviar mensajes
+    Parametro:
+    var message = {
+               //text:    "i hope this works", 
+               from:    "SWISSEDI RECEPCION DE DOCUMENTOS SRI <eq-ecuaquimica@ecuaquimica.com.ec>", 
+               to:      "ANTONIO VILLEGAS <avillegas@cyl.com.ec>, ORLANDO HONORES<ohonores@hotmail.com>",
+               subject: "RESULTADOS EMPRESA #EMPRESA :: REFERENCIA #REFERENCIA".replace("#EMPRESA",resultado2.rows[0].descripcion).replace("#REFERENCIA",referencia.replace(ruc,"")),
+              
+    };
+*/
+
+Email.prototype.enviarEmail = function(opciones, mensajeHtml){
+    try{
+        console.log(opciones);
+        console.log(mensajeHtml)
+        if (opciones && opciones.from && opciones.to && opciones.subject) {
+            opciones.from = opciones.from.replace("#from",from).replace("#empresa",empresa);
+            opciones.subject = opciones.subject.replace("#empresa",empresa);
+            opciones.attachment = [ {data:mensajeHtml, alternative:true} ];
+            server.send(opciones, function(err, opciones) { if(err){console.log(err);}else{console.log("Email enviado");}  });
         }
-        console.log('Message sent: ' + info.response);
-    });
-
+    }catch(error){
+        console.log(error);
+    }
+    
 }
-module.exports = new Email();
+
+
+module.exports = Email;

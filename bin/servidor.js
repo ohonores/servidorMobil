@@ -31,6 +31,7 @@ var empresas = [{ruc:"0990018707001"}, {ruc:"2"}];
 var server = http.createServer(app);
 
 var SockectServidorIO = require('../routes/socket/sokectServerIo.js');
+
 var sockectServidor =  new SockectServidorIO(server, empresas);
 app.socket = sockectServidor.getSocket();
 app.conexiones = sockectServidor.getConexiones();

@@ -7,6 +7,7 @@ so that connections can be re-used when new connections to the database are requ
 To reduce the number of connection pools created by your application, we recommend
 calling MongoClient.connect once and reusing the database variable returned by the callback:
 ****************/
+
 var mongodb = require('mongodb');
 var Binary = mongodb.Binary;
 var Q = require('q');
@@ -21,7 +22,8 @@ ClienteMongoDb.prototype.Binary = function () {
 }
 ClienteMongoDb.prototype.init = function () {
     // Initialize connection once  movilesTestBackSqlite  movilesDB
-    MongoClient.connect("mongodb://"+localhost+":27017/movilesTestBackSqlite", function(err, database) {
+    MongoClient.connect("mongodb://localhost:27017/movilesTestBackSqlite", function(err, database) {
+   //MongoClient.connect("mongodb://localhost:27017/swisssmart?replicaSet=otros", function(err, database) {
       if(err) { console.log("Error en MongoDb al iniciar la based de datos");throw err;}
 
       db = database;

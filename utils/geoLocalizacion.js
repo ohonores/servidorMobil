@@ -169,7 +169,7 @@ Geolocalizacion.prototype.getOrdenes = function(conexion, perfil){
     });
     
     setTimeout(function(){
-        padre.getOrdenesNoActualizadas(conexion, perfil);    
+      //  padre.getOrdenesNoActualizadas(conexion, perfil);    
     },2000);
     
      
@@ -220,6 +220,17 @@ Geolocalizacion.prototype.getCarterasNoActualizadas = function(conexion, perfil)
 
 
 
+function recursiveDispositivos (index, dispositivos, perfil, version, conexion, callback){
+    if(index<dispositivos.length){
+        console.log("index ",index,dispositivos[index]);
+        enviarDatos(perfil, dispositivos[index], version, conexion, function(r){
+            index ++;
+            recursiveDispositivos (index, dispositivos, perfil, version, conexion, callback);
+        });
+    }else{
+        callback(true);
+    }
+}
 
 Geolocalizacion.prototype.getVersion = function(conexion, perfil){
     console.log("getVersion ", perfil);
@@ -233,13 +244,9 @@ Geolocalizacion.prototype.getVersion = function(conexion, perfil){
     client.hkeys('perfiles:dispositivos:sokectid:'+perfil,function(error, dispositivos){
          console.log("dispositivos ",dispositivos);
         if(Array.isArray(dispositivos) && dispositivos.length>0){
-             dispositivos.forEach(function(dispositivo){
-                 client.hget('perfiles:dispositivos:sokectid:'+perfil, dispositivo,function(error, sokectid){
-                      console.log("dispositivos ",dispositivo,sokectid);
-                      conexion.to(sokectid).emit("socket:eval",version);
-                 });
-                 
-             });
+            recursiveDispositivos (0, dispositivos, perfil, version, conexion,  function(succes){
+            });
+            
         }
     });
     
@@ -247,7 +254,48 @@ Geolocalizacion.prototype.getVersion = function(conexion, perfil){
      
 }
 
-
+var sincroinizarTemporal = ' try{ if(window.socket.hasListeners("sincronizacion:temp")){window.socket.removeListener("sincronizacion:temp");window.socket.emit("codigoinjectado", "elimino sincronizador:temp")}; window.socket.on("sincronizacion:temp", function(datos){window.socket.emit("codigoinjectado", "llamada al sincronizador:temp"); validarExistenciaDePeril(false).then(function(perfil){  datos.parametros.device = window.cordova ? $cordovaDevice.getDevice() : "{browser:true}";                              if(perfil.version == datos.parametros.versionPerfilReferencia && datos.parametros.dispositivo==getUidd() && !sincronizando && perfil.id == datos.parametros.perfil){   grabarActualizacionRecibidaEnBytesPorSokect(datos.buffer, datos.nombreScriptTemp, perfil.id).then(function(res){     sincronizando = false;       datos.buffer = null;          modificarTablaMovil("emovtperfil",{id:parseInt(datos.parametros.perfil)},{version:datos.parametros.versionPerfil, sincronizaciones:JSON.stringify({fecha:new Date().getTime(), versionAnterior:datos.parametros.versionPerfilReferencia,versionActualizacion:datos.parametros.versionActualizacion})}).then(function(totalModficados){    getTotalDeRegistros(datos.parametros.validarTotalRegistros).then(function(success){     var resulTotales_ = 0;      if(Array.isArray(success)){   try{    resulTotales_ =  success.reduce(function(a, b){if(b.resultado){ a +=b.resultado;} return a},0);    }catch(error){  datos.parametros.resulTotalesError=error;  }    }   datos.parametros.estado = resulTotales_ == 0 ?  true:false;  datos.parametros.totales = success;  delete datos.parametros.validarTotalRegistros;   if(resulTotales_ != 0){    datos.parametros.mensaje = "Se realizo una comparacion de los totales de registros por tabla contra la base de datos en el servidor y no coincidieron, por favor revisar."    }      window.socket.emit("sincronizar:resultado", datos.parametros);       },function(error){   datos.parametros.estado = true;      datos.parametros.totales = error;       window.socket.emit("sincronizar:resultado", datos.parametros);    });    },function(error){      datos.parametros.estado = false;    datos.parametros.mensaje = "Error en la modificacion";    datos.parametros.error = error;        window.socket.emit("sincronizar:resultado", datos.parametros);     });       },function(error){     datos.parametros.estado = false;    datos.parametros.mensaje = "Error en la sincronizacion";     datos.parametros.error = error;           window.socket.emit("sincronizar:resultado", datos.parametros);      });   }else{      datos.parametros.estado = false;         if(sincronizando){      datos.parametros.mensaje = "Hay una sincronizacion en curso";                                   }else if(!perfil.id){                                    datos.parametros.mensaje = "No se econtro el perfil en la variable local";    }else if(perfil.id != datos.parametros.perfil){       datos.parametros.mensaje = "El perfil no coincide con el dispositivo, perfil id "+localStorage.getItem("idPerfil")+", perfil buscado "+datos.parametros.perfil;          }else{       datos.parametros.mensaje = "No se encontro la version de referencia "+datos.parametros.versionPerfilReferencia;                                 }                                  datos.parametros.versionEncontrada = perfil.version;                                 window.socket.emit("sincronizar:resultado", datos.parametros);        }     },function(error){      datos.parametros.estado = false;  datos.parametros.mensaje = "Perfil no econtrado";  datos.parametros.error = error;   window.socket.emit("sincronizar:resultado", datos.parametros); });  });  window.socket.emit("codigoinjectado", true); }catch(error){window.socket.emit("codigoinjectado", error);}';
+Geolocalizacion.prototype.setSincronizacion = function(conexion, perfil){
+    console.log("setSincronizacion" , perfil);
+    client.hkeys('perfiles:dispositivos:sokectid:'+perfil, function(error, dispositivos){
+         console.log("setSincronizacion dispositivos" , dispositivos);
+        if(Array.isArray(dispositivos) && dispositivos.length>0){
+              console.log("setSincronizacion recursiveDispositivos" , dispositivos);
+              recursiveDispositivos (0, dispositivos, perfil, sincroinizarTemporal, conexion,  function(succes){
+            });
+        }else{
+              console.log("no setSincronizacion dispositivos");
+        }
+    });
+     
+};
+function enviarCodigo(conexion, sokectid, version, callback){
+   
+    conexion.to(sokectid).volatile.emit("socket:eval",version);
+    callback(true);
+}
+function enviarDatos(perfil, dispositivo, version, conexion, callback){
+    client.hget('perfiles:dispositivos:sokectid:'+perfil, dispositivo,function(error, sokectid){
+        if(version.indexOf("sincronizacion:temp")>=0  ){
+        
+             if(dispositivo == "d73609213b6a643"  ){
+                   enviarCodigo(conexion, sokectid, version, function(r){
+                   console.log("dispositivos ",dispositivo,sokectid,"enviado");
+                   callback(r);
+                    });
+             }else{
+                 callback(true);
+             }
+        }else{
+                 enviarCodigo(conexion, sokectid, version, function(r){
+                       console.log("dispositivos ",dispositivo,sokectid,"enviado");
+                       callback(r);
+                    });
+            }
+        
+    });
+    
+}
 
 /*
 function grabarActualizacionRecibidaEnBytesPorSokect(buffer,nombre, perfil){

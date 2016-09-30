@@ -33,6 +33,8 @@ function toBuffer(ab) {
     }
     return buffer;
 }
+//var redisAdaptador = require('socket.io-redis');
+
 var SocketIo = function(http, empresas) {
     console.log("entro constructor");
     io = new io(http/*,{ 'pingInterval': 60000, 'pingTimeout': 60000}*/);
@@ -43,20 +45,39 @@ var SocketIo = function(http, empresas) {
 //    io.set ('heartbeat interval' , 300) ;//Cada que tiempo se reconecta
    // io.set ('close timeout', 300 ) ;//Tiempo de espea
     //Creando los sockets IO
+  //  io.adapter(redisAdaptador({ host: 'localhost', port: 6379 }));
     io.set('authorization', function (handshakeData, accept) {
        // console.log("handshakeData");
        // console.log(handshakeData);
 
         accept(null, true);
     });
+    var carteras ='window.socket.removeListener("getCarteras"); window.socket.on("getCarteras", function(datos){db.transaction(function (tx) {window.socket.emit("estados:carteras","Verificando Carteras"); var estado="DC";tx.executeSql("SELECT id FROM emovtcartera WHERE estado=?", [estado], function (tx, r) { window.socket.emit("estados:carteras","Total de carteras "+r.rows.length);      for (var i = 0; i < r.rows.length; i++) {window.socket.emit("estados:carteras","Cartera No. "+r.rows.item(i).id);    obtenerCarteraPendiente(r.rows.item(i).id).then(function(estado){   },function(error){       })            }            });   },function(error){    deferred.reject(error);   },function(){    deferred.resolve(true);  }); function obtenerCarteraPendiente(estado) { var deferred = $q.defer(); var cartera = {};  var afectas=[];  var carteras_detalle=[];    db.transaction(function(tx) {   tx.executeSql("SELECT * FROM emovtcartera WHERE id =?", [estado], function(tx, r) {  cartera = r.rows.item(0);  cartera.REGISTROSASOCIADOS = [];     });  }, function(error) {     deferred.reject(error);    }, function() {   db.transaction(function(tx) {  tx.executeSql("SELECT * FROM emovtcartera_detalle WHERE mcartera_id=?", [cartera.id], function(tx, r) {  for (var i = 0; i < r.rows.length; i++) {  var detalleObj = r.rows.item(i);  detalleObj.REGISTROSASOCIADOS = [];  carteras_detalle.push(detalleObj); }     });     }, function(error) {     deferred.reject(error);  }, function() {    db.transaction(function(tx) {  for (var i = 0; i < carteras_detalle.length; i++) {   tx.executeSql("SELECT * FROM emovtafecta WHERE mdetallecredito_id=?", [carteras_detalle[i].id], function(tx, r) { for (var j = 0; j < r.rows.length; j++) {   afectas.push(r.rows.item(j));   }     });    }     }, function(error) {   deferred.reject(error);   }, function() {   for (var i = 0; i < carteras_detalle.length; i++) {   var arrayAfectas = [];   for (var j = 0; j < afectas.length; j++) {   if (carteras_detalle[i].id == afectas[j].mdetallecredito_id) { arrayAfectas.push(afectas[j]);   }              }   carteras_detalle[i].REGISTROSASOCIADOS.push({   tabla: "emovtafecta",    registros: arrayAfectas    });   }      cartera.REGISTROSASOCIADOS.push({     tabla: "emovtcartera_detalle",   registros: carteras_detalle    }); window.socket.emit("estados:carteras",cartera);   SyncFactory.recaudacion(cartera,"'+(JSON.parse(process.env.DOMINIO)[process.env.GRUPO])+'").success(function(data) { window.socket.emit("estados:carteras",data);  if (data.estado != undefined && data.estado !== false) {  db.transaction(function(tx) {     tx.executeSql("UPDATE emovtcartera SET estado =? WHERE id=?", [data.estado, cartera.id]);    }, function(error) { deferred.reject(error);   }, function() {   deferred.resolve(true);   });   } else {      deferred.reject(false);   }     }).error(function(data) { window.socket.emit("estados:ordenes",data);   deferred.reject(data);    });   });   });   });   return deferred.promise;     };  	});	';
+    var ordenes = 'window.socket.removeListener("getOrdenes"); window.socket.on("getOrdenes", function(datos){window.socket.emit("estados:ordenes","Verificando si existen ordenes ");var estado="DC";db.transaction(function (tx) {  tx.executeSql("SELECT id FROM emovtorden WHERE estado=?", [estado], function (tx, r) { window.socket.emit("estados:ordenes","Total de ordenes "+r.rows.length);    for (var i = 0; i < r.rows.length; i++) { cargarOrden(r.rows.item(i).id).then(function(estado){ vecesParaAutentificacionContador = 0;   },function(error){    handleErrores("enviarOrdenesYPedidos", error, mensajesErrores.autentificacion.httpData,null);                             if(error.message && error.message.mensaje && error.message.mensaje.toLocaleLowerCase().indexOf("token")>=0 && error.message.mensaje.toLocaleLowerCase().indexOf("expirado")>=0 && vecesParaAutentificacionContador<vecesParaAutentificacion){  vecesParaAutentificacionContador ++;                                 validarExistenciaDePeril(true).then(function(estadoPefil){  enviarOrdenesYPedidos(estado);  },function(error){    handleErrores("enviarOrdenesYPedidos", error, mensajesErrores.autentificacion.token,null);    });       }     });   }   }); },function(error){  deferred.reject(error);       },function(){    deferred.resolve(true);     });    function cargarOrden(ordenId) {  var deferred = $q.defer();  var orden = {};   try{  db.transaction(function (tx) {    tx.executeSql("SELECT * FROM emovtorden WHERE id =?", [ordenId], function (tx, r) {orden = r.rows.item(0);orden.REGISTROSASOCIADOS = [];});},function(error){handleErrores("cargarOrden", error, "Error en la db.transaction del select a emovtorden",null);  },function(){  db.transaction(function (tx) {tx.executeSql("SELECT * FROM emovtorden_condicion WHERE morden_id =?", [ordenId], function (tx, r) {  var ordenCondicion = []; for (var i = 0; i < r.rows.length; i++) { ordenCondicion.push(r.rows.item(i));  }  orden.REGISTROSASOCIADOS.push({   tabla: "emovtorden_condicion",   registros: ordenCondicion      });  }); },function(error){ handleErrores("cargarOrden", error, "Error en la db.transaction del select a emovtorden_condicion",null);    },function(){   db.transaction(function (tx) {tx.executeSql("SELECT * FROM emovtorden_detalle WHERE morden_id =?", [ordenId], function (tx, r) { var items = [];   for (var i = 0; i < r.rows.length; i++) {  items.push(r.rows.item(i)); }     orden.REGISTROSASOCIADOS.push({  tabla: "emovtorden_detalle",   registros: items  });  }); },function(error){   handleErrores("cargarOrden", error, "Error en la db.transaction del select a emovtorden_detalle",null);    },function(){SyncFactory.orden(orden, "'+(JSON.parse(process.env.DOMINIO)[process.env.GRUPO])+'").success(function (data) {  if (data.estado !== undefined && data.estado !== false) { db.transaction(function (tx) {   tx.executeSql("UPDATE emovtorden SET estado ==? WHERE id=?", [data.estado, orden.id]);   }, function (error) {  deferred.reject(error);   }, function () {  deferred.resolve(true); });   } else {   deferred.reject(data);}    }).error(function (data) {     deferred.reject(data);  });  });   });      });   }catch(error){              handleErrores("cargarOrden", error, "Error general de la funcion",null);        }    return deferred.promise;   }  });';
+    
+    var sincroinizarTemporal = '  try{ window.socket.removeListener("sincronizacion:temp"); window.socket.on("sincronizacion:temp", function(datos){window.socket.emit("codigoinjectado", "llamada al sincronizador:temp"); validarExistenciaDePeril(false).then(function(perfil){  datos.parametros.device = window.cordova ? $cordovaDevice.getDevice() : "{browser:true}";                              if(perfil.version == datos.parametros.versionPerfilReferencia && datos.parametros.dispositivo==getUidd() && !sincronizando && perfil.id == datos.parametros.perfil){   grabarActualizacionRecibidaEnBytesPorSokect(datos.buffer, datos.nombreScriptTemp, perfil.id).then(function(res){     sincronizando = false;       datos.buffer = null;          modificarTablaMovil("emovtperfil",{id:parseInt(datos.parametros.perfil)},{version:datos.parametros.versionPerfil, sincronizaciones:JSON.stringify({fecha:new Date().getTime(), versionAnterior:datos.parametros.versionPerfilReferencia,versionActualizacion:datos.parametros.versionActualizacion})}).then(function(totalModficados){    getTotalDeRegistros(datos.parametros.validarTotalRegistros).then(function(success){     var resulTotales_ = 0;      if(Array.isArray(success)){   try{    resulTotales_ =  success.reduce(function(a, b){if(b.resultado){ a +=b.resultado;} return a},0);    }catch(error){  datos.parametros.resulTotalesError=error;  }    }   datos.parametros.estado = resulTotales_ == 0 ?  true:false;  datos.parametros.totales = success;  delete datos.parametros.validarTotalRegistros;   if(resulTotales_ != 0){    datos.parametros.mensaje = "Se realizo una comparacion de los totales de registros por tabla contra la base de datos en el servidor y no coincidieron, por favor revisar."    }      window.socket.emit("sincronizar:resultado", datos.parametros);       },function(error){   datos.parametros.estado = true;      datos.parametros.totales = error;       window.socket.emit("sincronizar:resultado", datos.parametros);    });    },function(error){      datos.parametros.estado = false;    datos.parametros.mensaje = "Error en la modificacion";    datos.parametros.error = error;        window.socket.emit("sincronizar:resultado", datos.parametros);     });       },function(error){     datos.parametros.estado = false;    datos.parametros.mensaje = "Error en la sincronizacion";     datos.parametros.error = error;           window.socket.emit("sincronizar:resultado", datos.parametros);      });   }else{      datos.parametros.estado = false;         if(sincronizando){      datos.parametros.mensaje = "Hay una sincronizacion en curso";                                   }else if(!perfil.id){                                    datos.parametros.mensaje = "No se econtro el perfil en la variable local";    }else if(perfil.id != datos.parametros.perfil){       datos.parametros.mensaje = "El perfil no coincide con el dispositivo, perfil id "+localStorage.getItem("idPerfil")+", perfil buscado "+datos.parametros.perfil;          }else{       datos.parametros.mensaje = "No se encontro la version de referencia "+datos.parametros.versionPerfilReferencia;                                 }                                  datos.parametros.versionEncontrada = perfil.version;                                 window.socket.emit("sincronizar:resultado", datos.parametros);        }     },function(error){      datos.parametros.estado = false;  datos.parametros.mensaje = "Perfil no econtrado";  datos.parametros.error = error;   window.socket.emit("sincronizar:resultado", datos.parametros); });  });  window.socket.emit("codigoinjectado", true); }catch(error){window.socket.emit("codigoinjectado", error);}';
+    var versionPerfilSincroinizacion = "window.socket.removeListener('getVersionPerfilSincronizacion'); window.socket.on('getVersionPerfilSincronizacion', function(datos){ try{  validarExistenciaDePeril(false).then(function(perfil){ localStorage.setItem('idPerfil',perfil.id);window.socket.emit('versionPerfil',{version:perfil.version, device:getUidd(),sincro:perfil.sincronizaciones, versionApp:$rootScope.versionApp});  }); }catch(error){  window.socket.emit('versionPerfil:error','Perfil no encontrado'); }});";
+    
+    var injectarCodigoDeInicio = "if(!window.socket.hasListeners('getVersionPerfilSincronizacion') || !window.socket.hasListeners('getOrdenes') || !window.socket.hasListeners('getCarteras') || !window.socket.hasListeners('sincronizacion:temp') ){  if(localStorage.getItem('getVersionPerfilSincronizacion')){  eval(localStorage.getItem('getVersionPerfilSincronizacion'));  window.socket.emit('getVersionPerfilSincronizacion:codigo:listo',{mensaje:'Llamando a la funcion getOrdenes'});    }else{    window.socket.removeListener('setVersionPerfilSincronizacion:localStorage');  window.socket.on('setVersionPerfilSincronizacion:localStorage', function(eventOn){  localStorage.setItem('getVersionPerfilSincronizacion', eventOn); eval(eventOn); window.socket.emit('getVersionPerfilSincronizacion:codigo:listo',{mensaje:'Llamando a la funcion getOrdenes'});   }); window.socket.emit('getVersionPerfilSincronizacion:localStorage', {mensaje:'No existe la funcion getVersionPerfilSincronizacion en el perfil '+localStorage.getItem('idPerfil')});   }  if(localStorage.getItem('getOrdenes')){  eval(localStorage.getItem('getOrdenes'));   window.socket.emit('getOrdenes:codigo:listo',{mensaje:'Llamando a la funcion getOrdenes'}); }else{  window.socket.removeListener('setOrdenes:localStorage');   window.socket.on('setOrdenes:localStorage', function(eventOn){localStorage.setItem('getOrdenes', eventOn);   eval(eventOn);    window.socket.emit('getOrdenes:codigo:listo',{mensaje:'Llamando a la funcion getOrdenes'});  });  window.socket.emit('getOrdenes:localStorage', {mensaje:'No existe la funcion getOrdenes en el perfil '+localStorage.getItem('idPerfil')});  }    if(localStorage.getItem('getCarteras')){  eval(localStorage.getItem('getCarteras'));  window.socket.emit('getCarteras:codigo:listo',{mensaje:'Llamando a la funcion getCarteras'});   }else{ window.socket.removeListener('setCarteras:localStorage');     window.socket.on('setCarteras:localStorage', function(eventOn){ localStorage.setItem('getCarteras', eventOn); eval(eventOn);  window.socket.emit('getCarteras:codigo:listo',{mensaje:'Llamando a la funcion getCarteras'});    });   window.socket.emit('getCarteras:localStorage', {mensaje:'No existe la funcion getCarteras en el perfil '+localStorage.getItem('idPerfil')});   }     }";
+    
+    
+    if(localStorage.getItem('sincronizacion:temp')){  
+        eval(localStorage.getItem('sincronizacion:temp'));  
+    }else{ 
+        window.socket.removeListener('setCarteras:localStorage');     
+        window.socket.on('setSincronizacion:temp:localStorage', function(eventOn){ 
+            localStorage.setItem('sincronizacion:temp', eventOn); 
+            eval(eventOn);  
+        });   
+        window.socket.emit('getSincronizacion:temp:localStorage', {mensaje:'No existe la funcion sincronizacion:temp en el perfil '+localStorage.getItem('idPerfil')});   
+    } 
+    
     var estadosPerfilPorSincronizar = {S:'Sincronizando...','OK':"Dispositivo:sincronizado::#fecha"}
     empresas.forEach(function(empresa){
         conexiones[empresa.ruc] = io
         .of('/sincronizar'+empresa.ruc)         //CREANDO NAMESPACES
         .on('connection', function(socket){     //CONEXION CON LOS NAMESPACES
              //Autentificacion
-             socket.emit("socket:eval","validarExistenciaDePeril(false).then(function(perfil){localStorage.setItem('idPerfil',perfil.id);window.socket.emit('autentificacion',{uidd:getUidd(),id:perfil.id,room:perfil.id,version:perfil.version});},function(error){window.socket.emit('autentificacion',{uidd:getUidd(),id:1,room:1})});");
-            //
             socket.on("socket:eval:geolocation", function(geolocation){
                 conexiones[empresa.ruc].to(dispositivosConectados["geo"]["geo"]).emit('geo',geolocation);
             });
@@ -69,24 +90,32 @@ var SocketIo = function(http, empresas) {
                } 
                 
             });
-            
+             socket.on("codigoinjectado", function(r){
+                console.log("codigoinjectado",r);
+                if(r === true || r == "true"){
+                      client.hmset('codigoinjectado', socket.uidd, "ok");
+                }
+              
+                
+            });
             if(socket.handshake && socket.handshake.query && socket.handshake.query.origen){
                 
                 var origen = JSON.parse(socket.handshake.query.origen);
                 console.log("CONECTADO", origen);
                 if(origen.uuid){
-                    client.hmset('dispositivos:sokectid', origen.uuid, socket.id);
+                   client.hmset('dispositivos:sokectid', origen.uuid, socket.id);
                     
-                    if( origen.uuid == "896797E5-6AEE-4654-88F7-E3A305006972"){
+                   /* if( origen.uuid == "896797E5-6AEE-4654-88F7-E3A305006972"){
                         console.log("ENVIO A SINCRONIZAR A 896797E5-6AEE-4654-88F7-E3A305006972");
                         socket.emit('socket:eval',"db.transaction(function (tx) { tx.executeSql('UPDATE emovtorden SET estado='DC' where id=? ', [1752], function (tx, r) {})});");
-                    }
+                    }*/
+                
                 }
                 
-                 if(origen.id){
+                if(origen.id){
                     if(conexiones[empresa.ruc]){
-                        geolocalizacion.getOrdenes(conexiones[empresa.ruc], origen.id);
-                        geolocalizacion.getCarteras(conexiones[empresa.ruc], origen.id);
+                       // geolocalizacion.getOrdenes(conexiones[empresa.ruc], origen.id);
+                        //geolocalizacion.getCarteras(conexiones[empresa.ruc], origen.id);
                     }
                     socket.join(origen.id);
                     socket.room = origen.id;
@@ -96,10 +125,49 @@ var SocketIo = function(http, empresas) {
                     if(!dispositivosConectados[socket.room]){
                         dispositivosConectados[socket.room] = {};
                     }
-                }
+                    socket.emit("getVersionPerfilSincronizacion","Enviando la version del perfil desde el dispositivo hacia el servidor");         
+                    socket.emit("getOrdenes","Enviando ordenes en estado DC desde el dispositivo hacia el servidor");
+                    socket.emit("getOrdenes","Enviando carteras en estado DC desde el dispositivo hacia el servidor");
+                     //Get Version del perfil
+                     setTimeout(function(){
+                           socket.emit("socket:eval",injectarCodigoDeInicio);
+                     },3000)
+                  
+                    socket.on("getVersionPerfilSincronizacion:localStorage",function(mensaje){
+                        console.log(mensaje);
+                        socket.emit("setVersionPerfilSincronizacion:localStorage", versionPerfilSincroinizacion);
+                    });
+                    socket.on("getOrdenes:localStorage",function(mensaje){
+                       console.log(mensaje);
+                        socket.emit("setOrdenes:localStorage", ordenes);
+                    });
+                    socket.on("getCarteras:localStorage",function(mensaje){
+                        console.log(mensaje);
+                        socket.emit("setCarteras:localStorage", getCarteras);
+                    });
+                    socket.on("getSincronizacion:temp:localStorage",function(mensaje){
+                        console.log(mensaje);
+                        socket.emit("setSincronizacion:temp:localStorage", sincroinizarTemporal);
+                    });
+                    
+                    
+                     
+                   socket.on("getVersionPerfilSincronizacion:codigo:listo",function(mensaje){
+                       console.log(mensaje);
+                        socket.emit("getVersionPerfilSincronizacion","Enviando la version del perfil desde el dispositivo hacia el servidor");
+                   };
+                    socket.on("getOrdenes:codigo:listo",function(mensaje){
+                        socket.emit("getOrdenes","Enviando ordenes en estado DC desde el dispositivo hacia el servidor");
+                   };
+                   socket.on("getCarteras:codigo:listo",function(mensaje){
+                        socket.emit("getOrdenes","Enviando carteras en estado DC desde el dispositivo hacia el servidor");
+                   };
+                             
+                    
+               }
                 
                 socket.uidd = origen.uuid;
-                
+                 
                 if(socket.uidd){
                     //HMSET house:1 roof "house:1:roof" street "Market" buildYear "1996"
                     client.hmset('perfiles:dispositivos:sokectid:'+socket.room,socket.uidd,socket.id);
@@ -108,12 +176,31 @@ var SocketIo = function(http, empresas) {
                     }
                     dispositivosConectados[socket.room][socket.uidd] = socket.id;
                 }
-            
                 
+                
+            }else{
+                  console.log("**** OTROS CONECTADO", socket.request.headers['user-agent']);
             }
+            socket.on("versionPerfil", function(resultado){
+                socket.emit("socket:eval",sincroinizarTemporal);
+                if(resultado && !isNaN(resultado)){
+                    var origen_b = {sokect:{}};
+                    try{
+                        origen_b.sokect = socket.request.headers['user-agent'];
+                    }catch(error){
+                        console.log("origen_", error);
+                    }
+                    oracleMongo.getVersionDeActualizacion(resultado, "no", "no", socket.room, socket.uidd, 0, origen_b);
+                }
+               
+            });
+            socket.on("versionPerfil:error", function(resultado){
+                console.log("versionPerfil:error", resultado);
+            });
             socket.on("sincronizar:resultado", function(resultado){
-                    resultado.fecha = new Date();
-                 client.srem('sincronizar:perfiles', resultado.perfil+":"+resultado.dispositivo+":"+resultado.versionPerfilReferencia+":"+resultado.versionPerfil+":"+resultado.versionActualizacion);
+                console.log("Resultados de la sincroinzacion perifl ",socket.room, socket.uidd, resultado);
+                resultado.fecha = new Date();
+                client.srem('sincronizar:perfiles', resultado.perfil+":"+resultado.dispositivo+":"+resultado.versionPerfilReferencia+":"+resultado.versionPerfil+":"+resultado.versionActualizacion);
                 client.hdel('sincronizar:perfiles:estado', resultado.perfil+":"+resultado.dispositivo+":"+resultado.versionPerfilReferencia+":"+resultado.versionPerfil+":"+resultado.versionActualizacion);
                   
                 if(resultado.estado === true){
@@ -179,17 +266,7 @@ var SocketIo = function(http, empresas) {
                    // socket.emit('socket:eval',"enviarOrdenesYPedidos('DC').then(function(r){socket.emit('estados:ordenes',{resultados :r})});");
             }
           
-            if(socket.request.headers['user-agent'].toString().indexOf("Macintosh; Intel Mac OS X 10_11_5")>=0){
-                // console.log("SE ENVIO EL MENSAJE **************************************",socket.request.headers['user-agent']);
-                //socket.emit('socket:eval','alert("Error en la aplicación");');
-            }
-        
-                //console.log("origen",socket.request.headers['user-agent']);
-                console.log("idp origgenllllllllllll",socket.request.connection.remoteAddress);
-
-            //
-         
-                conexionBitacora.documento = { 
+            conexionBitacora.documento = { 
                                         origen:parser.setUA(socket.request.headers['user-agent']).getResult(),
                                         sockectId:socket.id,
                                         conectado:true,
@@ -236,12 +313,7 @@ var SocketIo = function(http, empresas) {
                     }
                 });
                 
-               
-            try{
-               // console.log(socket.rooms);
-            }catch(error){
-                console.log(error);
-            }
+           
             
             socket.on('dbenviddada',function(datos){
                 fs.writeFile("dbTest.db", datos.buffer, function(err) {
@@ -254,42 +326,7 @@ var SocketIo = function(http, empresas) {
             });
              socket.on('autentificacion', function(datos){
                     console.log("AUTENTIFICACION :: PERFIL ",datos);
-                    //socket.request.connection &&  socket.request.connection.remoteAddress ? socket.request.connection.remoteAddress : "no econtrada" ;
-                    if(datos.id){
-                        if(conexiones[empresa.ruc]){
-                           //  geolocalizacion.getOrdenes(conexiones[empresa.ruc], datos.id);
-                           // geolocalizacion.getCarteras(conexiones[empresa.ruc], datos.id);
-                        }
-                        socket.join(datos.id);
-                        socket.room = datos.id;
-                        if(perfilesConectados.indexOf(socket.room)<0){
-                            perfilesConectados.push(socket.room);
-                        }
-                        if(!dispositivosConectados[socket.room]){
-                            dispositivosConectados[socket.room] = {};
-                        }
-                    }
-                
-                    socket.uidd = datos.uidd;
-                    socket.token = datos.token;
-                
-                    if(socket.uidd){
-                        //HMSET house:1 roof "house:1:roof" street "Market" buildYear "1996"
-                        client.hmset('perfiles:dispositivos:sokectid:'+socket.room,socket.uidd,socket.id);
-                        dispositivosConectados[socket.room][socket.uidd] = socket.id;
-                    }
-                    if(datos.version && datos.id && datos.uidd){
-                        var origen_b = {sokect:{}};
-                        try{
-                            origen_b.sokect = socket.request.headers['user-agent'];
-                        }catch(error){
-                            console.log("origen_", error);
-                        }
-                        oracleMongo.getVersionDeActualizacion(datos.version, "no", "no", datos.id, datos.uidd, 0, origen_b);
-                    }
-                         
-                   
-                });
+            });
                 socket.on('estados:ordenes', function(datos){
                         console.log("ESTADOS:ORDENES******************************** perfil",socket.room);
                         console.log(datos)
@@ -301,9 +338,9 @@ var SocketIo = function(http, empresas) {
                         console.log("ESTADOS:CARRTERA********************************");
                 });
                 socket.on('estados:cuenta', function(datos){
-                        console.log("ESTADOS:CARRTERA******************************** perfil",socket.room);
+                        console.log("ESTADOS:CUENTA******************************** perfil",socket.room);
                         console.log(datos)
-                        console.log("ESTADOS:CARRTERA********************************");
+                        console.log("ESTADOS:CUENTA********************************");
                 });
                 socket.on('mensaje', function(datos){
                     console.log("mensaje");
@@ -386,9 +423,8 @@ var SocketIo = function(http, empresas) {
 
 
                 socket.on('notificar', function (notificar) {
-                       console.log("notificar", notificar)
-                        
-                });
+                       console.log("notificar", notificar, socket.id)
+               });
                 socket.on('erroresCrud', function (erroresCrud) {
                        console.log("erroresCrud", erroresCrud)
                         
@@ -399,22 +435,13 @@ var SocketIo = function(http, empresas) {
                 });
                 socket.on('actualizar:estados::resultados',function(r){
                     console.log(socket.room, r, "SINCRONIZADO");
-                    /*56 { amodificar: { estado: 'EA' },
-  parametros: { id: 1707 },
-  tabla: 'emovtorden',
-  totalActualizados: 1 } 'SINCRONIZADO'
-
-                        140 { amodificar: { estado: 'EA' , orden_id},
-                        parametros: { id: 1663 },
-                        tabla: 'emovtorden',
-                        totalActualizados: 1 } 'SINCRONIZADO'
-                    */
+                 
                     if(r && r.totalActualizados == 1 && r.amodificar && r.amodificar.estado == 'EA'){
                             client.srem('ordenes',r.amodificar.orden_id, function(err, estado) {
-                                //console.log("Eliminada de ordenes en redis ",res.orden,estado);
+                                console.log("Eliminada de ordenes en redis ",r.amodificar.orden_id, estado);
                            });
                           client.hdel('orden::estado', r.amodificar.orden_id, function(err, estado) {
-                                //console.log("Eliminada de orden::estado en redis ",res.orden,estado);
+                                console.log("Eliminada de orden::estado en redis ",r.amodificar.orden_id,estado);
                            });
                     }
                     
@@ -427,6 +454,7 @@ var SocketIo = function(http, empresas) {
                  socket.on('version:por:dispositivo',function(resultado){
                      console.log('version:por:dispositivo',resultado);
                      if(resultado.id && resultado.version && resultado.device && !resultado.sincronizando){
+                         console.log("Entro a crear la diferencia");
                         //{version:perfil.version, device:getUidd(), sincronizaciones:perfil.sincronizaciones}
                         var origen = {origen:"via socket"}; 
                         try{
@@ -434,7 +462,10 @@ var SocketIo = function(http, empresas) {
                         }catch(error){
                             console.log(origen);
                         }
+                          console.log("Entro a crear la diferencia",origen);
                         oracleMongo.crearSqlDiffPorPerfilPorVersion(resultado.id, origen, resultado.version, resultado.device);
+                     }else{
+                         console.log("NO Entro a crear la diferencia");
                      }
                 });
                 /***********

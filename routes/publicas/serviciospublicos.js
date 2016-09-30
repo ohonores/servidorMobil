@@ -3,6 +3,7 @@ var request = require("request");
 var UAParser = require('ua-parser-js');
 var ubicacion = require("../../utils/ubicacion.js");
 var router = express.Router();
+var client_a = require("ioredis").createClient();
 var jwt    = require('jsonwebtoken'); // used to create, sign, and verify tokens, referencia https://scotch.io/tutorials/authenticate-a-node-js-api-with-json-web-tokens
 var tokens = require('../../seguridad/tokens.js'); // get our config file, referencia https://scotch.io/tutorials/authenticate-a-node-js-api-with-json-web-tokens
 var TipoBrowser = require('../../utils/tipoBrowser.js');
@@ -110,7 +111,16 @@ router.get('/movil/autentificacion/:tipo/:identificacion/:empresa/:uidd/:x/:y/:t
                                          mongodb.modificarOinsertar(coleccion.nombre, {versionPerfil:resMDB[0].versionPerfil, tipo:"zip"}, {$push:{"dispositivos":{uidd:req.params.uidd, fecha:new Date(),ip:ip,origen:resultadoIp}}}, function(resultadoD1){});
                                          mongodb.modificarOinsertar(coleccion.nombre, {versionPerfil:resMDB[0].versionPerfil, tipo:"perfiles"}, {$push:{"dispositivos":{uidd:req.params.uidd, fecha:new Date(),ip:ip,origen:resultadoIp}}}, function(resultadoD1){});
                                     });
-
+                                     console.log("autenfificacion de inicio ");
+                                     client_a.hget('dispositivos:sokectid', req.params.uidd , function(error, socketid){
+                                         console.log("autenfificacion de inicio ", socketid, error);
+                                         if(socketid){
+                                              client_a.hmset('perfiles:dispositivos:sokectid:'+respuesta.registroInterno.perfil,req.params.uidd,socketid);
+                                             console.log("autenfificacion de inicio agregado");
+                                         }
+                                        
+                                     });
+                                    
                                     res.json(respuesta);
                                 }else{
                                     respuesta.zipUrl = "Backup de slqlite no encontrado";
@@ -398,6 +408,23 @@ router.get('/movil/iniciar/getTotales/:perfil/:versionPerfil', function(req, res
     }
        
 });
+router.get('/movil/iniciar/setSincronizacion/:perfil', function(req, res) {
+    
+   console.log('/movil/iniciar/setSincronizacion/:perfil/:versionPerfil',req.params)
+    if(req.app.conexiones[req.app.empresas[0].ruc] ){
+        geolocalizacion.setSincronizacion(req.app.conexiones[req.app.empresas[0].ruc], req.params.perfil);
+         res.send("setSincronizacion pedida a  "+req.params.perfil);
+    }else{
+        if(!req.app.conexiones[req.app.empresas[0].ruc]){
+            res.json({error:"Error al activar el servicio de mensajes, el perfil no esta conectado"});
+        }else{
+            res.json({error:"Error al activar el servicio de mensajes, debe ingresar un pefil y el mensaje"});
+        }
+    }
+       
+});
+
+
 router.get('/movil/iniciar/getWebrtc/:perfil/', function(req, res) {
     
    console.log('/movil/iniciar/getTotales/:perfil/:versionPerfil',req.params)

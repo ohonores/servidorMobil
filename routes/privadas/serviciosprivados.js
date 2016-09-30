@@ -140,7 +140,7 @@ sincronizar.get('/inicio/diccionarios/:coleccion/:index', seguridadEDC.validarIn
 sincronizar.all('/recepcion/:tabla/',  function(req, res){
     console.log("*****************************/recepcion/:tabla/ *********************************",req.params);
     try{
-        console.log("/recepcion/:tabla/");
+        console.log("/recepcion/:tabla/",req.session);
         oracleMongo.setDatosDinamicamente(req.params.tabla, req.body, req.datosperfil ? req.datosperfil :(req.session.datosperfil?req.session.datosperfil:{}), function(resultado){
 
             console.log("setDatosDinamicamente ENVIANDO AL DISPOSITIVO MOVIL ",resultado,req.datosperfil,req.params.tabla);
