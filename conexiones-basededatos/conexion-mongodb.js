@@ -836,18 +836,20 @@ ClienteMongoDb.prototype.grabarRegistrosDesdeMovil = function (collection, docum
         documento.fechaDocumento = new Date();
       }
       if(documento.registroMovil){
-          documento.hash = hash({a:documento.registroMovil,b:documento.perfil,c:documento.empresa,idmovil:documento.registroMovil.id,dispositivo:documento.registroMovil.dispositivo});
+          var dupiclado = JSON.parse(JSON.stringify(documento.registroMovil));
+          delete dupiclado.id;
+          documento.hash = hash({a:dupiclado, c:documento.empresa, dispositivo:documento.registroMovil.dispositivo});
      }
       db.collection(collection).insertOne(documento, function(err, docs) {
           if(err){
              grabarErrores({fecha:new Date(), metodo:"grabarRegistrosDesdeMovil", error:err, documento:documento});
              if(err.message  && err.message.indexOf("duplicate key")){
-                 deferred.reject({duplicado:true,mensaje:"Registro duplicado"});
+                 deferred.resolve({duplicado:true,mensaje:"Registro duplicado"});
              }else{
                  deferred.reject(err);
              }
          }else {
-             deferred.resolve(true);
+             deferred.resolve({estado:true, hash : documento.hash});
          }
        });
      return deferred.promise;

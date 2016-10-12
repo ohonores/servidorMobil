@@ -211,6 +211,7 @@ router.get('/movil/iniciar/sensor/sincronizador/get-datos', function(req, res) {
 var sincronizarColeeciones = false;
 var sincronizarColeecionesPendientes  = [];
 router.get('/movil/iniciar/sensor/sincronizador/actualizar-datos/:tablas', function(req, res) {
+    
       oracleMongo.crearBackupsSqliteAutomatica(parser.setUA(req.headers['user-agent']).getResult(), req.app.conexiones[req.app.empresas[0].ruc]);
 	 res.json("Actualizando Colecciones..");
    

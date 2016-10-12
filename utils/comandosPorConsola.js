@@ -58,6 +58,16 @@ ComandosPorConsola.prototype.copiarDiccionarios = function(perfilDestino){
     return deferred.promise;
 
 }
+
+ComandosPorConsola.prototype.removerArchivosAreaTrabajo = function(){
+    exec("cd /u02/movil/sqlite/areatrabajo/ ; rm -rf * ", function(error, stdout, stderr){
+        if(error || stderr ){
+           console.log(error, stderr);
+        }else{
+            console.log("/u02/movil/sqlite/areatrabajo/ -->Archivos eliminados");
+        }
+    });
+}
 var ubicacionZips = "/u02/movil/zipsSqls/";
 ComandosPorConsola.prototype.copiarArchivosZips = function(perfil){
     var deferred = Q.defer();
@@ -68,12 +78,13 @@ ComandosPorConsola.prototype.copiarArchivosZips = function(perfil){
                 var ubicacionArchivoZipSqlite = ubicacionZips + res[0].nombreBackupSql.replace(".db",".zip");
 
                 exec("cp #ubicacionArchivoSqlite swiss.db && zip #ubicacionArchivoZipSqlite swiss.db && rm -rf swiss.db".replace("#ubicacionArchivoSqlite",ubicacionArchivoSqlite).replace("#ubicacionArchivoZipSqlite",ubicacionArchivoZipSqlite), function(error, stdout, stderr){
+                    
                     if(error || stderr ){
+                        console.log(error, stderr, stdout);
                             res[0].error = error;
                             res[0].stderr = stderr;
                             deferred.reject(res[0]);
                         }else{
-
                             res[0].nombreArchivo = res[0].nombreBackupSql.replace(".db",".zip");
                             res[0].ubicacionZips = ubicacionZips;
                             deferred.resolve(res[0]);
@@ -89,10 +100,9 @@ ComandosPorConsola.prototype.copiarArchivosZips = function(perfil){
 
 function getDispositivosSincronizados(parametros){
     var deferred = Q.defer();
-    var parametrosBusqueda = {tipo:"zip", perfil:parametros.perfilDestino.toString(),"dispositivos.origen":{$exists:true}};
-    //console.log("getDispositivosSincronizados parametros",parametrosBusqueda);
+    var parametrosBusqueda = {tipo:"zip", perfil:parametros.perfilDestino.toString(),"dispositivos.origen":{$exists:true},"dispositivos":{$elemMatch:{ip:{$exists:true},uidd:parametros.dispositivo}}};
+    console.log(parametrosBusqueda);
     mongodb.getRegistrosCustomColumnasOrdenLimite(coleccion.nombre, parametrosBusqueda, {versionPerfil:1,dispositivos:1}, {versionPerfil:-1}, 1, function(dispositivosEncontrados){
-      //  console.log("getDispositivosSincronizados dispositivosEncontrados");
         if(dispositivosEncontrados && dispositivosEncontrados[0] && Array.isArray(dispositivosEncontrados[0].dispositivos) && dispositivosEncontrados[0].dispositivos.length>0){
              
              parametros.dispositivos = dispositivosEncontrados[0].dispositivos.reduce(function(nuevo,disp){if(nuevo.indexOf(disp.uidd)<0){nuevo.push(disp.uidd)}return nuevo;},[]);
@@ -101,10 +111,14 @@ function getDispositivosSincronizados(parametros){
                      return (dispositivo == parametros.dispositivo);
                  
               });
-             parametros.dispositivos = nuevoDispositivo;
-            
-            parametros.listaPerfilVersion = [parseInt(parametros.versionEncontrada)];
-            deferred.resolve(parametros);
+            if(Array.isArray(nuevoDispositivo) && nuevoDispositivo.length>0){
+                parametros.dispositivos = nuevoDispositivo;
+                parametros.listaPerfilVersion = [parseInt(parametros.versionEncontrada)];
+                deferred.resolve(parametros);
+            }else{
+                deferred.reject({mensaje:"Se encontraron dispositivos sincronizados para el perfil pero no hacen referencia al dispositivo entregado", parametros:parametros, metodo:"getDispositivosSincronizados"});
+            }
+             
         }else{
              console.log("No se encontraron dispositivos sincronizados para el perfil",parametros);
             deferred.reject({mensaje:"No se encontraron dispositivos sincronizados para el perfil ", parametros:parametros, metodo:"getDispositivosSincronizados"});
@@ -134,11 +148,8 @@ function crearSqliteDiffPorPerfilyDispositivoRecursive(index, versionesPorPerfil
 
 function crearSqliteDiffPorPerfilyDispositivo(parametros){
     var deferred = Q.defer();
-     // console.log("crearSqliteDiffPorPerfilyDispositivo ",parametros);
-   
     parametrosBusqueda = {tipo:"perfiles",estado:true, perfil:parametros.perfilDestino.toString(), versionPerfil:{ $in: parametros.listaPerfilVersion }}; 
     mongodb.getRegistrosCustomColumnas(coleccion.nombre, parametrosBusqueda, {nombreBackupSql:1,ubicacion:1,version:1,versionPerfil:1,dispositivos:1}, function(resultadoVersionesEntregadas){
-        //console.log("crearSqliteDiffPorPerfilyDispositivo",resultadoVersionesEntregadas)
         if(resultadoVersionesEntregadas && Array.isArray(resultadoVersionesEntregadas) && resultadoVersionesEntregadas.length>0){
             crearSqliteDiffPorPerfilyDispositivoRecursive(0, resultadoVersionesEntregadas, parametros, [], [], function(resultados, errores){
                 deferred.resolve({success:resultados,error:errores});
@@ -216,14 +227,21 @@ function getUltimaSincronizacion(perfilDestino, dispositivo, versionEncontrada){
  
 function getUltimaBaseSqlitePorPerfilServidor(perfilDestino, origen, versionEncontrada, dispositivo){
      var deferred = Q.defer();
-    console.log("getUltimaBaseSqlitePorPerfilServidor",perfilDestino,versionEncontrada);
      mongodb.getRegistrosCustomColumnasOrdenLimite(coleccion.nombre, {tipo:"perfiles",estado:true, perfil:perfilDestino.toString()}, {nombreBackupSql:1, ubicacion:1,version:1,versionPerfil:1}, {versionPerfil:-1}, 1, function(res){
               if(res && res[0] &&  res[0].ubicacion && res[0].nombreBackupSql && res[0].versionPerfil){
-                  console.log("getUltimaBaseSqlitePorPerfilServidor",res[0]);
-                  deferred.resolve({ubicacionArchivoSqlite:res[0].ubicacion + res[0].nombreBackupSql, versionPerfil:res[0].versionPerfil,perfilDestino:perfilDestino,origen:origen,versionEncontrada:versionEncontrada, dispositivo:dispositivo});
-              }else{
+                  var difference = parseInt(res[0].versionPerfil) - parseInt(versionEncontrada); 
+                  var resultInMinutes = Math.round(difference / 60000);
+                    
+                  if(res[0].versionPerfil != versionEncontrada){
+                    console.log("getUltimaBaseSqlitePorPerfilServidor version servidor-->",res[0].versionPerfil, " version dispositivo ", versionEncontrada, "tiempo transcurrido en minutos ",resultInMinutes, "dispositivo", dispositivo);
+                    deferred.resolve({ubicacionArchivoSqlite:res[0].ubicacion + res[0].nombreBackupSql, versionPerfil:res[0].versionPerfil,perfilDestino:perfilDestino,origen:origen,versionEncontrada:versionEncontrada, dispositivo:dispositivo});
+            
+                  }else{
+                    deferred.reject({mensaje:"No se encontraron nuevas versiones",perfil:perfilDestino,origen:origen, minutos:resultInMinutes});
+                  }
+            }else{
                   deferred.reject({mensaje:"No se encontraron sqlite para el perfil",perfil:perfilDestino,origen:origen});
-              }
+            }
      });
      return deferred.promise;
 }
@@ -233,7 +251,7 @@ ComandosPorConsola.prototype.crearScriptsPorPerfil = function(perfilDestino, ori
     
     var deferred = Q.defer();
     
-    console.log("crearScriptsPorPerfil xxxxxxxxxxxxxxxxxxxx ",versionEncontrada);
+    console.log("ComandosPorConsola --> crearScriptsPorPerfil perfil y version ", perfilDestino , versionEncontrada);
     setTimeout(function(){
         getUltimaBaseSqlitePorPerfilServidor(perfilDestino, origen, versionEncontrada, dispositivo). //
         then(getDispositivosSincronizados).
@@ -241,7 +259,7 @@ ComandosPorConsola.prototype.crearScriptsPorPerfil = function(perfilDestino, ori
         then(function(success){
             deferred.resolve(success);
         },function(error){
-             deferred.reject();
+             deferred.reject(error);
         });
         
     },5000);
@@ -252,33 +270,35 @@ ComandosPorConsola.prototype.crearScriptsPorPerfil = function(perfilDestino, ori
 function crearArchivoSqlParaActualizacion(actual, nuevo, versionPerfil, perfil, origen, dispositivos, referencia){
     var deferred = Q.defer();
     //Primero se copia la db actual al area de trabajo
-    console.log("crearArchivoSqlParaActualizacion",actual,nuevo,versionPerfil,perfil);
     var versionActualizacion = new Date().getTime();
     var areaTrabajo = "/u02/movil/sqlite/areatrabajo/";
     var sqliteA = "swissA"+versionActualizacion + ".db";
     var sqliteB = "swissB"+versionActualizacion + ".db";
     var copiar = "cp -rf  #actual #areaTrabajo#sqliteA;cp -rf  #nuevo #areaTrabajo#sqliteB";
-    var nombreScript = "srcript_"+versionActualizacion+"_"+perfil+".sql"
-   // var sqldiff = "LD_PRELOAD=/opt/glibc-2.14/lib/libc.so.6 /usr/bin/sqldiff #areaTrabajo#sqliteA #areaTrabajo#sqliteB > #areaTrabajo#nombreScript";
-    var sqldiff = "sqldiff #areaTrabajo#sqliteA #areaTrabajo#sqliteB > #areaTrabajo#nombreScript";
+    var nombreScript = "srcript_"+versionActualizacion+"_"+perfil+".sql";
+    var sqldiff;
+    if(process.env.GRUPO == "1"){
+         sqldiff = "LD_PRELOAD=/opt/glibc-2.14/lib/libc.so.6 /usr/bin/sqldiff #areaTrabajo#sqliteA #areaTrabajo#sqliteB > #areaTrabajo#nombreScript";
+    }else{
+        sqldiff = "sqldiff #areaTrabajo#sqliteA #areaTrabajo#sqliteB > #areaTrabajo#nombreScript";
+    }
+    var 
     copiar = copiar.replace("#actual",actual).replace("#nuevo",nuevo).replace(/#areaTrabajo/g,areaTrabajo).replace("#sqliteB",sqliteB).replace("#sqliteA",sqliteA);
     console.log(copiar);
     exec(copiar,function(error, stdout, stderr){
         console.log("error",error,"stdout",stdout,"stderr",stderr);
         if(error || stderr){
-
             deferred.reject(error || stderr)
         }else {
             sqldiff = sqldiff.replace(/#areaTrabajo/g,areaTrabajo).replace("#sqliteA",sqliteA).replace("#sqliteB",sqliteB).replace("#nombreScript",nombreScript);
             console.log(sqldiff);
             exec(sqldiff, function(error1, stdout1, stderr1){
-                console.log("SQLDIFF *****************  error1",error1,"stdout1",stdout1,"stderr1",stderr1);
+                
                 if(error1 || stderr1){
+                    console.log("SQLDIFF *****************  error1",error1,"stdout1",stdout1,"stderr1",stderr1);
                      deferred.reject(error1 || stderr1)
                 }else{
-                    console.log("SQLDIFF *****************paso la prueba");
                     setTimeout(function(){
-
                         leerArchivoSqlParaInsertarloEnMongo(
                             areaTrabajo+nombreScript,
                             {versionPerfil:versionPerfil,
@@ -336,9 +356,8 @@ function leerArchivoSqlParaInsertarloEnMongo(t, consoleSuccess, origen, perfil, 
     
     //crearNuevoArchivo(consoleSuccess.ubicacionScripTemp + consoleSuccess.nombreScriptTemp, consoleSuccess.ubicacionScripTemp + consoleSuccess.nombreScriptTemp.replace(".sql",".txt"), function(res){
     leerArchivoEnMemoria(consoleSuccess.ubicacionScripTemp + consoleSuccess.nombreScriptTemp, consoleSuccess.ubicacionScripTemp + consoleSuccess.nombreScriptTemp.replace(".sql",".txt"), function(res){
-                console.log(consoleSuccess.ubicacionScripTemp + consoleSuccess.nombreScriptTemp, consoleSuccess.ubicacionScripTemp + consoleSuccess.nombreScriptTemp.replace(".sql",".txt"));
-               console.log(res);
-                console.log("RENOMBRANDO EL ARCHIVO ******************************************");
+               
+              
                 fs.rename(consoleSuccess.ubicacionScripTemp + consoleSuccess.nombreScriptTemp.replace(".sql",".txt"), consoleSuccess.ubicacionScripTemp + consoleSuccess.nombreScriptTemp, function(err) {
                     if (err) {
                         console.log(err);
@@ -420,6 +439,30 @@ function crearNuevoArchivo(archivo, nuevoArchivo, callback){
          callback(err);
     });
 }
+function eliminarAlgunosDatosEnElUpdate(index, line, campos){
+   
+    if(index<campos.length){
+         var total = (line.match(/=/g) || []).length;
+        // console.log("index",index, "total", total);
+        if(total>2){
+          //  console.log("index",index, "campos[index]", campos[index]);
+           var a = new RegExp("\, #campo=.*?' ".replace("#campo", campos[index]));
+           var b = new RegExp("\#campo=.*?', ".replace("#campo", campos[index]));
+            var c = new RegExp("\, #campo=.*? ".replace("#campo", campos[index]));
+           var d = new RegExp("\#campo=.*?, ".replace("#campo", campos[index]));
+           line = line.replace(a, " ").replace(b, " ").replace(c, " ").replace(d, " ");
+           index +=1;
+            //console.log("index recursive ",index, "line", line);
+           return eliminarAlgunosDatosEnElUpdate(index, line, campos);
+       
+        }else{
+            return line;
+        }
+    }else{
+        return line;
+    }
+     
+}
 function leerArchivoEnMemoria(archivo, nuevoArchivo, callback ){
     fs.readFile(archivo, function(err, data) { // read file to memory
         if (!err) {
@@ -428,13 +471,34 @@ function leerArchivoEnMemoria(archivo, nuevoArchivo, callback ){
             dataAux =[];
             for(var i=0;i<data.length;i++){
                 line = data[i];
-                if(line && !(line.indexOf("emovtcartera")>=0 || line.indexOf("emovtcartera_detalle")>=0 || line.indexOf("emovtafecta")>=0 ||line.indexOf("emovtorden")>=0||line.indexOf("emovtorden_detalle")>=0||line.indexOf("emovtorden_condicion")>=0 || line.indexOf("UPDATE emovtperfil SET version=")>=0 || line.indexOf("UPDATE emovtperfil SET url=")>=0)){
+                if(line && !(line.indexOf("emovtcartera")>=0 || line.indexOf("emovtcartera_detalle")>=0 || line.indexOf("emovtafecta")>=0 ||line.indexOf("emovtorden")>=0||line.indexOf("emovtorden_detalle")>=0||line.indexOf("emovtorden_condicion")>=0 || line.indexOf("UPDATE emovtperfil")>=0)){
+                   
                     dataAux.push(line);
                     if(i % 500 === 0 && i !== 0){
                       dataAux.push("iniciodenuevogrupoparagrabarsqlite");
 
                     }
 
+                }else{
+                    if(line && line.indexOf("ALTER TABLE")>=0){
+                        dataAux.push(line);
+                        if(i % 500 === 0 && i !== 0){
+                          dataAux.push("iniciodenuevogrupoparagrabarsqlite");
+
+                        }
+                    }
+                    if(line && line.indexOf("UPDATE emovtperfil")>=0){
+                        var nuevalinea_url = eliminarAlgunosDatosEnElUpdate(0, line, ["url","version"]);
+                        if(nuevalinea_url){
+                            dataAux.push(nuevalinea_url);
+                            if(i % 500 === 0 && i !== 0){
+                              dataAux.push("iniciodenuevogrupoparagrabarsqlite");
+
+                            }
+                        }
+                        
+                    }
+                    
                 }
             }
             fs.writeFile(nuevoArchivo, dataAux.join("\n"), function(err) { // write file

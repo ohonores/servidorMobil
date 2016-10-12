@@ -275,17 +275,17 @@ SqliteCliente.prototype.compararRegistros = function(nombre, sql){
             console.log("compararRegistros ********************",nombre);
             db[nombre].serialize(function() {
                 db[nombre].each(sql, function(err, row) {
-                    console.log("ERRROR  compararRegistros ********************",err);
-                    if(row && row.TOTAL){
+                    console.log("SqliteCliente.prototype.compararRegistros ******************** TOTAL ",row," o ERROR ",err);
+                    if(row && row.TOTAL >=0){
                         deferred.resolve(row.TOTAL);
                     }else{
-                        console.log("row.TOTAL sql ", sql, nombre);
-                        deferred.reject(0);
+                        console.log("SqliteCliente.prototype.compararRegistros-->Error el script ", sql, nombre);
+                        deferred.reject("Error el script "+sql);
                     }
                     
                 });
-            },function(){
-                
+            },function(error){
+                console.log("Error en serialize ",error);
             });
         }catch(error){
             // db[nombre].close();

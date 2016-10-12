@@ -166,9 +166,11 @@ rule2.dayOfWeek = [0,1,2,3,4,5,6]; //Corre todos los dias
 rule2.hour = 05;//4 de la mañana
 rule2.minute = 07;//Con 06 minutos
 var urlSincronizarPerifil = "http://documentos.ecuaquimica.com.ec:8080/movil/sincronizacion/actualizar/perfil-sinc/:coleccion/:index";
+setTimeout(function(){
+    
 
 console.log("app.get('port'",app.get('port'));
-//if(app.get('port') == "8091"){ //
+ if(app.get('port') == "8092"){ //
     console.log("entro...a scheduleJob");
     var cronOrdenes = schedule.scheduleJob('10 * * * * *', function(){
         if(app.dispositivosConectados  && app.empresas[0] && app.empresas[0].ruc && app.conexiones[app.empresas[0].ruc]){
@@ -182,7 +184,7 @@ console.log("app.get('port'",app.get('port'));
         }
 
     });
-
+    
     var sincronizarPerfilesConNuevosDatos = schedule.scheduleJob('10 * * * * *', function(){
         if(app.dispositivosConectados  && app.empresas[0] && app.empresas[0].ruc && app.conexiones[app.empresas[0].ruc]){
             oracleMongo.sincronizarPerfilesNuevosDatos(app.conexiones[app.empresas[0].ruc], app.dispositivosConectados);
@@ -191,9 +193,17 @@ console.log("app.get('port'",app.get('port'));
         }
 
     });
+     var rule3 = new schedule.RecurrenceRule();
+     rule3.dayOfWeek = [1,2,3,4,5]; //Corre todos los dias
+     rule3.minute = 15;//Con 06 minutos
+     var removerArchivosAreaTrabajo = schedule.scheduleJob(rule3, function(){
+            oracleMongo.removerArchivosAreaTrabajo();
+    
+    });
+  
+}
 
-//}
-
+},10000);
 
 if(process.env.GRUPO == "2"){
     var rule = new schedule.RecurrenceRule();
@@ -210,7 +220,7 @@ if(process.env.GRUPO == "2"){
         });
     
     }*/
-    var pingOracle = schedule.scheduleJob('*/30 * * * * *', function(){
+    var pingOracle = schedule.scheduleJob('*/15 * * * * *', function(){
         try{
             console.log(app.get('port'));
         }catch(error){

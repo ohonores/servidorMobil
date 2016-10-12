@@ -138,13 +138,27 @@ sincronizar.get('/inicio/diccionarios/:coleccion/:index', seguridadEDC.validarIn
 });
 //Recibir datos
 sincronizar.all('/recepcion/:tabla/',  function(req, res){
-    console.log("*****************************/recepcion/:tabla/ *********************************",req.params);
+    console.log("RECIBIENDO DATOS DESDE EL DISPOSITIVO**********",req.params);
+    var enviarRespuestaGenerica = setTimeout(function(){
+        res.status(403).send({
+            estado: false,
+            message:"Error en el json"
+            
+        });
+    },60000);
+    
+   
     try{
-        console.log("/recepcion/:tabla/",req.session);
-        oracleMongo.setDatosDinamicamente(req.params.tabla, req.body, req.datosperfil ? req.datosperfil :(req.session.datosperfil?req.session.datosperfil:{}), function(resultado){
+        //Validando el json
+        if(!req.body){
+            console.log("RECIBIENDO DATOS DESDE EL DISPOSITIVO********** NULL EN EL req.boy", req.body);
+        }
+        oracleMongo.setDatosDinamicamente(req.params.tabla, req.body, req.datosperfil ? req.datosperfil :(req.session.datosperfil?req.session.datosperfil:{}), req.headers['user-agent'], req.header('x-forwarded-for') || req.connection.remoteAddress, function(resultado){
 
             console.log("setDatosDinamicamente ENVIANDO AL DISPOSITIVO MOVIL ",resultado,req.datosperfil,req.params.tabla);
+            clearTimeout(enviarRespuestaGenerica);
             if(resultado === true ){
+              
                 res.json({estado:"MR"});
             }else{
 				if(resultado === "OI" ){
@@ -158,6 +172,7 @@ sincronizar.all('/recepcion/:tabla/',  function(req, res){
     }catch(error){
         console.log("setDatosDinamicamente ENVIANDO AL DISPOSITIVO MOVIL error ",error);
         console.log(error);
+        clearTimeout(enviarRespuestaGenerica);
         res.status(403).send({
             estado: false,
             message:"Error en el json",
@@ -216,7 +231,7 @@ sincronizar.get('/sincronizacion-manual-sql/:versionEncontrada/:versionAnterior/
             geolocalizacion.getCarteras(req.app.conexiones[req.app.empresas[0].ruc], req.params.perfil);
          
         }
-        oracleMongo.getVersionDeActualizacion(req.params.versionEncontrada, req.params.versionAnterior, req.params.versionActualizacion, req.params.perfil, req.params.dispositivo,req.params.forzar, parser.setUA(req.headers['user-agent']).getResult()).then(function(success){
+        oracleMongo.getVersionDeActualizacion(req.params.versionEncontrada, req.params.versionAnterior, req.params.versionActualizacion, req.params.perfil, req.params.dispositivo,req.params.forzar, parser.setUA(req.headers['user-agent']).getResult(), req.app.conexiones[req.app.empresas[0].ruc], null).then(function(success){
             clearTimeout(resAux);
             res.json(success);
         },function(error){

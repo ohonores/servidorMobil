@@ -25,27 +25,32 @@ ClientePG.prototype.init = function () {
 };
 
 ClientePG.prototype.getPoolClienteConexion = function (sql, parametros, resultado) {
+    
 		pg.connect(conString, function(err, client, done) {
 			if(err) {
 				console.error('error fetching client from pool', err)
 				return null;
 			}
-			var query = client.query(sql, parametros, function(err, result) {
-				// return the client to the connection pool for other requests to reuse
-				done();
-				if(err) {
-					if(err.code && err.code ==="23505"){
-						//console.log(err.datail);
-					}else{
-						console.log(err);
-					}
+           try{
+                var query = client.query(sql, parametros, function(err, result) {
+                    // return the client to the connection pool for other requests to reuse
+                    done();
+                    if(err) {
+                        if(err.code && err.code ==="23505"){
+                            //console.log(err.datail);
+                        }else{
+                            console.log(err);
+                        }
 
-
-					resultado(err);
-				}else{
-					resultado(result);
-				}
-			});
+                        resultado(err);
+                    }else{
+                        resultado(result);
+                    }
+                });
+            }catch(error){
+                resultado(err);
+            }
+			
 
 		});
 };

@@ -23,8 +23,6 @@ EntidadesMongoOracle.prototype.getStripValidacionUsuarioOracle = function(){
     return "SELECT CLAVE from ecortpersona p JOIN ecortempresa_persona ep ON p.id=ep.persona_id JOIN esegtusuario u ON u.empresapersona_id=ep.id where identificacion=:IDENTIFICACION";
 };
 
-
-
 EntidadesMongoOracle.prototype.getJsonPerfiles = function(){
     return {
                     coleccion:"emcperfiles",
@@ -61,8 +59,8 @@ EntidadesMongoOracle.prototype.getJsonPerfiles = function(){
                                     estado:"",
                                     fecha:"",
                                     bodegas:"",
-                                    cambiaprecio:"",
-                                    url:"http://documentos.ecuaquimica.com:8080",
+                                    cambiaprecio:"CAMBIAPRECIO",
+                                    url:"",
                                     arrayJson1:{
                                         sqlOrigen:"SELECT B.* FROM SWISSMOVI.EMOVTPERFIL_BODEGA PB JOIN  SWISSMOVI.EMOVVBODEGA B ON B.ID=PB.MBODEGA_ID WHERE PB.MPERFIL_ID=:ID ORDER BY B.ID ASC",
                                         parametrosBusqueda:["registroInterno.perfil"],
@@ -194,8 +192,6 @@ EntidadesMongoOracle.prototype.getJsonEstablecimientos = function(){
                         }
                     };
 };
-
-
 EntidadesMongoOracle.prototype.getJsonDiccionarioBodegaVentaPorPefil = function(){
     return {
                     coleccion:"emcdiccionariosporperfil",
@@ -378,7 +374,12 @@ EntidadesMongoOracle.prototype.getJsonEstadoDeCuenta = function(){
                         "FECHACARTERA":"INTEGER",
                         "FECHAVENCIMIENTO":"INTEGER",
                         "BASEIMPONIBLEIVA":"REAL",
-                        "BASEIMPONIBLEFUENTE":"REAL"
+                        "BASEIMPONIBLEFUENTE":"REAL",
+                        "BASEIMPONIBLEIVASERVICIO":"REAL",
+                        "BASEIMPONIBLEFUENTESERVICIO":"REAL",
+                        "RETENCIONIVASERVICIO":"REAL",
+                        "RETENCIONFUENTESERVICIO":"REAL"
+                        
                     },
                     registroMongo:{
                         registroMovil:{
@@ -395,7 +396,11 @@ EntidadesMongoOracle.prototype.getJsonEstadoDeCuenta = function(){
                             escartera:"ESCARTERA",
                             diferido:"DIFERIDO",
                             baseImponibleIva:"BASEIMPONIBLEIVA",
-                            baseImponibleFuente:"BASEIMPONIBLEFUENTE"
+                            baseImponibleFuente:"BASEIMPONIBLEFUENTE",
+                            baseImponibleIvaServicio:"BASEIMPONIBLEIVASERVICIO",
+                            baseImponibleFuenteServicio:"BASEIMPONIBLEFUENTESERVICIO",
+                            retencionivaServicio:"RETENCIONIVASERVICIO",
+                            retencionfuenteServicio:"RETENCIONFUENTESERVICIO"
 
                         },
                         registroInterno:{
@@ -593,7 +598,7 @@ EntidadesMongoOracle.prototype.getJsonPromocionVenta = function(){
                                 bonifica:"BONIFICA"
                             },
                             infoBonifica:"",
-                            lote_id:"LOTE_ID"
+                            lote_id:"LOTE_ID",
                             arrayJson1:{
                                 sqlOrigen:"SELECT * FROM SWISSMOVI.EMOVTPROMOCION_BONIFICACION  WHERE MPROMOCIONVENTA_ID =:ID ORDER BY ID ASC",
                                 parametrosBusqueda:["registroInterno.emovtitem_promocionventa"],
@@ -625,7 +630,7 @@ EntidadesMongoOracle.prototype.getJsonCartera = function(){
                     iteracionPorPerfil:true,
                     movil:{tabla:"emovtcartera", crear:true, espejo:true, sql:"SELECT * FROM SWISSMOVI.EMOVTCARTERA where rownum = 1", secuencia:"SWISSMOVI.emovscartera"},
                     referencias:[{tabla:"emovtcartera_detalle",campofk:"MCARTERA_ID"},{tabla:"emovtafecta",campofk:"MCARTERA_ID"}],
-                    sqlOrigen:"SELECT * FROM (SELECT C.* FROM SWISSMOVI.EMOVTCARTERA C JOIN SWISSMOVI.EMOVTPERFIL_ESTABLECIMIENTO PE ON PE.ID = C.MPERFILESTABLECIMIENTO_ID  WHERE  PE.MPERFIL_ID=:ID AND ROWNUM<=100 ORDER BY C.ID ASC) PEA WHERE  PEA.ID>=:A AND ROWNUM<=:B ",
+                    sqlOrigen:"SELECT * FROM (SELECT C.* FROM SWISSMOVI.EMOVTCARTERA C JOIN SWISSMOVI.EMOVTPERFIL_ESTABLECIMIENTO PE ON PE.ID = C.MPERFILESTABLECIMIENTO_ID  WHERE C.ESTADO != 'CR' AND PE.MPERFIL_ID=:ID AND ROWNUM<=100 ORDER BY C.ID ASC) PEA WHERE  PEA.ID>=:A AND ROWNUM<=:B ",
                     parametrosBusqueda:["registroInterno.perfil"],
                     parametrosBusquedaValores:[],
                     registroTipoCamposNumericos:{
@@ -694,7 +699,8 @@ EntidadesMongoOracle.prototype.getJsonCarteraDetalle = function(){
                             identificacion:"IDENTIFICACION",
                             razonsocial:"RAZONSOCIAL",
                             mcartera_id:"MCARTERA_ID",
-                            facturareferencia_id:"FACTURAREFERENCIA_ID"
+                            facturareferencia_id:"FACTURAREFERENCIA_ID",
+                            naturalezaitem:"NATURALEZAITEM"
                         }
                     }
                 };//FIN DEL JSON
@@ -735,7 +741,7 @@ EntidadesMongoOracle.prototype.getJsonOrden = function(){
                     iteracionPorPerfil:true,
                     movil:{tabla:"emovtorden", crear:true, espejo:true, sql:"SELECT * FROM SWISSMOVI.EMOVTORDEN where rownum = 1",secuencia:"SWISSMOVI.emovsorden"},
                     referencias:[{tabla:"emovtorden_detalle",campofk:"MORDEN_ID"},{tabla:"emovtorden_condicion",campofk:"MORDEN_ID"}],
-                    sqlOrigen:"SELECT * FROM (SELECT C.* FROM SWISSMOVI.EMOVTORDEN C JOIN SWISSMOVI.EMOVTPERFIL_ESTABLECIMIENTO PE ON PE.ID = C.MPERFILESTABLECIMIENTO_ID  WHERE  PE.MPERFIL_ID=:ID AND ROWNUM<=200 ORDER BY C.ID ASC) PEA WHERE  PEA.ID>=:A AND ROWNUM<=:B",
+                    sqlOrigen:"SELECT * FROM (SELECT C.* FROM SWISSMOVI.EMOVTORDEN C JOIN SWISSMOVI.EMOVTPERFIL_ESTABLECIMIENTO PE ON PE.ID = C.MPERFILESTABLECIMIENTO_ID  WHERE C.ESTADO != 'CR' AND  PE.MPERFIL_ID=:ID AND ROWNUM<=200 ORDER BY C.ID ASC) PEA WHERE PEA.ID>=:A AND ROWNUM<=:B",
                     parametrosBusqueda:["registroInterno.perfil"],
                     parametrosBusquedaValores:[],
                     registroTipoCamposNumericos:{

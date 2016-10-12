@@ -3,6 +3,7 @@ var server;
 var from;
 var empresa;
 var Email = function(conf, from_, empresa_){
+    console.log(conf);
     if(!conf){
         throw new Error('No se encontro el SMTP');
     }
@@ -31,6 +32,8 @@ Email.prototype.enviarEmail = function(opciones, mensajeHtml){
             opciones.from = opciones.from.replace("#from",from).replace("#empresa",empresa);
             opciones.subject = opciones.subject.replace("#empresa",empresa);
             opciones.attachment = [ {data:mensajeHtml, alternative:true} ];
+            console.log(opciones);
+            console.log(mensajeHtml)
             server.send(opciones, function(err, opciones) { if(err){console.log(err);}else{console.log("Email enviado");}  });
         }
     }catch(error){
@@ -39,5 +42,31 @@ Email.prototype.enviarEmail = function(opciones, mensajeHtml){
     
 }
 
+function prueba (opciones, mensajeHtml){
+    try{
+       
+        if (opciones && opciones.from && opciones.to && opciones.subject) {
+            opciones.from = opciones.from.replace("#from",from).replace("#empresa",empresa);
+            opciones.subject = opciones.subject.replace("#empresa",empresa);
+            opciones.attachment = [ {data:mensajeHtml, alternative:true} ];
+          
+            server.send(opciones, function(err, opciones) { if(err){console.log(err);}else{console.log("Email enviado");}  });
+        }
+    }catch(error){
+        console.log(error);
+    }
+    
+}
+
+/*
+process.env.SMPS = '{"1":{"user":"e-doceq","password":"e-doceq","host":"192.168.1.13","ssl":true,"port":465,"tls":true},"2":{"user":"swissystem","password":"swissystem","host":"192.168.1.242","ssl":true,"port":465,"tls":true},"3":{"user":"swissystem","password":"swissystem@farmagro.com","host":"192.168.60.2","ssl":true,"port":465,"tls":true}}';
+*/
+var email_d = new Email({"user":"swissystem","password":"swissystem","host":"192.168.60.2","ssl":true,"port":465,"tls":true}, "swissystem@farmagro.com", "FARMAGRO");
+
+
+setTimeout(function(){
+    email_d.enviarEmail({from:"#from",subject:"#empresa test",to:"ohonores@hotmail.com,arobalino@ecuaquimica.com.ec"}, "<hr>TEST DESDE FARMAGRO");
+    console.log("fin");
+},15000);
 
 module.exports = Email;

@@ -51,7 +51,7 @@ ClienteOracle.prototype.init = function () {
             connectString : "swiss01",
             queueRequests : true,  // default is true
             _enableStats  : true,   // default is false
-            poolMax       : 20, // maximum size of the pool
+            poolMax       : 120, // maximum size of the pool
             poolMin       : 5, // let the pool shrink completely
             poolIncrement : 2, // only grow the pool by one connection at a time
             poolTimeout   : 0  // never terminate idle connections
@@ -397,7 +397,7 @@ function commitTransaccion(connection) {
 ClienteOracle.prototype.grabarNestedJson  = function(datos, tabla){
      var deferred = Q.defer();
      var padre = this;
-     getConexion(datos, tabla).             //Se obitene una session debido a que es una comit de una transaccion y esta solo acepta commit de una misma connection
+      getConexion(datos, tabla).             //Se obitene una session debido a que es una comit de una transaccion y esta solo acepta commit de una misma connection
      then(grabarMovilJson).                 //Graba los registros en forma recursiva
      then(commitTransaccion).               //Hace commit y envia la conexion a la pool
      then(function(r){
@@ -427,6 +427,7 @@ function validarRepetidosMovilJson(parametrosJson){
     return deferred.promise;
 }
 function grabarMovilJson(parametrosJson){
+      console.log("entro grabarMovilJson");
       var datos = parametrosJson.datos;
       var tabla = parametrosJson.tabla;
       var conexion = parametrosJson.conexion;
@@ -436,6 +437,7 @@ function grabarMovilJson(parametrosJson){
       datos.idmovil = datos.id;
       delete datos.id;
       if(errores){
+          console.log("grabarMovilJson oracle ", errores);
           deferred.reject({mensaje:errores, conexion:conexion});
          return deferred.promise;
       }

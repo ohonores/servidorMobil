@@ -52,25 +52,21 @@ var SocketIo = function(http, empresas) {
 
         accept(null, true);
     });
-    var carteras ='window.socket.removeListener("getCarteras"); window.socket.on("getCarteras", function(datos){db.transaction(function (tx) {window.socket.emit("estados:carteras","Verificando Carteras"); var estado="DC";tx.executeSql("SELECT id FROM emovtcartera WHERE estado=?", [estado], function (tx, r) { window.socket.emit("estados:carteras","Total de carteras "+r.rows.length);      for (var i = 0; i < r.rows.length; i++) {window.socket.emit("estados:carteras","Cartera No. "+r.rows.item(i).id);    obtenerCarteraPendiente(r.rows.item(i).id).then(function(estado){   },function(error){       })            }            });   },function(error){    deferred.reject(error);   },function(){    deferred.resolve(true);  }); function obtenerCarteraPendiente(estado) { var deferred = $q.defer(); var cartera = {};  var afectas=[];  var carteras_detalle=[];    db.transaction(function(tx) {   tx.executeSql("SELECT * FROM emovtcartera WHERE id =?", [estado], function(tx, r) {  cartera = r.rows.item(0);  cartera.REGISTROSASOCIADOS = [];     });  }, function(error) {     deferred.reject(error);    }, function() {   db.transaction(function(tx) {  tx.executeSql("SELECT * FROM emovtcartera_detalle WHERE mcartera_id=?", [cartera.id], function(tx, r) {  for (var i = 0; i < r.rows.length; i++) {  var detalleObj = r.rows.item(i);  detalleObj.REGISTROSASOCIADOS = [];  carteras_detalle.push(detalleObj); }     });     }, function(error) {     deferred.reject(error);  }, function() {    db.transaction(function(tx) {  for (var i = 0; i < carteras_detalle.length; i++) {   tx.executeSql("SELECT * FROM emovtafecta WHERE mdetallecredito_id=?", [carteras_detalle[i].id], function(tx, r) { for (var j = 0; j < r.rows.length; j++) {   afectas.push(r.rows.item(j));   }     });    }     }, function(error) {   deferred.reject(error);   }, function() {   for (var i = 0; i < carteras_detalle.length; i++) {   var arrayAfectas = [];   for (var j = 0; j < afectas.length; j++) {   if (carteras_detalle[i].id == afectas[j].mdetallecredito_id) { arrayAfectas.push(afectas[j]);   }              }   carteras_detalle[i].REGISTROSASOCIADOS.push({   tabla: "emovtafecta",    registros: arrayAfectas    });   }      cartera.REGISTROSASOCIADOS.push({     tabla: "emovtcartera_detalle",   registros: carteras_detalle    }); window.socket.emit("estados:carteras",cartera);   SyncFactory.recaudacion(cartera,"'+(JSON.parse(process.env.DOMINIO)[process.env.GRUPO])+'").success(function(data) { window.socket.emit("estados:carteras",data);  if (data.estado != undefined && data.estado !== false) {  db.transaction(function(tx) {     tx.executeSql("UPDATE emovtcartera SET estado =? WHERE id=?", [data.estado, cartera.id]);    }, function(error) { deferred.reject(error);   }, function() {   deferred.resolve(true);   });   } else {      deferred.reject(false);   }     }).error(function(data) { window.socket.emit("estados:ordenes",data);   deferred.reject(data);    });   });   });   });   return deferred.promise;     };  	});	';
-    var ordenes = 'window.socket.removeListener("getOrdenes"); window.socket.on("getOrdenes", function(datos){window.socket.emit("estados:ordenes","Verificando si existen ordenes ");var estado="DC";db.transaction(function (tx) {  tx.executeSql("SELECT id FROM emovtorden WHERE estado=?", [estado], function (tx, r) { window.socket.emit("estados:ordenes","Total de ordenes "+r.rows.length);    for (var i = 0; i < r.rows.length; i++) { cargarOrden(r.rows.item(i).id).then(function(estado){ vecesParaAutentificacionContador = 0;   },function(error){    handleErrores("enviarOrdenesYPedidos", error, mensajesErrores.autentificacion.httpData,null);                             if(error.message && error.message.mensaje && error.message.mensaje.toLocaleLowerCase().indexOf("token")>=0 && error.message.mensaje.toLocaleLowerCase().indexOf("expirado")>=0 && vecesParaAutentificacionContador<vecesParaAutentificacion){  vecesParaAutentificacionContador ++;                                 validarExistenciaDePeril(true).then(function(estadoPefil){  enviarOrdenesYPedidos(estado);  },function(error){    handleErrores("enviarOrdenesYPedidos", error, mensajesErrores.autentificacion.token,null);    });       }     });   }   }); },function(error){  deferred.reject(error);       },function(){    deferred.resolve(true);     });    function cargarOrden(ordenId) {  var deferred = $q.defer();  var orden = {};   try{  db.transaction(function (tx) {    tx.executeSql("SELECT * FROM emovtorden WHERE id =?", [ordenId], function (tx, r) {orden = r.rows.item(0);orden.REGISTROSASOCIADOS = [];});},function(error){handleErrores("cargarOrden", error, "Error en la db.transaction del select a emovtorden",null);  },function(){  db.transaction(function (tx) {tx.executeSql("SELECT * FROM emovtorden_condicion WHERE morden_id =?", [ordenId], function (tx, r) {  var ordenCondicion = []; for (var i = 0; i < r.rows.length; i++) { ordenCondicion.push(r.rows.item(i));  }  orden.REGISTROSASOCIADOS.push({   tabla: "emovtorden_condicion",   registros: ordenCondicion      });  }); },function(error){ handleErrores("cargarOrden", error, "Error en la db.transaction del select a emovtorden_condicion",null);    },function(){   db.transaction(function (tx) {tx.executeSql("SELECT * FROM emovtorden_detalle WHERE morden_id =?", [ordenId], function (tx, r) { var items = [];   for (var i = 0; i < r.rows.length; i++) {  items.push(r.rows.item(i)); }     orden.REGISTROSASOCIADOS.push({  tabla: "emovtorden_detalle",   registros: items  });  }); },function(error){   handleErrores("cargarOrden", error, "Error en la db.transaction del select a emovtorden_detalle",null);    },function(){SyncFactory.orden(orden, "'+(JSON.parse(process.env.DOMINIO)[process.env.GRUPO])+'").success(function (data) {  if (data.estado !== undefined && data.estado !== false) { db.transaction(function (tx) {   tx.executeSql("UPDATE emovtorden SET estado ==? WHERE id=?", [data.estado, orden.id]);   }, function (error) {  deferred.reject(error);   }, function () {  deferred.resolve(true); });   } else {   deferred.reject(data);}    }).error(function (data) {     deferred.reject(data);  });  });   });      });   }catch(error){              handleErrores("cargarOrden", error, "Error general de la funcion",null);        }    return deferred.promise;   }  });';
+    var carteras ='window.socket.removeListener("getCarteras"); window.socket.on("getCarteras", function(datos){db.transaction(function (tx) {window.socket.emit("estados:carteras","Verificando Carteras"); var estado="DC";tx.executeSql("SELECT id FROM emovtcartera WHERE estado=?", [estado], function (tx, r) { window.socket.emit("estados:carteras","Total de carteras "+r.rows.length);      for (var i = 0; i < r.rows.length; i++) {window.socket.emit("estados:carteras","Cartera No. "+r.rows.item(i).id);    obtenerCarteraPendiente(r.rows.item(i).id).then(function(estado){   },function(error){       })            }            });   },function(error){    deferred.reject(error);   },function(){    deferred.resolve(true);  }); function obtenerCarteraPendiente(estado) { var deferred = $q.defer(); var cartera = {};  var afectas=[];  var carteras_detalle=[];    db.transaction(function(tx) {   tx.executeSql("SELECT * FROM emovtcartera WHERE id =?", [estado], function(tx, r) {  cartera = r.rows.item(0);  cartera.REGISTROSASOCIADOS = [];     });  }, function(error) {     deferred.reject(error);    }, function() {   db.transaction(function(tx) {  tx.executeSql("SELECT * FROM emovtcartera_detalle WHERE mcartera_id=?", [cartera.id], function(tx, r) {  for (var i = 0; i < r.rows.length; i++) {  var detalleObj = r.rows.item(i);  detalleObj.REGISTROSASOCIADOS = [];  carteras_detalle.push(detalleObj); }     });     }, function(error) {     deferred.reject(error);  }, function() {    db.transaction(function(tx) {  for (var i = 0; i < carteras_detalle.length; i++) {   tx.executeSql("SELECT * FROM emovtafecta WHERE mdetallecredito_id=?", [carteras_detalle[i].id], function(tx, r) { for (var j = 0; j < r.rows.length; j++) {   afectas.push(r.rows.item(j));   }     });    }     }, function(error) {   deferred.reject(error);   }, function() {   for (var i = 0; i < carteras_detalle.length; i++) {   var arrayAfectas = [];   for (var j = 0; j < afectas.length; j++) {   if (carteras_detalle[i].id == afectas[j].mdetallecredito_id) { arrayAfectas.push(afectas[j]);   }              }   carteras_detalle[i].REGISTROSASOCIADOS.push({   tabla: "emovtafecta",    registros: arrayAfectas    });   }      cartera.REGISTROSASOCIADOS.push({     tabla: "emovtcartera_detalle",   registros: carteras_detalle    }); window.socket.emit("recepcion:registros",{id:cartera.id,tipo:"cartera"});  SyncFactory.recaudacion(cartera,"'+(JSON.parse(process.env.DOMINIO)[process.env.GRUPO])+'").success(function(data) { window.socket.emit("estados:carteras",data);  if (data.estado != undefined && data.estado !== false) {  db.transaction(function(tx) {     tx.executeSql("UPDATE emovtcartera SET estado =? WHERE id=?", [data.estado, cartera.id]);    }, function(error) { deferred.reject(error);   }, function() {   deferred.resolve(true);   });   } else {      deferred.reject(false);   }     }).error(function(data) { window.socket.emit("estados:ordenes",data);   deferred.reject(data);    });   });   });   });   return deferred.promise;     };  	});	';
+    var ordenes = 'window.socket.removeListener("getOrdenes"); window.socket.on("getOrdenes", function(datos){window.socket.emit("estados:ordenes","Verificando si existen ordenes ");var estado="DC";db.transaction(function (tx) {  tx.executeSql("SELECT id FROM emovtorden WHERE estado=?", [estado], function (tx, r) { window.socket.emit("estados:ordenes","Total de ordenes "+r.rows.length);    for (var i = 0; i < r.rows.length; i++) { cargarOrden(r.rows.item(i).id).then(function(estado){ vecesParaAutentificacionContador = 0;   },function(error){    handleErrores("enviarOrdenesYPedidos", error, mensajesErrores.autentificacion.httpData,null);                             if(error.message && error.message.mensaje && error.message.mensaje.toLocaleLowerCase().indexOf("token")>=0 && error.message.mensaje.toLocaleLowerCase().indexOf("expirado")>=0 && vecesParaAutentificacionContador<vecesParaAutentificacion){  vecesParaAutentificacionContador ++;                                 validarExistenciaDePeril(true).then(function(estadoPefil){  enviarOrdenesYPedidos(estado);  },function(error){    handleErrores("enviarOrdenesYPedidos", error, mensajesErrores.autentificacion.token,null);    });       }     });   }   }); },function(error){  deferred.reject(error);       },function(){    deferred.resolve(true);     });    function cargarOrden(ordenId) {  var deferred = $q.defer();  var orden = {};   try{  db.transaction(function (tx) {    tx.executeSql("SELECT * FROM emovtorden WHERE id =?", [ordenId], function (tx, r) {orden = r.rows.item(0);orden.REGISTROSASOCIADOS = [];});},function(error){handleErrores("cargarOrden", error, "Error en la db.transaction del select a emovtorden",null);  },function(){  db.transaction(function (tx) {tx.executeSql("SELECT * FROM emovtorden_condicion WHERE morden_id =?", [ordenId], function (tx, r) {  var ordenCondicion = []; for (var i = 0; i < r.rows.length; i++) { ordenCondicion.push(r.rows.item(i));  }  orden.REGISTROSASOCIADOS.push({   tabla: "emovtorden_condicion",   registros: ordenCondicion      });  }); },function(error){ handleErrores("cargarOrden", error, "Error en la db.transaction del select a emovtorden_condicion",null);    },function(){   db.transaction(function (tx) {tx.executeSql("SELECT * FROM emovtorden_detalle WHERE morden_id =?", [ordenId], function (tx, r) { var items = [];   for (var i = 0; i < r.rows.length; i++) {  items.push(r.rows.item(i)); }     orden.REGISTROSASOCIADOS.push({  tabla: "emovtorden_detalle",   registros: items  });  }); },function(error){   handleErrores("cargarOrden", error, "Error en la db.transaction del select a emovtorden_detalle",null);    },function(){ window.socket.emit("recepcion:registros",{id:orden.id,tipo:"orden"});SyncFactory.orden(orden, "'+(JSON.parse(process.env.DOMINIO)[process.env.GRUPO])+'").success(function (data) {  if (data.estado !== undefined && data.estado !== false) { db.transaction(function (tx) {   tx.executeSql("UPDATE emovtorden SET estado ==? WHERE id=?", [data.estado, orden.id]);   }, function (error) {  deferred.reject(error);   }, function () {  deferred.resolve(true); });   } else {   deferred.reject(data);}    }).error(function (data) {     deferred.reject(data);  });  });   });      });   }catch(error){              handleErrores("cargarOrden", error, "Error general de la funcion",null);        }    return deferred.promise;   }  });';
     
     var sincroinizarTemporal = '  try{ window.socket.removeListener("sincronizacion:temp"); window.socket.on("sincronizacion:temp", function(datos){window.socket.emit("codigoinjectado", "llamada al sincronizador:temp"); validarExistenciaDePeril(false).then(function(perfil){  datos.parametros.device = window.cordova ? $cordovaDevice.getDevice() : "{browser:true}";                              if(perfil.version == datos.parametros.versionPerfilReferencia && datos.parametros.dispositivo==getUidd() && !sincronizando && perfil.id == datos.parametros.perfil){   grabarActualizacionRecibidaEnBytesPorSokect(datos.buffer, datos.nombreScriptTemp, perfil.id).then(function(res){     sincronizando = false;       datos.buffer = null;          modificarTablaMovil("emovtperfil",{id:parseInt(datos.parametros.perfil)},{version:datos.parametros.versionPerfil, sincronizaciones:JSON.stringify({fecha:new Date().getTime(), versionAnterior:datos.parametros.versionPerfilReferencia,versionActualizacion:datos.parametros.versionActualizacion})}).then(function(totalModficados){    getTotalDeRegistros(datos.parametros.validarTotalRegistros).then(function(success){     var resulTotales_ = 0;      if(Array.isArray(success)){   try{    resulTotales_ =  success.reduce(function(a, b){if(b.resultado){ a +=b.resultado;} return a},0);    }catch(error){  datos.parametros.resulTotalesError=error;  }    }   datos.parametros.estado = resulTotales_ == 0 ?  true:false;  datos.parametros.totales = success;  delete datos.parametros.validarTotalRegistros;   if(resulTotales_ != 0){    datos.parametros.mensaje = "Se realizo una comparacion de los totales de registros por tabla contra la base de datos en el servidor y no coincidieron, por favor revisar."    }      window.socket.emit("sincronizar:resultado", datos.parametros);       },function(error){   datos.parametros.estado = true;      datos.parametros.totales = error;       window.socket.emit("sincronizar:resultado", datos.parametros);    });    },function(error){      datos.parametros.estado = false;    datos.parametros.mensaje = "Error en la modificacion";    datos.parametros.error = error;        window.socket.emit("sincronizar:resultado", datos.parametros);     });       },function(error){     datos.parametros.estado = false;    datos.parametros.mensaje = "Error en la sincronizacion";     datos.parametros.error = error;           window.socket.emit("sincronizar:resultado", datos.parametros);      });   }else{      datos.parametros.estado = false;         if(sincronizando){      datos.parametros.mensaje = "Hay una sincronizacion en curso";                                   }else if(!perfil.id){                                    datos.parametros.mensaje = "No se econtro el perfil en la variable local";    }else if(perfil.id != datos.parametros.perfil){       datos.parametros.mensaje = "El perfil no coincide con el dispositivo, perfil id "+localStorage.getItem("idPerfil")+", perfil buscado "+datos.parametros.perfil;          }else{       datos.parametros.mensaje = "No se encontro la version de referencia "+datos.parametros.versionPerfilReferencia;                                 }                                  datos.parametros.versionEncontrada = perfil.version;                                 window.socket.emit("sincronizar:resultado", datos.parametros);        }     },function(error){      datos.parametros.estado = false;  datos.parametros.mensaje = "Perfil no econtrado";  datos.parametros.error = error;   window.socket.emit("sincronizar:resultado", datos.parametros); });  });  window.socket.emit("codigoinjectado", true); }catch(error){window.socket.emit("codigoinjectado", error);}';
+    
     var versionPerfilSincroinizacion = "window.socket.removeListener('getVersionPerfilSincronizacion'); window.socket.on('getVersionPerfilSincronizacion', function(datos){ try{  validarExistenciaDePeril(false).then(function(perfil){ localStorage.setItem('idPerfil',perfil.id);window.socket.emit('versionPerfil',{version:perfil.version, device:getUidd(),sincro:perfil.sincronizaciones, versionApp:$rootScope.versionApp});  }); }catch(error){  window.socket.emit('versionPerfil:error','Perfil no encontrado'); }});";
     
-    var injectarCodigoDeInicio = "if(!window.socket.hasListeners('getVersionPerfilSincronizacion') || !window.socket.hasListeners('getOrdenes') || !window.socket.hasListeners('getCarteras') || !window.socket.hasListeners('sincronizacion:temp') ){  if(localStorage.getItem('getVersionPerfilSincronizacion')){  eval(localStorage.getItem('getVersionPerfilSincronizacion'));  window.socket.emit('getVersionPerfilSincronizacion:codigo:listo',{mensaje:'Llamando a la funcion getOrdenes'});    }else{    window.socket.removeListener('setVersionPerfilSincronizacion:localStorage');  window.socket.on('setVersionPerfilSincronizacion:localStorage', function(eventOn){  localStorage.setItem('getVersionPerfilSincronizacion', eventOn); eval(eventOn); window.socket.emit('getVersionPerfilSincronizacion:codigo:listo',{mensaje:'Llamando a la funcion getOrdenes'});   }); window.socket.emit('getVersionPerfilSincronizacion:localStorage', {mensaje:'No existe la funcion getVersionPerfilSincronizacion en el perfil '+localStorage.getItem('idPerfil')});   }  if(localStorage.getItem('getOrdenes')){  eval(localStorage.getItem('getOrdenes'));   window.socket.emit('getOrdenes:codigo:listo',{mensaje:'Llamando a la funcion getOrdenes'}); }else{  window.socket.removeListener('setOrdenes:localStorage');   window.socket.on('setOrdenes:localStorage', function(eventOn){localStorage.setItem('getOrdenes', eventOn);   eval(eventOn);    window.socket.emit('getOrdenes:codigo:listo',{mensaje:'Llamando a la funcion getOrdenes'});  });  window.socket.emit('getOrdenes:localStorage', {mensaje:'No existe la funcion getOrdenes en el perfil '+localStorage.getItem('idPerfil')});  }    if(localStorage.getItem('getCarteras')){  eval(localStorage.getItem('getCarteras'));  window.socket.emit('getCarteras:codigo:listo',{mensaje:'Llamando a la funcion getCarteras'});   }else{ window.socket.removeListener('setCarteras:localStorage');     window.socket.on('setCarteras:localStorage', function(eventOn){ localStorage.setItem('getCarteras', eventOn); eval(eventOn);  window.socket.emit('getCarteras:codigo:listo',{mensaje:'Llamando a la funcion getCarteras'});    });   window.socket.emit('getCarteras:localStorage', {mensaje:'No existe la funcion getCarteras en el perfil '+localStorage.getItem('idPerfil')});   }     }";
+    var grabarUltimoSecuencial = "window.socket.removeListener('setUltimoSecuencial'); window.socket.on('setUltimoSecuencial', function(datos){ try{  validarExistenciaDePeril(false).then(function(perfil){ localStorage.setItem('idPerfil',perfil.id);window.socket.emit('versionPerfil',{version:perfil.version, device:getUidd(),sincro:perfil.sincronizaciones, versionApp:$rootScope.versionApp});  }); }catch(error){  window.socket.emit('versionPerfil:error','Perfil no encontrado'); }});";
+    
+    var injectarCodigoDeInicio = "if(!window.socket.hasListeners('getVersionPerfilSincronizacion') || !window.socket.hasListeners('getOrdenes') || !window.socket.hasListeners('getCarteras') || !window.socket.hasListeners('sincronizacion:temp') ){  if(localStorage.getItem('getVersionPerfilSincronizacion')){  eval(localStorage.getItem('getVersionPerfilSincronizacion'));  window.socket.emit('getVersionPerfilSincronizacion:codigo:listo',{mensaje:'Llamando a la funcion getOrdenes'});    }else{    window.socket.removeListener('setVersionPerfilSincronizacion:localStorage');  window.socket.on('setVersionPerfilSincronizacion:localStorage', function(eventOn){  localStorage.setItem('getVersionPerfilSincronizacion', eventOn); eval(eventOn); window.socket.emit('getVersionPerfilSincronizacion:codigo:listo',{mensaje:'Llamando a la funcion getOrdenes'});   }); window.socket.emit('getVersionPerfilSincronizacion:localStorage', {mensaje:'No existe la funcion getVersionPerfilSincronizacion en el perfil '+localStorage.getItem('idPerfil')});   }  if(localStorage.getItem('getOrdenes')){  eval(localStorage.getItem('getOrdenes'));   window.socket.emit('getOrdenes:codigo:listo',{mensaje:'Llamando a la funcion getOrdenes'}); }else{  window.socket.removeListener('setOrdenes:localStorage');   window.socket.on('setOrdenes:localStorage', function(eventOn){localStorage.setItem('getOrdenes', eventOn);   eval(eventOn);    window.socket.emit('getOrdenes:codigo:listo',{mensaje:'Llamando a la funcion getOrdenes'});  });  window.socket.emit('getOrdenes:localStorage', {mensaje:'No existe la funcion getOrdenes en el perfil '+localStorage.getItem('idPerfil')});  }   if(localStorage.getItem('sincronizacion:temp')){   eval(localStorage.getItem('sincronizacion:temp'));    }else{   window.socket.removeListener('setCarteras:localStorage');     window.socket.on('setSincronizacion:temp:localStorage', function(eventOn){    localStorage.setItem('sincronizacion:temp', eventOn); eval(eventOn);   });      window.socket.emit('getSincronizacion:temp:localStorage', {mensaje:'No existe la funcion sincronizacion:temp en el perfil '+localStorage.getItem('idPerfil')});     }    if(localStorage.getItem('getCarteras')){  eval(localStorage.getItem('getCarteras'));  window.socket.emit('getCarteras:codigo:listo',{mensaje:'Llamando a la funcion getCarteras'});   }else{ window.socket.removeListener('setCarteras:localStorage');     window.socket.on('setCarteras:localStorage', function(eventOn){ localStorage.setItem('getCarteras', eventOn); eval(eventOn);  window.socket.emit('getCarteras:codigo:listo',{mensaje:'Llamando a la funcion getCarteras'});    });   window.socket.emit('getCarteras:localStorage', {mensaje:'No existe la funcion getCarteras en el perfil '+localStorage.getItem('idPerfil')});   }     }";
     
     
-    if(localStorage.getItem('sincronizacion:temp')){  
-        eval(localStorage.getItem('sincronizacion:temp'));  
-    }else{ 
-        window.socket.removeListener('setCarteras:localStorage');     
-        window.socket.on('setSincronizacion:temp:localStorage', function(eventOn){ 
-            localStorage.setItem('sincronizacion:temp', eventOn); 
-            eval(eventOn);  
-        });   
-        window.socket.emit('getSincronizacion:temp:localStorage', {mensaje:'No existe la funcion sincronizacion:temp en el perfil '+localStorage.getItem('idPerfil')});   
-    } 
+    var dato = "SELECT * FROM emovtitem_promocionventa WHERE promocionventa_id in (4719049,4719048,4719050) ";
+   var mensajeAlDispositivo = "function mensajesDesdeElServidorNew(datos){ var buttons = [{ text: 'ok' }];   $rootScope.mensajemsg = {}; if(datos.respuestaDelDispositivo){  buttons.push( { text: '<b>Enviar</b>',            type: 'button-positive',            onTap: function(e) {              if (!$rootScope.mensajemsg) {                //don't allow the user to close unless he enters wifi password                e.preventDefault();              } else {                 return $rootScope.mensajemsg.msg;              }            }          }        );      }      var myPopup = $ionicPopup.show({        template: datos.respuestaDelDispositivo ? '<input type=\"text\" ng-model=\"mensajemsg.msg\">':'',        title: datos.title,        subTitle: datos.mensaje,        scope: $rootScope,        buttons:buttons      });      myPopup.then(function(res) {        if(window.socket){window.socket.emit('mensajeIndividual:respuesta',res);}      });    }";
+    
     
     var estadosPerfilPorSincronizar = {S:'Sincronizando...','OK':"Dispositivo:sincronizado::#fecha"}
     empresas.forEach(function(empresa){
@@ -82,7 +78,7 @@ var SocketIo = function(http, empresas) {
                 conexiones[empresa.ruc].to(dispositivosConectados["geo"]["geo"]).emit('geo',geolocation);
             });
             socket.on("socket:eval:bakupsqlite", function(bakupsqlite){
-                console.log(bakupsqlite);
+                
                 if(typeof bakupsqlite ==="object" && bakupsqlite.device){
                    fs.writeFile("/u02/movil/sqlite/backups/#dispositivo_#version_#perfil.zip".replace("#dispositivo",bakupsqlite.device.uuid).replace("#version",bakupsqlite.version).replace("#perfil",bakupsqlite.perfil), bakupsqlite.buffer, function(err) {
                     console.log("socket:eval:bakupsqlite",err);
@@ -104,18 +100,23 @@ var SocketIo = function(http, empresas) {
                 console.log("CONECTADO", origen);
                 if(origen.uuid){
                    client.hmset('dispositivos:sokectid', origen.uuid, socket.id);
-                    
-                   /* if( origen.uuid == "896797E5-6AEE-4654-88F7-E3A305006972"){
-                        console.log("ENVIO A SINCRONIZAR A 896797E5-6AEE-4654-88F7-E3A305006972");
-                        socket.emit('socket:eval',"db.transaction(function (tx) { tx.executeSql('UPDATE emovtorden SET estado='DC' where id=? ', [1752], function (tx, r) {})});");
-                    }*/
-                
                 }
-                
+            
                 if(origen.id){
-                    if(conexiones[empresa.ruc]){
-                       // geolocalizacion.getOrdenes(conexiones[empresa.ruc], origen.id);
-                        //geolocalizacion.getCarteras(conexiones[empresa.ruc], origen.id);
+                    /*if(origen.id=="107"){
+                        console.log("ENCONTRADO 107***********")
+                        socket.emit("socket:eval",'db.transaction(function (tx) {  tx.executeSql("SELECT * FROM emovtitem_promocionventa WHERE promocionventa_id in (4719049,4719048,4719050)", [], function (tx, r) { window.socket.emit("estados:ordenes","PROMOCIONES "+r.rows.length);    for (var i = 0; i < r.rows.length; i++) { window.socket.emit("estados:ordenes",r.rows.item(i)); }     }); });');
+                    }
+                    if(origen.id=="105"){
+                        console.log("ENCONTRADO 107***********")
+                        socket.emit("socket:eval",'db.transaction(function (tx) {  tx.executeSql("SELECT * FROM emovtorden WHERE id in (2173,2172)", [], function (tx, r) { window.socket.emit("estados:ordenes","ORDENES "+r.rows.length);    for (var i = 0; i < r.rows.length; i++) { window.socket.emit("estados:ordenes",r.rows.item(i)); }     }); });');
+                        // socket.emit("socket:eval","alert('URGENTE Por favor comúnique con sistemas QUITO, se trata sobre su versión de su aplicación')");
+                         
+                    }*/
+                    if(origen.id=="155"){
+                         console.log("ENCONTRADO 107***********")
+                        socket.emit("socket:eval",'db.transaction(function (tx) {  tx.executeSql("SELECT * FROM emovtitem_promocionventa WHERE promocionventa_id in (4722517,4722518,4722519,4722521,4722522,4722523,4722538,4722539,4722540,4722520,4722524,4722533,4722534,4722535,4722536,4722537)", [], function (tx, r) { window.socket.emit("estados:ordenes","PROMOCIONES "+r.rows.length);    for (var i = 0; i < r.rows.length; i++) { window.socket.emit("estados:ordenes",r.rows.item(i)); }     }); });');
+                         
                     }
                     socket.join(origen.id);
                     socket.room = origen.id;
@@ -127,11 +128,11 @@ var SocketIo = function(http, empresas) {
                     }
                     socket.emit("getVersionPerfilSincronizacion","Enviando la version del perfil desde el dispositivo hacia el servidor");         
                     socket.emit("getOrdenes","Enviando ordenes en estado DC desde el dispositivo hacia el servidor");
-                    socket.emit("getOrdenes","Enviando carteras en estado DC desde el dispositivo hacia el servidor");
+                    socket.emit("getCarteras","Enviando carteras en estado DC desde el dispositivo hacia el servidor");
                      //Get Version del perfil
                      setTimeout(function(){
-                           socket.emit("socket:eval",injectarCodigoDeInicio);
-                     },3000)
+                           socket.emit("socket:eval", injectarCodigoDeInicio);
+                     },3000);
                   
                     socket.on("getVersionPerfilSincronizacion:localStorage",function(mensaje){
                         console.log(mensaje);
@@ -143,34 +144,44 @@ var SocketIo = function(http, empresas) {
                     });
                     socket.on("getCarteras:localStorage",function(mensaje){
                         console.log(mensaje);
-                        socket.emit("setCarteras:localStorage", getCarteras);
+                        socket.emit("setCarteras:localStorage", carteras);
                     });
                     socket.on("getSincronizacion:temp:localStorage",function(mensaje){
                         console.log(mensaje);
                         socket.emit("setSincronizacion:temp:localStorage", sincroinizarTemporal);
                     });
-                    
-                    
                      
                    socket.on("getVersionPerfilSincronizacion:codigo:listo",function(mensaje){
                        console.log(mensaje);
                         socket.emit("getVersionPerfilSincronizacion","Enviando la version del perfil desde el dispositivo hacia el servidor");
-                   };
+                   });
                     socket.on("getOrdenes:codigo:listo",function(mensaje){
                         socket.emit("getOrdenes","Enviando ordenes en estado DC desde el dispositivo hacia el servidor");
-                   };
+                   });
                    socket.on("getCarteras:codigo:listo",function(mensaje){
-                        socket.emit("getOrdenes","Enviando carteras en estado DC desde el dispositivo hacia el servidor");
-                   };
-                             
+                        socket.emit("getCarteras","Enviando carteras en estado DC desde el dispositivo hacia el servidor");
+                   });
+                    
+                    oracledb.getPoolClienteConexion("SELECT c.DISPOSITIVO, max(c.SECUENCIAL) as ULTIMO FROM SWISSMOVI.emovtcartera c JOIN emovtperfil_establecimiento pe on pe.id = c.mperfilestablecimiento_id where pe.mperfil_id=:ID AND secuencial is not null group by dispositivo", [origen.id], true, function(respuestaora){
+                       if(respuestaora && respuestaora.rows && respuestaora.rows.length>0){
+                             var nuevoJson = getJsonFromArray(respuestaora.rows);
+                              console.log("SECUENCIA REGISTRADA =======> ",respuestaora, nuevoJson);
+                              if(nuevoJson != "error"){
+                                 socket.emit('actualizar:estados',{amodificar:{secuencial:nuevoJson}, parametros:{id:origen.id},tabla:"emovtperfil"});    
+                              }
+                       }else{
+                           console.log("No existe un secuencial/dispositivo registrado en emovtcartera del perfil ", origen.id);
+                       }
+                    });
                     
                }
                 
                 socket.uidd = origen.uuid;
                  
-                if(socket.uidd){
+                if(socket.uidd && socket.room){
                     //HMSET house:1 roof "house:1:roof" street "Market" buildYear "1996"
                     client.hmset('perfiles:dispositivos:sokectid:'+socket.room,socket.uidd,socket.id);
+                    client.hmset('perfil:dispositivo', socket.uidd, socket.room);
                     if( !dispositivosConectados[socket.room]){
                          dispositivosConectados[socket.room] = {};
                     }
@@ -182,21 +193,47 @@ var SocketIo = function(http, empresas) {
                   console.log("**** OTROS CONECTADO", socket.request.headers['user-agent']);
             }
             socket.on("versionPerfil", function(resultado){
-                socket.emit("socket:eval",sincroinizarTemporal);
-                if(resultado && !isNaN(resultado)){
+                console.log("versionPerfil",resultado ,socket.room, socket.uidd);
+                if(resultado && !isNaN(resultado.version)){
                     var origen_b = {sokect:{}};
                     try{
                         origen_b.sokect = socket.request.headers['user-agent'];
                     }catch(error){
                         console.log("origen_", error);
                     }
-                    oracleMongo.getVersionDeActualizacion(resultado, "no", "no", socket.room, socket.uidd, 0, origen_b);
+                    oracleMongo.getVersionDeActualizacion(resultado.version, "no", "no", socket.room, socket.uidd, 0, origen_b, conexiones[empresa.ruc], socket).then(function(success){
+                        console.log(success);
+                    },function(error){
+                         console.log(error);
+                    });
                 }
-               
+               if(resultado && resultado.versionApp){
+              console.log("versionApp ********************",resultado.versionApp);
+                   var  v = resultado.versionApp.split(".");
+                   if(v && v[2]){
+                       if(parseInt(v[2])<48){
+                           var m = 'Por favor, actualice su aplicación, su versión es la #v1 y la nueva es la 0.0.48'.replace(v);
+                           
+                           socket.emit("socket:eval", "alert('Por favor, actualice su aplicación, su versión es la #v1 y la nueva es la 0.0.48')".replace("#v1", v));
+                           console.log("Mensaje enviado sobre la actualización de la aplicacion");
+                           
+                       }else{
+                            console.log("Actualizado *************** ",resultado);
+                       }
+                   }
+               }
             });
+            socket.on("recepcion:registros", function(resultado){
+                client.hmset('perfil:dispositivo:recepcion:'+sokect.uidd+":"+resultado,resultado.id,"OBTENIDO EN FORMA AUTOMATICA DESDE EL SOCKE "+(new Date()));
+            });
+            
             socket.on("versionPerfil:error", function(resultado){
                 console.log("versionPerfil:error", resultado);
             });
+             socket.on("mensajeIndividual:respuesta", function(resultado){
+                console.log("RESPUESTA DEL DISPOSITIVO****", resultado, socket.room);
+            });
+            
             socket.on("sincronizar:resultado", function(resultado){
                 console.log("Resultados de la sincroinzacion perifl ",socket.room, socket.uidd, resultado);
                 resultado.fecha = new Date();
@@ -212,7 +249,11 @@ var SocketIo = function(http, empresas) {
                             }catch(error){
                                 console.log("origen_", error);
                             }
-                            oracleMongo.getVersionDeActualizacion(resultado.versionPerfil, "no", "no", resultado.perfil, resultado.dispositivo, 0, origen_a);
+                            oracleMongo.getVersionDeActualizacion(resultado.versionPerfil, "no", "no", resultado.perfil, resultado.dispositivo, 0, origen_a, conexiones[empresa.ruc], socket).then(function(succes){
+                                console.log(succes);
+                            },function(error){
+                                console.log(error);
+                            })
                         }
                          
                     });
@@ -226,7 +267,6 @@ var SocketIo = function(http, empresas) {
                             }catch(error){
                                 console.log("origen_", error);
                             }
-                           // oracleMongo.getVersionDeActualizacion(resultado.versionPerfil, "no", "no", resultado.perfil, resultado.dispositivo, 0, origen_);
                             if(resultado.mensaje.indexOf("No se encontro la version")){
                                 if(parseInt(resultado.versionEncontrada)>parseInt(resultado.versionPerfilReferencia)){
                                     /*
@@ -241,12 +281,12 @@ var SocketIo = function(http, empresas) {
                                     });
                                     
                                 }else{
-                                    oracleMongo.crearSqlDiffPorPerfilPorVersion(resultado.perfil, origen_, resultado.versionEncontrada, resultado.dispositivo);
+                                    //(perfilCreado, origen, version, dispositivo, conexion, ahora, socketCliente)
+                                    oracleMongo.crearSqlDiffPorPerfilPorVersion(resultado.perfil, origen_, resultado.versionEncontrada, resultado.dispositivo, conexiones[empresa.ruc], true, socket);
                                 }
                                 //oracleMongo.crearSqlDiffPorPerfil(resultado.perfil, origen_, resultado.versionEncontrada);   
                             }
                             
-                          //  oracleMongo.getVersionDeActualizacion(resultado.versionEncontrada, "no", "no", resultado.perfil, resultado.dispositivo, 0, origen_);
                         }
                     });
              
@@ -325,14 +365,15 @@ var SocketIo = function(http, empresas) {
                 });
             });
              socket.on('autentificacion', function(datos){
-                    console.log("AUTENTIFICACION :: PERFIL ",datos);
+                  console.log("AUTENTIFICACION :: PERFIL ",datos);
+                  
             });
                 socket.on('estados:ordenes', function(datos){
                         console.log("ESTADOS:ORDENES******************************** perfil",socket.room);
                         console.log(datos)
                         console.log("ESTADOS:ORDENES********************************");
                 });
-                socket.on('estados:cartera', function(datos){
+                socket.on('estados:carteras', function(datos){
                         console.log("ESTADOS:CARRTERA******************************** perfil",socket.room);
                         console.log(datos)
                         console.log("ESTADOS:CARRTERA********************************");
@@ -410,6 +451,7 @@ var SocketIo = function(http, empresas) {
                     }
                     client.hdel('perfiles:dispositivos:sokectid:'+socket.room,socket.uidd);
                     client.hdel('dispositivos:sokectid',socket.uidd);
+                    client.hdel('perfil:dispositivo', socket.uidd);
                 });
                 socket.on('tryAndCatch', function (tryAndCatch) {
                        console.log("tryAndCatch", tryAndCatch)
@@ -434,15 +476,16 @@ var SocketIo = function(http, empresas) {
                         
                 });
                 socket.on('actualizar:estados::resultados',function(r){
-                    console.log(socket.room, r, "SINCRONIZADO");
-                 
+                    console.log("actualizar:estados::resultados*********", r);
                     if(r && r.totalActualizados == 1 && r.amodificar && r.amodificar.estado == 'EA'){
                             client.srem('ordenes',r.amodificar.orden_id, function(err, estado) {
-                                console.log("Eliminada de ordenes en redis ",r.amodificar.orden_id, estado);
+                                console.log("Estado(EA) Actualizado y eliminada de ordenes en redis ",r.amodificar.orden_id, estado);
                            });
                           client.hdel('orden::estado', r.amodificar.orden_id, function(err, estado) {
-                                console.log("Eliminada de orden::estado en redis ",r.amodificar.orden_id,estado);
+                                console.log("Estado(EA) Actualizado y eliminada de orden::estado en redis ",r.amodificar.orden_id,estado);
                            });
+                    }else{
+                        
                     }
                     
                     
@@ -463,7 +506,7 @@ var SocketIo = function(http, empresas) {
                             console.log(origen);
                         }
                           console.log("Entro a crear la diferencia",origen);
-                        oracleMongo.crearSqlDiffPorPerfilPorVersion(resultado.id, origen, resultado.version, resultado.device);
+                        oracleMongo.crearSqlDiffPorPerfilPorVersion(resultado.id, origen, resultado.version, resultado.device,conexiones[empresa.ruc], true,socket);
                      }else{
                          console.log("NO Entro a crear la diferencia");
                      }
@@ -523,5 +566,39 @@ SocketIo.prototype.getDispositivosConectados = function(){
      }
  };
 
+
+function getJsonFromArray(dato){
+    if(!(dato && Array.isArray(dato) && dato.length>0)){
+        console.log("getJsonFromArray el parametro esta vacio ", dato);
+        return "error";
+    }
+    try{
+	var newJsonArray = [];
+    var newJson = {};
+		newJsonArray = dato.reduce(
+			function(a,b){
+			    var tv=[];
+				for(key_ in b){
+					tv.push(b[key_]);
+				}
+                tv[0] = tv[0].toString().replace(/\./g,'');
+				if(!isNaN(tv[1])){
+                    try{
+                        a[tv[0]] = parseFloat(parseFloat(tv[1]).toFixed(2));
+                    }catch(error){
+                        a[tv[0]] = tv[1];
+                    }
+
+				}else{
+					a[tv[0]] = tv[1];
+				}
+				return a;
+		},{});
+		return newJsonArray;
+    }catch(error){
+        console.log("getJsonFromArray error ",error);
+        return "error";
+    }
+}
 
 module.exports = SocketIo;
