@@ -33,12 +33,15 @@ var mesnajes = require('../../utils/menusYestados.js');
 
 
 sincronizar.all("/*", function(req, res, next) {
-    next(); // if the middleware allowed us to get here,
-          // just move on to the next route handler
+    next(); 
 });
 
+/**
+    Entrega los registros segun la coleccion e index
+    Utilizado antes el método web
+*/
 sincronizar.get('/inicio/perfil/:coleccion/:index', seguridadEDC.verficarInjections, seguridadEDC.validarIndex, function(req, res){
-        //Datos por Perfil
+    //Datos por Perfil
     var token = req.get("x-access-token");
     if (token) {
    // Or using a promise if the last argument isn't a function
@@ -56,11 +59,12 @@ sincronizar.get('/inicio/perfil/:coleccion/:index', seguridadEDC.verficarInjecti
   }else{
       res.json("Token no encontrado");
   }
-    /*oracleMongo.getDatosDinamicamenteDeInicio(req.params.coleccion, parseInt(datosperfil.perfil), req.params.index, function(resultado){
-                    res.json(resultado);
-           });*/
-
 });
+
+/**
+    Utilizado para enviar los cambios entre oracle y mongodb
+    Este restfull ya no se está usando por el momento
+*/
 sincronizar.get('/actualizar/perfil-sinc/:coleccion/:index', seguridadEDC.verficarInjections, function(req, res){
     console.log('/perfil/:coleccion/:index************************',req.params.coleccion,oracleMongo.isColeccionesTipoDiccionario(req.params.coleccion).length);
         oracleMongo.getDatosPorSincronizarPorPerfilIndex(req.params.coleccion, oracleMongo.isColeccionesTipoDiccionario(req.params.coleccion).length>0 ? null : parseInt(req.datosperfil.perfil), parseInt(req.params.index)).then(function(resultado){
@@ -98,32 +102,18 @@ sincronizar.get('/actualizar/perfil-sinc/:coleccion/:index', seguridadEDC.verfic
 
         });
 });
-sincronizar.get('/actualizar/perfil/urls-para-sincronizar', seguridadEDC.verficarInjections, function(req, res){
-    console.log('/actualizar/perfil/urls-para-sincronizar');
-    oracleMongo.getTodosLosCambiosPorSincronizarPorPerfil(parseInt(req.datosperfil.perfil), urlSincronizarPerifil).then(function(resultado){
-                res.json({sincronizacion:resultado});
-    });
-});
 
-/*sincronizar.get('/perfil/:coleccion/:perfil/:index', seguridadEDC.verficarInjections, seguridadEDC.validarIndex, function(req, res){
-        //Datos por Perfil
-        console.log('/perfil/:coleccion/:index************************');
-        console.log(req.params);
-            oracleMongo.getDatosDinamicamente(req.params.coleccion, parseInt(req.params.perfil), req.params.index, function(resultado){
-                    res.json(resultado);
-            });
-});*/
-//Datos diccionarios
+/**
+    Restfull para obtener los registros de la coleccion diccionarios mediante un ínidce
+    Esta ruta no es usada
+*/
 sincronizar.get('/inicio/diccionarios/:coleccion/:index', seguridadEDC.validarIndex, function(req, res){
-    console.log('/inicio/diccionarios/:coleccion/:index');
     var token = req.get("x-access-token");
    if (token) {
-       // Or using a promise if the last argument isn't a function
         client.get(token).then(function (result) {
           if(result){
               var datosperfil = JSON.parse(result).datosperfil;
               oracleMongo.getDatosDinamicamenteDeInicio(req.params.coleccion, null, req.params.index, function(resultado){
-                // console.log(resultado);
                 res.json(resultado);
             });
           }else{
@@ -138,7 +128,9 @@ sincronizar.get('/inicio/diccionarios/:coleccion/:index', seguridadEDC.validarIn
 });
  
 
-//Recibir datos
+/**
+    Recibe los datos desde el dispostivo
+*/
 sincronizar.all('/recepcion/:tabla/',  function(req, res){
     console.log("RECIBIENDO DATOS DESDE EL DISPOSITIVO**********",req.params);
     var enviarRespuestaGenerica = setTimeout(function(){
@@ -167,15 +159,11 @@ sincronizar.all('/recepcion/:tabla/',  function(req, res){
                     res.json({estado:resultado});
                 }else{
                     res.json({error:"Error al grabar",tabla:req.params.tabla,mensaje:resultado,estado:"OI"});
-                 //   res.json({estado:"OI"});
                 }
-				
-
-            }
+		    }
         });
     }catch(error){
         console.log("setDatosDinamicamente ENVIANDO AL DISPOSITIVO MOVIL error ",error);
-        console.log(error);
         clearTimeout(enviarRespuestaGenerica);
         res.status(403).send({
             estado: false,
@@ -188,8 +176,11 @@ sincronizar.all('/recepcion/:tabla/',  function(req, res){
         //Datos diccionarios
 });
 
-var coleccion = {nombre:"emcversiones",datos:{tipo:"diccionarios",version:"",nombreBackupSql:"",ubicacion:"/home/ecuaquimica/sqlite/bds/", origen:"",resultado:{}}};
 
+/**
+    Entrega del archivo zip
+*/
+var coleccion = {nombre:"emcversiones",datos:{tipo:"diccionarios",version:"",nombreBackupSql:"",ubicacion:"/home/ecuaquimica/sqlite/bds/", origen:"",resultado:{}}};
 sincronizar.get('/sincronizacion-manual/:tipo/:perfil/:version/:x/:y/:uidd/', seguridadEDC.verficarInjections, function(req, res){
     console.log('/sincronizacion-manual/:tipo/:perfil/:version/:x/:y/:uidd/',req.params);
     oracleMongo.autentificacionMongo(req).then(function(respuesta){
@@ -224,17 +215,15 @@ sincronizar.get('/sincronizacion-manual/:tipo/:perfil/:version/:x/:y/:uidd/', se
 
 });
 
+/**
+    Sincronización manual
+*/
 sincronizar.get('/sincronizacion-manual-sql/:versionEncontrada/:versionAnterior/:versionActualizacion/:perfil/:dispositivo/:forzar', seguridadEDC.verficarInjections, function(req, res){
     try{
         var resAux= setTimeout(function(){
            res.json("Por favor vuelva a intentarlo en unos minutos");
         },10000);
-        console.log('/sincronizacion-manual-sql/:versionEncontrada/:versionAnterior/:versionActualizacion/:perfil/:dispositivo',req.params);
-        if(req.app.conexiones[req.app.empresas[0].ruc] && req.params.perfil ){
-            geolocalizacion.getOrdenes(req.app.conexiones[req.app.empresas[0].ruc], req.params.perfil);
-            geolocalizacion.getCarteras(req.app.conexiones[req.app.empresas[0].ruc], req.params.perfil);
-         
-        }
+       
         oracleMongo.getVersionDeActualizacion(req.params.versionEncontrada, req.params.versionAnterior, req.params.versionActualizacion, req.params.perfil, req.params.dispositivo,req.params.forzar, parser.setUA(req.headers['user-agent']).getResult(), req.app.conexiones[req.app.empresas[0].ruc], null).then(function(success){
             clearTimeout(resAux);
             res.json(success);
@@ -251,8 +240,5 @@ sincronizar.get('/sincronizacion-manual-sql/:versionEncontrada/:versionAnterior/
     }
    
 });
-//The 404 Route (ALWAYS Keep this as the last route)
-/*sincronizar.get('/*', function(req, res, next){
-   res.render("404/404.html");
-});*/
+
 module.exports = sincronizar;

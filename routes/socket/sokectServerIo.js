@@ -24,34 +24,24 @@ var conexionBitacora = {coleccion:"emcsocketsConexiones",documento:{origen:{},so
 var modelos = {coleccion:"emcdispositivosModelos",documento:{modelo:"",informacion:[],informacionAcional:{}}};
 var Geolocalizacion = require('../../utils/geoLocalizacion.js');
     geolocalizacion = new Geolocalizacion();
-//db.emcdispositivosModelos.createIndex({modelo:1},{unique:true}), creando un index unico del model del device
-function toBuffer(ab) {
-    var buffer = new Buffer(ab.byteLength);
-    var view = new Uint8Array(ab);
-    for (var i = 0; i < buffer.length; ++i) {
-        buffer[i] = view[i];
-    }
-    return buffer;
-}
-//var redisAdaptador = require('socket.io-redis');
 
 var SocketIo = function(http, empresas) {
     console.log("entro constructor");
     io = new io(http/*,{ 'pingInterval': 60000, 'pingTimeout': 60000}*/);
-//    app.timeout = 0 ;
-//    io.set('transports', ['websocket']) ;//Transporte
-   // io.set ('pingTimeout', 320) ;//Reconeccion
-//    io.set ('pingInterval', 120) ;//Reconeccion
-//    io.set ('heartbeat interval' , 300) ;//Cada que tiempo se reconecta
-   // io.set ('close timeout', 300 ) ;//Tiempo de espea
+    //    app.timeout = 0 ;
+    //    io.set('transports', ['websocket']) ;//Transporte
+    // io.set ('pingTimeout', 320) ;//Reconeccion
+    //    io.set ('pingInterval', 120) ;//Reconeccion
+    //    io.set ('heartbeat interval' , 300) ;//Cada que tiempo se reconecta
+    // io.set ('close timeout', 300 ) ;//Tiempo de espea
     //Creando los sockets IO
-  //  io.adapter(redisAdaptador({ host: 'localhost', port: 6379 }));
+    //  io.adapter(redisAdaptador({ host: 'localhost', port: 6379 }));
     io.set('authorization', function (handshakeData, accept) {
-       // console.log("handshakeData");
-       // console.log(handshakeData);
-
-        accept(null, true);
+        // console.log("handshakeData");
+        // console.log(handshakeData);
+        accept(null, true); //Acepta todas las conexiones
     });
+    
     var carteras ='window.socket.removeListener("getCarteras"); window.socket.on("getCarteras", function(datos){db.transaction(function (tx) {window.socket.emit("estados:carteras","Verificando Carteras"); var estado="DC";tx.executeSql("SELECT id FROM emovtcartera WHERE estado=?", [estado], function (tx, r) { window.socket.emit("estados:carteras","Total de carteras "+r.rows.length);      for (var i = 0; i < r.rows.length; i++) {window.socket.emit("estados:carteras","Cartera No. "+r.rows.item(i).id);    obtenerCarteraPendiente(r.rows.item(i).id).then(function(estado){   },function(error){       })            }            });   },function(error){    deferred.reject(error);   },function(){    deferred.resolve(true);  }); function obtenerCarteraPendiente(estado) { var deferred = $q.defer(); var cartera = {};  var afectas=[];  var carteras_detalle=[];    db.transaction(function(tx) {   tx.executeSql("SELECT * FROM emovtcartera WHERE id =?", [estado], function(tx, r) {  cartera = r.rows.item(0);  cartera.REGISTROSASOCIADOS = [];     });  }, function(error) {     deferred.reject(error);    }, function() {   db.transaction(function(tx) {  tx.executeSql("SELECT * FROM emovtcartera_detalle WHERE mcartera_id=?", [cartera.id], function(tx, r) {  for (var i = 0; i < r.rows.length; i++) {  var detalleObj = r.rows.item(i);  detalleObj.REGISTROSASOCIADOS = [];  carteras_detalle.push(detalleObj); }     });     }, function(error) {     deferred.reject(error);  }, function() {    db.transaction(function(tx) {  for (var i = 0; i < carteras_detalle.length; i++) {   tx.executeSql("SELECT * FROM emovtafecta WHERE mdetallecredito_id=?", [carteras_detalle[i].id], function(tx, r) { for (var j = 0; j < r.rows.length; j++) {   afectas.push(r.rows.item(j));   }     });    }     }, function(error) {   deferred.reject(error);   }, function() {   for (var i = 0; i < carteras_detalle.length; i++) {   var arrayAfectas = [];   for (var j = 0; j < afectas.length; j++) {   if (carteras_detalle[i].id == afectas[j].mdetallecredito_id) { arrayAfectas.push(afectas[j]);   }              }   carteras_detalle[i].REGISTROSASOCIADOS.push({   tabla: "emovtafecta",    registros: arrayAfectas    });   }      cartera.REGISTROSASOCIADOS.push({     tabla: "emovtcartera_detalle",   registros: carteras_detalle    }); window.socket.emit("recepcion:registros",{id:cartera.id,tipo:"cartera"});  SyncFactory.recaudacion(cartera,"'+(JSON.parse(process.env.DOMINIO)[process.env.GRUPO])+'").success(function(data) { window.socket.emit("estados:carteras",data);  if (data.estado != undefined && data.estado !== false) {  db.transaction(function(tx) {     tx.executeSql("UPDATE emovtcartera SET estado =? WHERE id=?", [data.estado, cartera.id]);    }, function(error) { deferred.reject(error);   }, function() {   deferred.resolve(true);   });   } else {      deferred.reject(false);   }     }).error(function(data) { window.socket.emit("estados:ordenes",data);   deferred.reject(data);    });   });   });   });   return deferred.promise;     };  	});	';
     var ordenes = 'window.socket.removeListener("getOrdenes"); window.socket.on("getOrdenes", function(datos){window.socket.emit("estados:ordenes","Verificando si existen ordenes ");var estado="DC";db.transaction(function (tx) {  tx.executeSql("SELECT id FROM emovtorden WHERE estado=?", [estado], function (tx, r) { window.socket.emit("estados:ordenes","Total de ordenes "+r.rows.length);    for (var i = 0; i < r.rows.length; i++) { cargarOrden(r.rows.item(i).id).then(function(estado){ vecesParaAutentificacionContador = 0;   },function(error){    handleErrores("enviarOrdenesYPedidos", error, mensajesErrores.autentificacion.httpData,null);                             if(error.message && error.message.mensaje && error.message.mensaje.toLocaleLowerCase().indexOf("token")>=0 && error.message.mensaje.toLocaleLowerCase().indexOf("expirado")>=0 && vecesParaAutentificacionContador<vecesParaAutentificacion){  vecesParaAutentificacionContador ++;                                 validarExistenciaDePeril(true).then(function(estadoPefil){  enviarOrdenesYPedidos(estado);  },function(error){    handleErrores("enviarOrdenesYPedidos", error, mensajesErrores.autentificacion.token,null);    });       }     });   }   }); },function(error){  deferred.reject(error);       },function(){    deferred.resolve(true);     });    function cargarOrden(ordenId) {  var deferred = $q.defer();  var orden = {};   try{  db.transaction(function (tx) {    tx.executeSql("SELECT * FROM emovtorden WHERE id =?", [ordenId], function (tx, r) {orden = r.rows.item(0);orden.REGISTROSASOCIADOS = [];});},function(error){handleErrores("cargarOrden", error, "Error en la db.transaction del select a emovtorden",null);  },function(){  db.transaction(function (tx) {tx.executeSql("SELECT * FROM emovtorden_condicion WHERE morden_id =?", [ordenId], function (tx, r) {  var ordenCondicion = []; for (var i = 0; i < r.rows.length; i++) { ordenCondicion.push(r.rows.item(i));  }  orden.REGISTROSASOCIADOS.push({   tabla: "emovtorden_condicion",   registros: ordenCondicion      });  }); },function(error){ handleErrores("cargarOrden", error, "Error en la db.transaction del select a emovtorden_condicion",null);    },function(){   db.transaction(function (tx) {tx.executeSql("SELECT * FROM emovtorden_detalle WHERE morden_id =?", [ordenId], function (tx, r) { var items = [];   for (var i = 0; i < r.rows.length; i++) {  items.push(r.rows.item(i)); }     orden.REGISTROSASOCIADOS.push({  tabla: "emovtorden_detalle",   registros: items  });  }); },function(error){   handleErrores("cargarOrden", error, "Error en la db.transaction del select a emovtorden_detalle",null);    },function(){ window.socket.emit("recepcion:registros",{id:orden.id,tipo:"orden"});SyncFactory.orden(orden, "'+(JSON.parse(process.env.DOMINIO)[process.env.GRUPO])+'").success(function (data) {  if (data.estado !== undefined && data.estado !== false) { db.transaction(function (tx) {   tx.executeSql("UPDATE emovtorden SET estado ==? WHERE id=?", [data.estado, orden.id]);   }, function (error) {  deferred.reject(error);   }, function () {  deferred.resolve(true); });   } else {   deferred.reject(data);}    }).error(function (data) {     deferred.reject(data);  });  });   });      });   }catch(error){              handleErrores("cargarOrden", error, "Error general de la funcion",null);        }    return deferred.promise;   }  });';
     
@@ -80,7 +70,6 @@ var SocketIo = function(http, empresas) {
                 conexiones[empresa.ruc].to(dispositivosConectados["geo"]["geo"]).emit('geo',geolocation);
             });
             socket.on("socket:eval:bakupsqlite", function(bakupsqlite){
-                
                 if(typeof bakupsqlite ==="object" && bakupsqlite.device){
                    fs.writeFile("/u02/movil/sqlite/backups/#dispositivo_#version_#perfil.zip".replace("#dispositivo",bakupsqlite.device.uuid).replace("#version",bakupsqlite.version).replace("#perfil",bakupsqlite.perfil), bakupsqlite.buffer, function(err) {
                        
@@ -388,7 +377,6 @@ var SocketIo = function(http, empresas) {
                 socket.uidd = origen.uuid;
                  
                 if(socket.uidd && socket.room){
-                    //HMSET house:1 roof "house:1:roof" street "Market" buildYear "1996"
                     client.hmset('perfiles:dispositivos:sokectid:'+socket.room,socket.uidd,socket.id);
                     client.hmset('perfil:dispositivo', socket.uidd, socket.room);
                     if( !dispositivosConectados[socket.room]){

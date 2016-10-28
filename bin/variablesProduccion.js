@@ -8,6 +8,7 @@ process.env.SMPS = '{"1":{"host":"192.168.1.13","port":25,"debug":true},"2":{"ho
 process.env.EMAILS='{"1":{"errores":"ohonores@hotmail.com, paguilera@ecuaquimica.com.ec", "advertencias":"ohonores@hotmail.com, paguilera@ecuaquimica.com.ec", "notificaciones":"ohonores@hotmail.com, paguilera@ecuaquimica.com.ec", "to":"ohonores@hotmail.com, paguilera@ecuaquimica.com.ec,dchavez@ecuaquimica.com.ec"},"2":{"errores":"ohonores@hotmail.com, paguilera@ecuaquimica.com.ec", "advertencias":"ohonores@hotmail.com, paguilera@ecuaquimica.com.ec", "notificaciones":"ohonores@hotmail.com, paguilera@ecuaquimica.com.ec", "to":"ohonores@hotmail.com, paguilera@ecuaquimica.com.ec,dchavez@ecuaquimica.com.ec"},"3":{"errores":"ohonores@hotmail.com, paguilera@ecuaquimica.com.ec", "advertencias":"ohonores@hotmail.com, paguilera@ecuaquimica.com.ec", "notificaciones":"ohonores@hotmail.com, paguilera@ecuaquimica.com.ec", "to":"ohonores@hotmail.com, paguilera@ecuaquimica.com.ec,dchavez@ecuaquimica.com.ec"}}'; 
 process.env.SMPCUENTA = '{"1":"eq-documentos@ecuaquimica.com.ec","2":"swissystem@conauto.com.ec","3":"swissystem@farmagro.com"}';
 process.env.PUERTOS='{"development":{"1":{"puerto":8080},"2":{"puerto":8086},"3":{"puerto":8080}},"production":{"1":{"puerto":8080},"2":{"puerto":8086},"3":{"puerto":8080}}}';
+process.env.CLAVES_INGRESO_MOVIL='{"1":"eqmobil2016", "2":"eqmobil2016", "3":"eqmobil2016"}';
 //process.env.DOMINIO="http://www.conauto.com.ec:56794";
 //process.env.DOMINIO="http://documentos.farmagro.com:8080";
 process.env.BDS="/u02/movil/sqlite/bds/";

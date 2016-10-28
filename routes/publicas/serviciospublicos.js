@@ -4,7 +4,7 @@ var UAParser = require('ua-parser-js');
 var ubicacion = require("../../utils/ubicacion.js");
 var router = express.Router();
 var client_a = require("ioredis").createClient();
-var jwt    = require('jsonwebtoken'); // used to create, sign, and verify tokens, referencia https://scotch.io/tutorials/authenticate-a-node-js-api-with-json-web-tokens
+var jwt = require('jsonwebtoken'); // used to create, sign, and verify tokens, referencia https://scotch.io/tutorials/authenticate-a-node-js-api-with-json-web-tokens
 var tokens = require('../../seguridad/tokens.js'); // get our config file, referencia https://scotch.io/tutorials/authenticate-a-node-js-api-with-json-web-tokens
 var TipoBrowser = require('../../utils/tipoBrowser.js');
 var seguridadEDC = require('../../seguridad/SeguridadEDC.js');
@@ -23,19 +23,16 @@ var urlRecpcion = urlMatriz+"/movil/sincronizacion/recepcion/:tabla/";
 var urlSincronizarPerifil = urlMatriz+"/movil/sincronizacion/actualizar/perfil-sinc/:coleccion/:index";
 var parser = new UAParser();
 /* PAGINA DE INICIO. */
-router.get('/', TipoBrowser.browserAceptado, function(req, res, next) {
+router.get('/', function(req, res, next) {
      res.send('MOVILE*************');
-
-
 });
 
 router.get('/geolocalizacion',function(req, res, next){
      res.render('home/index.html');
 });
+
 router.get('/movil/autentificacion-getToken/:identificacion/:empresa/:uidd/:x/:y/:token',  function(req, res) {
-
     oracleMongo.autentificacionMongo(req).then(function(respuesta){
-
        //Verifica si existe mas de una empresa
         switch (respuesta.length) {
             case 0:
@@ -67,6 +64,8 @@ router.get('/movil/autentificacion-getToken/:identificacion/:empresa/:uidd/:x/:y
          res.json({error:true,mensaje:error});
     });
 });
+
+
 function getDiaActual(){
     var fecha = new Date();
     return (fecha.getDate()<10?"0"+fecha.getDate():fecha.getDate())+(fecha.getMonth()<10?"0"+fecha.getMonth():fecha.getMonth())+fecha.getFullYear();
@@ -82,16 +81,13 @@ router.get('/movil/autentificacion/:tipo/:identificacion/:empresa/:uidd/:x/:y/:t
     oracleMongo.autentificacionOracle(req).
     then(oracleMongo.autentificacionMongo).
     then(function(respuesta){
-      //oracleMongo.autentificacion(req.params, true, function(respuesta){
             //Verifica si existe mas de una empresa
-              console.log("autentificacion",respuesta);
             switch (respuesta.length) {
                 case 0:
                     res.send({error:true,mensaje:mensajes.errorIdentificacionNoExiste.identificacion});
                     break;
                 case 1:
                     respuesta = respuesta[0];
-                    
                     req.session.datosperfil ={identificacion:req.params.identificacion,perfil:respuesta.registroInterno.perfil,empresa:respuesta.registroMovil.infoEmpresa.empresa_id};
                     router.client.set(respuesta.registroInterno.perfil,"edi"+req.session.id);
                     router.client.expire(respuesta.registroInterno.perfil,432000);
@@ -101,7 +97,7 @@ router.get('/movil/autentificacion/:tipo/:identificacion/:empresa/:uidd/:x/:y/:t
                     respuesta.emisor = respuesta.registroMovil.emisor;
                     router.client.hmset(getDiaActual(), respuesta.registroInterno.perfil,"Perfil econtrado y esperando su base, fecha:"+new Date());
                     router.client.expire(respuesta.registroInterno.perfil,259200);
-                    console.log("herxxxxxxxxxxxxxxxxxSDDDDDDDDDDDDDDDDD",respuesta.emisor,respuesta.registroMovil.emisor, urlMatriz,JSON.stringify(process.env.GRUPO),JSON.stringify(process.env.DOMINIO), JSON.stringify(urlsProduccion[process.env.GRUPO]));
+                    urlMatriz,JSON.stringify(process.env.GRUPO),JSON.stringify(process.env.DOMINIO), JSON.stringify(urlsProduccion[process.env.GRUPO]));
                     //Buscano la url del archivo zip
                     switch(req.params.tipo){
                         case "device":
@@ -109,14 +105,12 @@ router.get('/movil/autentificacion/:tipo/:identificacion/:empresa/:uidd/:x/:y/:t
                                 if(resMDB && resMDB[0] && resMDB[0].nombreBackupZip){
                                     respuesta.zipUrl = urlMatriz+"/zipsSqls/#archivo".replace("#archivo",resMDB[0].nombreBackupZip);
                                     respuesta.versionPerfil = resMDB[0].versionPerfil;
-                                    console.log("respuesta",respuesta);
                                     /**MODIFICANDO LA COLECCION VERSIONES CON LOS DISPOSITIVOS**/
                                     ubicacion.getUbicacionIp(req.header('x-forwarded-for') || req.connection.remoteAddress, function(resultadoIp, ip){
                                          console.log("getUbicacionIp",resultadoIp)
                                          mongodb.modificarOinsertar(coleccion.nombre, {versionPerfil:resMDB[0].versionPerfil, tipo:"zip"}, {$push:{"dispositivos":{uidd:req.params.uidd, fecha:new Date(),ip:ip,origen:resultadoIp}}}, function(resultadoD1){});
                                          mongodb.modificarOinsertar(coleccion.nombre, {versionPerfil:resMDB[0].versionPerfil, tipo:"perfiles"}, {$push:{"dispositivos":{uidd:req.params.uidd, fecha:new Date(),ip:ip,origen:resultadoIp}}}, function(resultadoD1){});
                                     });
-                                     console.log("autenfificacion de inicio ");
                                      client_a.hget('dispositivos:sokectid', req.params.uidd , function(error, socketid){
                                          console.log("autenfificacion de inicio ", socketid, error);
                                          if(socketid){
@@ -129,14 +123,13 @@ router.get('/movil/autentificacion/:tipo/:identificacion/:empresa/:uidd/:x/:y/:t
                                     res.json(respuesta);
                                 }else{
                                     respuesta.zipUrl = "Backup de slqlite no encontrado";
-                                    console.log("respuesta",respuesta);
                                     res.json(respuesta);
                                 }
 
                             });
                             break;
                         default :
-                            console.log("respuesta.registroMovil.identificacion, respuesta.registroInterno.perfil,",respuesta.registroMovil.identificacion, respuesta.registroInterno.perfil)
+                            respuesta.registroInterno.perfil)
                             oracleMongo.getUrlsPorPefil(respuesta.registroMovil.identificacion, respuesta.registroInterno.perfil, urlMatriz+urlPefil, urlMatriz+urlDiccionario, urlRecpcion, function(total){
                                 oracleMongo.getTablasScript(function(script){
                                         respuesta.scripts = [];
@@ -144,9 +137,7 @@ router.get('/movil/autentificacion/:tipo/:identificacion/:empresa/:uidd/:x/:y/:t
                                         respuesta.scripts = respuesta.scripts.concat(oracleMongo.getScripts_(script));
                                         respuesta.scripts = respuesta.scripts.concat(oracleMongo.getScripts_(oracleMongo.getTablasScriptUniqueKey()));
                                         respuesta.sincronizacion = total;
-                                        console.log("scripts", respuesta.scripts);
                                         oracleMongo.getTotalRegistrosPorIdentificacion(respuesta.registroMovil.identificacion).then(function(validar){
-                                            console.log("getTotalRegistrosPorPerfiles", validar);
                                             if(!validar){
                                                 res.json({error:"No existen registros"});
                                                 return;
@@ -195,35 +186,20 @@ router.get('/movil/autentificacion/:tipo/:identificacion/:empresa/:uidd/:x/:y/:t
 });
 
 
-/*router.get('/movil/iniciar/sensor/sincronizador/:perfil', function(req, res) {
-        console.log('/movil/iniciar/sensor/sincronizador');
-        oracleMongo.crearColecciones(false);
-        req.app.conexiones[req.app.empresas[0].ruc].emit('respuesta::namespace', {mensaje:'server todos respuesta!', estado:true,datos:{"key":"es un prueba desde el servidor"}});
-        //req.app.conexiones[req.app.empresas[1].ruc].emit('respuesta::namespace', {mensaje:'server todos respuesta!', estado:true,datos:{"key":"es un prueba desde el servidor"}});
-        console.log('/actualizar/perfil/urls-para-sincronizar');
-        oracleMongo.getTodosLosCambiosPorSincronizarPorPerfil(parseInt(req.params.perfil)).then(function(resultado){
-                    res.json({sincronizacion:resultado});
-        });
-        //res.send("listo");
-});*/
-
 router.get('/movil/iniciar/sensor/sincronizador/get-datos', function(req, res) {
      console.log('/movil/iniciar/sensor/sincronizador/get-datos',new Date());
-    oracleMongo.getTodosLosCambiosPorSincronizarPorPerfil(null,  urlSincronizarPerifil).then(function(resultado){
-                    res.json({sincronizacion:resultado});
-    });
+  
 });
-var sincronizarColeeciones = false;
-var sincronizarColeecionesPendientes  = [];
+
+
 router.get('/movil/iniciar/sensor/sincronizador/actualizar-datos/:tablas', function(req, res) {
-    
-      oracleMongo.crearBackupsSqliteAutomatica(parser.setUA(req.headers['user-agent']).getResult(), req.app.conexiones[req.app.empresas[0].ruc]);
-	 res.json("Actualizando Colecciones..");
+    oracleMongo.crearBackupsSqliteAutomatica(parser.setUA(req.headers['user-agent']).getResult(), req.app.conexiones[req.app.empresas[0].ruc]);
+	res.json("Actualizando Colecciones..");
    
 });
-var creandoColeeciones = false;
+
+//No usada
 router.get('/movil/iniciar/cargar-datos-diccionarios', function(req, res) {
-     console.log('/movil/iniciar/cargar-datos-diccionarios',new Date());
     oracleMongo.crearColeccionesBdSqliteTipoDiccionarios(parser.setUA(req.headers['user-agent']).getResult()).then(function(success){
         console.log("crearColeccionesBdSqliteTipoDiccionarios",success);
     },function(error){
@@ -231,31 +207,41 @@ router.get('/movil/iniciar/cargar-datos-diccionarios', function(req, res) {
     });
     res.send("Listo diccionarios");
 });
+
+/**
+    Ruta para crear la base de un perfil
+    Ejemplo: 
+            ...../movil/iniciar/cargar-datos-iniciales/101
+*/
 router.get('/movil/iniciar/cargar-datos-iniciales/:perfil', function(req, res) {
 
     if(req.params.perfil === "todos"){
-        
         oracleMongo.crearColeccionesPorPerfilRecursivo(parser.setUA(req.headers['user-agent']).getResult(), 0, [140,101,123], [],req.app.conexiones[req.app.empresas[0].ruc] );
     }else{
         oracleMongo.crearColeccionesScriptsPorPerfil(parser.setUA(req.headers['user-agent']).getResult(), req.app.conexiones[req.app.empresas[0].ruc], req.params.perfil);
     }
-    res.send("Listo perfil");
+    res.send("Creando la base...");
 });
+
+/**
+    Creando un sqldiff para un perfil específico
+*/
 router.get('/movil/iniciar/cargar-sqldiff/:perfil', function(req, res) {
     oracleMongo.crearSqlDiffPorPerfil(req.params.perfil, req.app.conexiones[req.app.empresas[0].ruc]);
-    res.send("Listo perfil");
+    res.send("Creando sqldiff...");
 });
-router.get('/movil/iniciar/cargar-sqldiff-version/:perfil/:version', function(req, res) {
-    console.log(req.params,req.params.version );
-    oracleMongo.crearSqlDiffPorPerfil(req.params.perfil, parser.setUA(req.headers['user-agent']).getResult(), req.params.version);
-    res.send("Listo perfil");
-});
+
+/**
+    Restfull para actualizar la empresora
+*/
 router.get('/movil/actualizar/impresora/:perfil/:impresora', function(req, res) {
     oracleMongo.actualizarImpresora( req.params.perfil, req.params.impresora);
     res.send("Listo perfil actualizado");
 });
 
-
+/**
+    Ruta no usada
+*/
 router.get('/movil/iniciar/forzarSincronizacion/:identificacion/:empresa/:notificar', function(req, res) {
    
     console.log('/movil/iniciar/forzarSincronizacion/:identificacion/:empresa',new Date());
@@ -268,45 +254,29 @@ router.get('/movil/iniciar/forzarSincronizacion/:identificacion/:empresa/:notifi
     },function(error){
         res.send(mensajes.errorIdentificacionNoExiste.identificacion);
     });
-    
        
 });
+
+/**
+    Procesa un pedido DC -> MV, el perfil es usando para enviar por correo e indicar a cual peril pertenecio la orden
+*/
 router.get('/movil/procesar/pedidos/:perfil', function(req, res) {
         oracleMongo.procesarPedidos(req.params.perfil);
     res.send("Proceso enviado");
 });
+/**
+    Procesar cartera DC -> MV
+*/
 router.get('/movil/procesar/cartera', function(req, res) {
         oracleMongo.procesarCartera();
         res.send("Proceso enviado");
 });
 
-
-
-router.get('/movil/iniciar/socket-notificar/:perfil/:nombre/:estado', function(req, res) {
-    var sockectNotificaciones = {
-      tryAndCatch:{estado:false, nombre:"tryAndCatch"},
-      notificar:{estado:false, nombre:"notificar"},
-      notificaesCrud:{estado:false, nombre:"notificaesCrud"},
-      erroresCrud:{estado:false, nombre:"erroresCrud"},
-      reject:{estado:false, nombre:"refect"},
-      autentificacion:{mensaje:"Inicio de conexion, validacion de existencia de perfil y comunicacion con el socket.io"}
-    }
-    if(sockectNotificaciones[req.params.nombre]){
-        sockectNotificaciones[req.params.nombre] = req.params.estado ==="true" ? true:false; 
-        oracleMongo.socketEmit(req.app.conexiones[req.app.empresas[0].ruc], req.params.perfil, "sockectActivarNotificaciones", sockectNotificaciones,function(resultado){
-            res.send("Activado");
-        });
-        
-    }else{
-        res.json({error:"Error al activar el servicio de notificacones, por favor seleccione una de los siguientes servicios",servcioPorNotificar:sockectNotificaciones,ejemplo:"/movil/iniciar/socket-notificar/139/tryAndCatch/true"});
-    }
-       
-});
+/**
+    Enviar mensaje al dispositivo
+*/
 router.get('/movil/iniciar/socket-mensaje/:perfil/:mensaje', function(req, res) {
-    
-   
     if(req.app.dispositivosConectados[req.params.perfil] && req.params.mensaje ){
-        
         oracleMongo.socketEmit(req.app.conexiones[req.app.empresas[0].ruc], req.params.perfil, "socket:eval", req.params.mensaje,function(resultado){
             res.send("mensaje "+req.params.mensaje);
         });
@@ -316,10 +286,13 @@ router.get('/movil/iniciar/socket-mensaje/:perfil/:mensaje', function(req, res) 
         }else{
             res.json({error:"Error al activar el servicio de mensajes, debe ingresar un pefil y el mensaje"});
         }
-        
     }
        
 });
+
+/**
+    Obtiene la geolocalizacion de un perfil, pruebas
+*/
 router.get('/movil/iniciar/geolocalizacion/:perfil', function(req, res) {
     
    console.log('/movil/iniciar/geolocalizacion/:perfil',req.params,req.app.dispositivosConectados)
@@ -335,123 +308,13 @@ router.get('/movil/iniciar/geolocalizacion/:perfil', function(req, res) {
     }
        
 });
-router.get('/movil/iniciar/backupsqlite/:perfil', function(req, res) {
-    
-   console.log('/movil/iniciar/backupsqlite/:perfil',req.params)
-    if(req.app.conexiones[req.app.empresas[0].ruc] ){
-        geolocalizacion.getBaseSqlite(req.app.conexiones[req.app.empresas[0].ruc], req.params.perfil);
-        res.send("geolocalizacion pedida a  "+req.params.perfil);
-    }else{
-       res.json({error:"Error al activar el servicio de mensajes, debe ingresar un pefil y el mensaje"});
-    }
-       
-});
 
-
-router.get('/movil/iniciar/getCarteras/:perfil', function(req, res) {
-    
-   console.log('/movil/iniciar/backupsqlite/:perfil',req.params)
-    if(req.app.dispositivosConectados[req.params.perfil] && req.params.perfil ){
-        geolocalizacion.getCarteras(req.app.conexiones[req.app.empresas[0].ruc], req.params.perfil);
-         res.send("geolocalizacion pedida a  "+req.params.perfil);
-    }else{
-        if(!req.app.dispositivosConectados[req.params.perfil]){
-            res.json({error:"Error al activar el servicio de mensajes, el perfil no esta conectado"});
-        }else{
-            res.json({error:"Error al activar el servicio de mensajes, debe ingresar un pefil y el mensaje"});
-        }
-    }
-       
-});
-router.get('/movil/iniciar/getVersion/:perfil', function(req, res) {
-    
-   console.log('/movil/iniciar/backupsqlite/:perfil',req.params)
-    if(req.app.dispositivosConectados[req.params.perfil] && req.params.perfil ){
-        geolocalizacion.getVersion(req.app.conexiones[req.app.empresas[0].ruc], req.params.perfil);
-         res.send("geolocalizacion pedida a  "+req.params.perfil);
-    }else{
-        if(!req.app.dispositivosConectados[req.params.perfil]){
-            res.json({error:"Error al activar el servicio de mensajes, el perfil no esta conectado"});
-        }else{
-            res.json({error:"Error al activar el servicio de mensajes, debe ingresar un pefil y el mensaje"});
-        }
-    }
-       
-});
-
-router.get('/movil/iniciar/getOrdenes/:perfil', function(req, res) {
-    
-   console.log('/movil/iniciar/backupsqlite/:perfil',req.params)
-    if(req.app.dispositivosConectados[req.params.perfil] && req.params.perfil ){
-        geolocalizacion.getOrdenes(req.app.conexiones[req.app.empresas[0].ruc], req.params.perfil);
-         res.send("geolocalizacion pedida a  "+req.params.perfil);
-    }else{
-        if(!req.app.dispositivosConectados[req.params.perfil]){
-            res.json({error:"Error al activar el servicio de mensajes, el perfil no esta conectado"});
-        }else{
-            res.json({error:"Error al activar el servicio de mensajes, debe ingresar un pefil y el mensaje"});
-        }
-    }
-       
-});
-
-router.get('/movil/iniciar/getTotales/:perfil/:versionPerfil', function(req, res) {
-    
-   console.log('/movil/iniciar/getTotales/:perfil/:versionPerfil',req.params)
-    if(req.app.conexiones[req.app.empresas[0].ruc] ){
-        geolocalizacion.getTotales(req.app.conexiones[req.app.empresas[0].ruc], req.params.perfil, req.params.versionPerfil, mongodb);
-         res.send("geolocalizacion pedida a  "+req.params.perfil);
-    }else{
-        if(!req.app.conexiones[req.app.empresas[0].ruc]){
-            res.json({error:"Error al activar el servicio de mensajes, el perfil no esta conectado"});
-        }else{
-            res.json({error:"Error al activar el servicio de mensajes, debe ingresar un pefil y el mensaje"});
-        }
-    }
-       
-});
-router.get('/movil/iniciar/setSincronizacion/:perfil', function(req, res) {
-    
-   console.log('/movil/iniciar/setSincronizacion/:perfil/:versionPerfil',req.params)
-    if(req.app.conexiones[req.app.empresas[0].ruc] ){
-        geolocalizacion.setSincronizacion(req.app.conexiones[req.app.empresas[0].ruc], req.params.perfil);
-         res.send("setSincronizacion pedida a  "+req.params.perfil);
-    }else{
-        if(!req.app.conexiones[req.app.empresas[0].ruc]){
-            res.json({error:"Error al activar el servicio de mensajes, el perfil no esta conectado"});
-        }else{
-            res.json({error:"Error al activar el servicio de mensajes, debe ingresar un pefil y el mensaje"});
-        }
-    }
-       
-});
-
-
-router.get('/movil/iniciar/getWebrtc/:perfil/', function(req, res) {
-    
-   console.log('/movil/iniciar/getTotales/:perfil/:versionPerfil',req.params)
-    if(req.app.conexiones[req.app.empresas[0].ruc] ){
-        geolocalizacion.getWebrtc(req.app.conexiones[req.app.empresas[0].ruc], req.params.perfil);
-         res.send("geolocalizacion pedida a  "+req.params.perfil);
-    }else{
-        if(!req.app.conexiones[req.app.empresas[0].ruc]){
-            res.json({error:"Error al activar el servicio de mensajes, el perfil no esta conectado"});
-        }else{
-            res.json({error:"Error al activar el servicio de mensajes, debe ingresar un pefil y el mensaje"});
-        }
-    }
-       
-});
-
-
-
-
-
+/**
+    Envia la orden de mongo a oracle
+*/
 router.get('/movil/procesar/pedidos/mongodb/:tabla/:hash', function(req, res) {
         oracleMongo.procesarPedidosDesdeMongoDbHaciaOracle(req.params);          
         res.send("Proceso pedidos mongodb");
 });
-
-
 
 module.exports = router;
