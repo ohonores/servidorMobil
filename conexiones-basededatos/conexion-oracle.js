@@ -169,19 +169,7 @@ ClienteOracle.prototype.getPoolClienteConexion = function (sql, parametros, grab
                                                 connection.release( function(err) { });
                                                 clearTimeout(noConexion);
                                                 resultado(result);
-                                                /*connection.release(
-                                                    function(err)
-                                                    {
-                                                        if (err) {
-                                                            console.log("Error connection.release en despues de connection.execute",err);
-                                                            clearTimeout(noConexion);
-                                                            resultado({error:err});
-                                                            return;
-                                                        }
-                                                        clearTimeout(noConexion);
-                                                        resultado(result);
-                                                        return;
-                                                    });*/
+                                                
                              				
                                             }
                              });

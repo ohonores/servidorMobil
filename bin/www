@@ -14,9 +14,6 @@ var numCPUs = require('os').cpus().length;
 /**
  * Get port from environment and store in Express.
  */
- /****************************************
- 	SERVICIOS CON EL SERVLET DE WS
- ****************************************/
 var puertoPrincipal = JSON.parse(process.env.PUERTOS);  //8080;Conauto//8084;QUI; //80; Farmagro
 var port = puertoPrincipal[process.env.NODE_ENV][process.env.GRUPO].puerto;
 app.set('port', normalizePort(process.env.PORT || port ));
@@ -27,68 +24,21 @@ app.set('ipaddr', "0.0.0.0");
 */
 var empresas = [{ruc:"0990018707001"}, {ruc:"2"}];
 
-//new sockectServidor(http, empresas);
 /**
  * Create HTTP server.s
  */
 console.log(port)
-var server; /*= http.createServer(app);*/
-
-/*if (cluster.isMaster) {
-  // Fork workers.
-  for (var i = 0; i < numCPUs; i++) {
-    cluster.fork();
-  }
-
-  cluster.on('exit', function(worker, code, signal) {
-    console.log("worker ${worker.process.pid} died",worker.process.pid);
-  });
-} else {
-  // Workers can share any TCP connection
-  // In this case it is an HTTP server
-    server = app.listen(port);
-     
-     var SockectServidorIO = require('../routes/socket/sokectServerIo.js');
-var sockectServidor =  new SockectServidorIO(server, empresas);
-app.socket = sockectServidor.getSocket();
-app.conexiones = sockectServidor.getConexiones();
-app.empresas = empresas;
-app.periflesConectados = sockectServidor.getPerfilesConectados();
-app.dispositivosConectados = sockectServidor.getDispositivosConectados();
-
-   // server.
-    server.on('error', onError);
-    server.on('listening', onListening);
-}
-*/
+var server; 
 server = app.listen(port);
-      /**
-     * Listen on provided port, on all network interfaces.
-     */
-     var SockectServidorIO = require('../routes/socket/sokectServerIo.js');
+var SockectServidorIO = require('../routes/socket/sokectServerIo.js');
 var sockectServidor =  new SockectServidorIO(server, empresas);
 app.socket = sockectServidor.getSocket();
 app.conexiones = sockectServidor.getConexiones();
 app.empresas = empresas;
 app.periflesConectados = sockectServidor.getPerfilesConectados();
 app.dispositivosConectados = sockectServidor.getDispositivosConectados();
-
-   // server.
-    server.on('error', onError);
-    server.on('listening', onListening);
-
-
-
-
-
-
-
-
-
-
-
-
-
+server.on('error', onError);
+server.on('listening', onListening);
 
 /**
  * Normalize a port into a number, string, or false.

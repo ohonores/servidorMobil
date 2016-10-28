@@ -103,25 +103,9 @@ ClienteMongoDb.prototype.getRegistrosCustomColumnasOrdenLimite = function (colle
 
 };
 ClienteMongoDb.prototype.getRegistrosCustomColumnasPorGrupo = function (collection, keys, condition, initial, reduce, finalize, resultado) {
-
-          // group(keys, condition, initial, reduce, finalize, command[, options], callback)
-          /*
-          db.emcitems.group(    {
-			      key:   { DESCRIPCION:1 },
-			     cond:   { MPERFIL_ID: 147 },
-                 reduce: function( curr, result ) {
-	                              result.establecimientos.push(curr.MPERFILESTABLECIMIENTO_ID)
-				   },
-			    initial: {establecimientos:[] }
-			}
-        );
-          */
-
            db.collection(collection).group(keys, condition, initial, reduce, finalize,function(err, docs) {
                 resultado(docs);
            });
-
-
 };
 
 ClienteMongoDb.prototype.getRegistro = function (collection, parametros, resultado) {
@@ -193,7 +177,6 @@ function existenciaDocumentoConHash(collection, documentoPorInsertar){
     var deferred = Q.defer();
     var buscar = {"registroInterno.perfil":documentoPorInsertar.registroInterno.perfil};
     db.collection(collection).findOne({"registroInterno.perfil":documentoPorInsertar.registroInterno.perfil}, {_id:1, "registroMovil.hash":1}, function(err, documentoEncontrado) {
-        //console.log(documentoEncontrado);
         if(err){
              deferred.reject({error:true,mensaje:err});
               return;
