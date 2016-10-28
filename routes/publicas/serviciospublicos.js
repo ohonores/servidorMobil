@@ -67,6 +67,10 @@ router.get('/movil/autentificacion-getToken/:identificacion/:empresa/:uidd/:x/:y
          res.json({error:true,mensaje:error});
     });
 });
+function getDiaActual(){
+    var fecha = new Date();
+    return (fecha.getDate()<10?"0"+fecha.getDate():fecha.getDate())+(fecha.getMonth()<10?"0"+fecha.getMonth():fecha.getMonth())+fecha.getFullYear();
+}
 // =====================================
     // REGISTRAR USUARIO DEVICE
     //  Esta url permite la autenficacion y registro del device
@@ -87,7 +91,7 @@ router.get('/movil/autentificacion/:tipo/:identificacion/:empresa/:uidd/:x/:y/:t
                     break;
                 case 1:
                     respuesta = respuesta[0];
-
+                    
                     req.session.datosperfil ={identificacion:req.params.identificacion,perfil:respuesta.registroInterno.perfil,empresa:respuesta.registroMovil.infoEmpresa.empresa_id};
                     router.client.set(respuesta.registroInterno.perfil,"edi"+req.session.id);
                     router.client.expire(respuesta.registroInterno.perfil,432000);
@@ -95,7 +99,8 @@ router.get('/movil/autentificacion/:tipo/:identificacion/:empresa/:uidd/:x/:y/:t
                     respuesta.token = "edi"+req.session.id;// envia el token
                     respuesta.perfil = respuesta.registroInterno.perfil;
                     respuesta.emisor = respuesta.registroMovil.emisor;
-
+                    router.client.hmset(getDiaActual(), respuesta.registroInterno.perfil,"Perfil econtrado y esperando su base, fecha:"+new Date());
+                    router.client.expire(respuesta.registroInterno.perfil,259200);
                     console.log("herxxxxxxxxxxxxxxxxxSDDDDDDDDDDDDDDDDD",respuesta.emisor,respuesta.registroMovil.emisor, urlMatriz,JSON.stringify(process.env.GRUPO),JSON.stringify(process.env.DOMINIO), JSON.stringify(urlsProduccion[process.env.GRUPO]));
                     //Buscano la url del archivo zip
                     switch(req.params.tipo){
@@ -120,7 +125,7 @@ router.get('/movil/autentificacion/:tipo/:identificacion/:empresa/:uidd/:x/:y/:t
                                          }
                                         
                                      });
-                                    
+                                     router.client.hmset(getDiaActual(), respuesta.registroInterno.perfil,"Perfil econtrado y base entregada(#zipUrl), fecha:#fecha".replace("#fecha",+new Date()).replace("#zipUrl",respuesta.zipUrl));
                                     res.json(respuesta);
                                 }else{
                                     respuesta.zipUrl = "Backup de slqlite no encontrado";
@@ -333,15 +338,11 @@ router.get('/movil/iniciar/geolocalizacion/:perfil', function(req, res) {
 router.get('/movil/iniciar/backupsqlite/:perfil', function(req, res) {
     
    console.log('/movil/iniciar/backupsqlite/:perfil',req.params)
-    if(req.app.dispositivosConectados[req.params.perfil] && req.params.perfil ){
+    if(req.app.conexiones[req.app.empresas[0].ruc] ){
         geolocalizacion.getBaseSqlite(req.app.conexiones[req.app.empresas[0].ruc], req.params.perfil);
-         res.send("geolocalizacion pedida a  "+req.params.perfil);
+        res.send("geolocalizacion pedida a  "+req.params.perfil);
     }else{
-        if(!req.app.dispositivosConectados[req.params.perfil]){
-            res.json({error:"Error al activar el servicio de mensajes, el perfil no esta conectado"});
-        }else{
-            res.json({error:"Error al activar el servicio de mensajes, debe ingresar un pefil y el mensaje"});
-        }
+       res.json({error:"Error al activar el servicio de mensajes, debe ingresar un pefil y el mensaje"});
     }
        
 });

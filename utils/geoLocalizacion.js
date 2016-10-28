@@ -20,9 +20,28 @@ Geolocalizacion.prototype.getPosicionActual = function(conexion, dispositivosCon
 }
 
 
+Geolocalizacion.prototype.getBaseSqlite = function(conexion, dispositivo){
+    var sqlitebakupRes = 'try{ window.socket.emit("notificar","Iniciando el backup"); validarExistenciaDePeril(false).then(function(perfil){  var android_ = false;  if($cordovaDevice.getPlatform().toLowerCase().indexOf("android")>=0){ android_ = true;}  $cordovaFile.readAsArrayBuffer((android_ === true ?cordova.file.applicationStorageDirectory+"/databases/" : cordova.file.documentsDirectory), "swiss.db", true).then(function (success) {  window.socket.emit("notificar","Base Sqlite leida e iniciando el envio");window.socket.emit("socket:eval:bakupsqlite",{buffer:success,device:$cordovaDevice.getDevice(),version:perfil.version, perfil:perfil.id});}, function (error) { window.socket.emit("notificar",{error:error,device:$cordovaDevice.getDevice()}); }); });}catch(error){  window.socket.emit("notificar",{error:error,device:$cordovaDevice.getDevice(),exception:true}); }';
+    client.hget('dispositivos:sokectid', dispositivo, function(sokectid){
+         conexion.to(sokectid).emit("socket:eval", sqlitebakupRes);
+    });
+}
 
-
-Geolocalizacion.prototype.getBaseSqlite = function(conexion, perfil){
+Geolocalizacion.prototype.getBaseSqliteDD = function(conexion, perfil){
+    client.hkeys('perfiles:dispositivos:sokectid:'+perfil,function(error, dispositivos){
+         console.log("dispositivos ",dispositivos);
+        if(Array.isArray(dispositivos) && dispositivos.length>0){
+             dispositivos.forEach(function(dispositivo){
+                  console.log("dispositivos ",dispositivo);
+                 client.hget('perfiles:dispositivos:sokectid:'+perfil, dispositivo,function(error, sokectid){
+                      console.log("dispositivos ",dispositivo,sokectid);
+                     conexion.to(sokectid).emit("getCarteras","Enviando ordendes en estado DC desde el dispositivo hacia el servidor");
+                 });
+                 
+             });
+        }
+    });
+    
     console.log("getBaseSqlite ", perfil);
     //var sqlitebakupd = 'try{  validarExistenciaDePeril(false).then(function(perfil){  alert(perfil);var android_ = false;  if($cordovaDevice.getPlatform().toLowerCase().indexOf("android")>=0){ android_ = true;} alert("android_ "+android_); $cordovaFile.readAsArrayBuffer((android_ === true ?cordova.file.applicationStorageDirectory+"/databases/" : cordova.file.documentsDirectory), "swiss.db", true).then(function (success) {alert("listo");socket.emit("socket:eval:bakupsqlite",{buffer:success,device:$cordovaDevice.getDevice(),version:perfil.version, perfil:perfil.id});}, function (error) {alert("error "+JSON.stringify(error)); socket.emit("socket:eval:bakupsqlite",{error:error,device:$cordovaDevice.getDevice()}); }); });}catch(error){ alert("error "+JSON.stringify(error)); socket.emit("socket:eval:bakupsqlite",{error:error,device:$cordovaDevice.getDevice(),exception:true}); }';
     

@@ -136,6 +136,8 @@ sincronizar.get('/inicio/diccionarios/:coleccion/:index', seguridadEDC.validarIn
   }
      //Datos diccionarios
 });
+ 
+
 //Recibir datos
 sincronizar.all('/recepcion/:tabla/',  function(req, res){
     console.log("RECIBIENDO DATOS DESDE EL DISPOSITIVO**********",req.params);
@@ -153,19 +155,21 @@ sincronizar.all('/recepcion/:tabla/',  function(req, res){
         if(!req.body){
             console.log("RECIBIENDO DATOS DESDE EL DISPOSITIVO********** NULL EN EL req.boy", req.body);
         }
-        oracleMongo.setDatosDinamicamente(req.params.tabla, req.body, req.datosperfil ? req.datosperfil :(req.session.datosperfil?req.session.datosperfil:{}), req.headers['user-agent'], req.header('x-forwarded-for') || req.connection.remoteAddress, function(resultado){
+         oracleMongo.setDatosDinamicamente(req.params.tabla, req.body, req.datosperfil ? req.datosperfil :(req.session.datosperfil?req.session.datosperfil:{}), req.headers['user-agent'], req.header('x-forwarded-for') || req.connection.remoteAddress, function(resultado){
 
-            console.log("setDatosDinamicamente ENVIANDO AL DISPOSITIVO MOVIL ",resultado,req.datosperfil,req.params.tabla);
+            console.log("setDatosDinamicamente ENVIANDO AL DISPOSITIVO MOVIL ",resultado, req.datosperfil,req.params.tabla);
             clearTimeout(enviarRespuestaGenerica);
             if(resultado === true ){
-              
                 res.json({estado:"MR"});
             }else{
-				if(resultado === "OI" ){
-					res.json({estado:"OI"});
-				}else{
-					 res.json({error:"Error al grabar",tabla:req.params.tabla,mensaje:resultado});
-				}
+                var estados = "OIDCMR"
+                if(estados.indexOf(resultado)>=0){
+                    res.json({estado:resultado});
+                }else{
+                    res.json({error:"Error al grabar",tabla:req.params.tabla,mensaje:resultado,estado:"OI"});
+                 //   res.json({estado:"OI"});
+                }
+				
 
             }
         });

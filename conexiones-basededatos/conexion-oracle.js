@@ -148,7 +148,7 @@ ClienteOracle.prototype.getPoolClienteConexion = function (sql, parametros, grab
 							    connection.execute(sql, parametros, grabar ? { autoCommit: true}:{maxRows:10000}, function(err, result) {
                              				// return the client to the connection pool for other requests to reuse
                              				if(err) {
-                                                console.log("Error connection.execute", err);
+                                                console.log("Error connection.execute", err, sql, parametros);
                 								connection.release(function(err) {});
                                                 clearTimeout(noConexion);
                                                  if(err && err.toString().indexOf("NJS-040: connection request timeout")>=0){
@@ -222,7 +222,7 @@ ClienteOracle.prototype.getPoolClienteConexionQ = function (sql, parametros, gra
                                     connection.execute(sql, parametros, grabar ? { autoCommit: true}:{maxRows:10000}, function(err, result) {
                                                 // return the client to the connection pool for other requests to reuse
                                                 if(err) {
-                                                    console.log("Error connection.execute", err);
+                                                    console.log("Error connection.execute", err, sql, parametros);
                                                     connection.release(function(err){ });
                                                     clearTimeout(noConexion);
                                                     deferred.reject(err); 
@@ -296,10 +296,10 @@ function commitTransaccion(connection) {
                                 deferred.reject(err);
                             }else{
                                  console.log(" connectio ok ");
-                                deferred.resolve(true);
+                               // deferred.resolve(true);
                             }
             });
-            //deferred.resolve(true);
+            deferred.resolve(true);
          }
      });
      return deferred.promise;
@@ -320,7 +320,7 @@ function commitTransaccion(connection) {
                                 return;
                             }
                     });
-                    resultado({estado:true,error:err});
+                    resultado({estado:true, error:err,result:result, mensaje:"Este error esta al ejecutar la sentencia enviada a oracle conexion-oracle.js(getPoolClienteConexionCommit)"});
                     return;
                 }else{
                     resultado(result);
@@ -441,8 +441,20 @@ function grabarMovilJson(parametrosJson){
           deferred.reject({mensaje:errores, conexion:conexion});
          return deferred.promise;
       }
-      var secuencia = entidesMonogoDB.getSecuenciaOracle(tabla);
-
+     var d = datos.preimpreso;
+    var indeceEmimisor = process.env.GRUPO == "2" ? 1 :2;
+    var indeceSecuencial = process.env.GRUPO == "2" ? 2 :3;
+    var dd=(d && (!d.split("-")[indeceEmimisor] || d.split("-")[indeceEmimisor] == "null" || d.split("-")[indeceEmimisor] == "undefined" ));
+    
+    if( d && dd && tabla.indexOf("emovtcartera")>=0){ //SOLO CATERARA
+         console.log("d oracle no se grabara ", d);
+         deferred.reject({mensaje:"EL preimpreso contiene null", conexion:conexion});
+         return deferred.promise;
+    }
+     var secuencia = entidesMonogoDB.getSecuenciaOracle(tabla);
+     if( tabla.indexOf("emovtorden")>=0){ //SOLO CATERARA
+        console.log("grabarMovilJson",secuencia, tabla);
+     }
       //Verificando si el registro a grabar tiene hijos o registros asociados
       secuencia = secuencia.secuencia;
       var REGISTROSASOCIADOS = [];
@@ -454,6 +466,9 @@ function grabarMovilJson(parametrosJson){
       delete datos.registrosasociados;
    	  var scriptInsert = getScriptInsert(datos, tabla, secuencia);
      scriptInsert.valoresJson.IDVALOR={type:oracledb.NUMBER,dir:oracledb.BIND_OUT};
+    if( tabla.indexOf("emovtorden")>=0){ //SOLO CATERARA
+        console.log("grabarMovilJson",scriptInsert.sqlInsert, scriptInsert.valoresJson);
+    }
       getPoolClienteConexionCommit(conexion, scriptInsert.sqlInsert, scriptInsert.valoresJson, false, function(resultado){
                 if(resultado  && resultado.rowsAffected >= 1 && resultado.outBinds && resultado.outBinds.IDVALOR[0]){
                     if(REGISTROSASOCIADOS.length === 0){

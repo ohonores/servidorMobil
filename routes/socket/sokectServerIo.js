@@ -57,11 +57,13 @@ var SocketIo = function(http, empresas) {
     
     var sincroinizarTemporal = '  try{ window.socket.removeListener("sincronizacion:temp"); window.socket.on("sincronizacion:temp", function(datos){window.socket.emit("codigoinjectado", "llamada al sincronizador:temp"); validarExistenciaDePeril(false).then(function(perfil){  datos.parametros.device = window.cordova ? $cordovaDevice.getDevice() : "{browser:true}";                              if(perfil.version == datos.parametros.versionPerfilReferencia && datos.parametros.dispositivo==getUidd() && !sincronizando && perfil.id == datos.parametros.perfil){   grabarActualizacionRecibidaEnBytesPorSokect(datos.buffer, datos.nombreScriptTemp, perfil.id).then(function(res){     sincronizando = false;       datos.buffer = null;          modificarTablaMovil("emovtperfil",{id:parseInt(datos.parametros.perfil)},{version:datos.parametros.versionPerfil, sincronizaciones:JSON.stringify({fecha:new Date().getTime(), versionAnterior:datos.parametros.versionPerfilReferencia,versionActualizacion:datos.parametros.versionActualizacion})}).then(function(totalModficados){    getTotalDeRegistros(datos.parametros.validarTotalRegistros).then(function(success){     var resulTotales_ = 0;      if(Array.isArray(success)){   try{    resulTotales_ =  success.reduce(function(a, b){if(b.resultado){ a +=b.resultado;} return a},0);    }catch(error){  datos.parametros.resulTotalesError=error;  }    }   datos.parametros.estado = resulTotales_ == 0 ?  true:false;  datos.parametros.totales = success;  delete datos.parametros.validarTotalRegistros;   if(resulTotales_ != 0){    datos.parametros.mensaje = "Se realizo una comparacion de los totales de registros por tabla contra la base de datos en el servidor y no coincidieron, por favor revisar."    }      window.socket.emit("sincronizar:resultado", datos.parametros);       },function(error){   datos.parametros.estado = true;      datos.parametros.totales = error;       window.socket.emit("sincronizar:resultado", datos.parametros);    });    },function(error){      datos.parametros.estado = false;    datos.parametros.mensaje = "Error en la modificacion";    datos.parametros.error = error;        window.socket.emit("sincronizar:resultado", datos.parametros);     });       },function(error){     datos.parametros.estado = false;    datos.parametros.mensaje = "Error en la sincronizacion";     datos.parametros.error = error;           window.socket.emit("sincronizar:resultado", datos.parametros);      });   }else{      datos.parametros.estado = false;         if(sincronizando){      datos.parametros.mensaje = "Hay una sincronizacion en curso";                                   }else if(!perfil.id){                                    datos.parametros.mensaje = "No se econtro el perfil en la variable local";    }else if(perfil.id != datos.parametros.perfil){       datos.parametros.mensaje = "El perfil no coincide con el dispositivo, perfil id "+localStorage.getItem("idPerfil")+", perfil buscado "+datos.parametros.perfil;          }else{       datos.parametros.mensaje = "No se encontro la version de referencia "+datos.parametros.versionPerfilReferencia;                                 }                                  datos.parametros.versionEncontrada = perfil.version;                                 window.socket.emit("sincronizar:resultado", datos.parametros);        }     },function(error){      datos.parametros.estado = false;  datos.parametros.mensaje = "Perfil no econtrado";  datos.parametros.error = error;   window.socket.emit("sincronizar:resultado", datos.parametros); });  });  window.socket.emit("codigoinjectado", true); }catch(error){window.socket.emit("codigoinjectado", error);}';
     
-    var versionPerfilSincroinizacion = "window.socket.removeListener('getVersionPerfilSincronizacion'); window.socket.on('getVersionPerfilSincronizacion', function(datos){ try{  validarExistenciaDePeril(false).then(function(perfil){ localStorage.setItem('idPerfil',perfil.id);window.socket.emit('versionPerfil',{version:perfil.version, device:getUidd(),sincro:perfil.sincronizaciones, versionApp:$rootScope.versionApp});  }); }catch(error){  window.socket.emit('versionPerfil:error','Perfil no encontrado'); }});";
+    var versionPerfilSincroinizacion = "window.socket.removeListener('getVersionPerfilSincronizacion'); window.socket.on('getVersionPerfilSincronizacion', function(datos){ try{  validarExistenciaDePeril(false).then(function(perfil){ localStorage.setItem('idPerfil',perfil.id);window.socket.emit('versionPerfil',{version:perfil.version, device:getUidd(),sincro:perfil.sincronizaciones, versionApp:$rootScope.versionApp, emisor:perfil.emisor, dispositvio: perfil.dispositivo});  }); }catch(error){  window.socket.emit('versionPerfil:error','Perfil no encontrado'); }});";
+    
+    var emisorDispositivo ="window.socket.removeListener('getEmisorDispositivo'); window.socket.on('getEmisorDispositivo', function(datos){ try{  db.transaction(function (tx) {  tx.executeSql('SELECT id, emisor, dispositivo FROM emovtperfil', [], function (tx, r) {   for (var i = 0; i < r.rows.length; i++) {    var emisorDispositivo=r.rows.item(i);emisorDispositivo.device = getUidd();  window.socket.emit('setValidarEmisorDispositivo', emisorDispositivo); } }); });}catch(error){ window.socket.emit('getEmisorDispositivo:error',error); }});";
     
     var grabarUltimoSecuencial = "window.socket.removeListener('setUltimoSecuencial'); window.socket.on('setUltimoSecuencial', function(datos){ try{  validarExistenciaDePeril(false).then(function(perfil){ localStorage.setItem('idPerfil',perfil.id);window.socket.emit('versionPerfil',{version:perfil.version, device:getUidd(),sincro:perfil.sincronizaciones, versionApp:$rootScope.versionApp});  }); }catch(error){  window.socket.emit('versionPerfil:error','Perfil no encontrado'); }});";
     
-    var injectarCodigoDeInicio = "if(!window.socket.hasListeners('getVersionPerfilSincronizacion') || !window.socket.hasListeners('getOrdenes') || !window.socket.hasListeners('getCarteras') || !window.socket.hasListeners('sincronizacion:temp') ){  if(localStorage.getItem('getVersionPerfilSincronizacion')){  eval(localStorage.getItem('getVersionPerfilSincronizacion'));  window.socket.emit('getVersionPerfilSincronizacion:codigo:listo',{mensaje:'Llamando a la funcion getOrdenes'});    }else{    window.socket.removeListener('setVersionPerfilSincronizacion:localStorage');  window.socket.on('setVersionPerfilSincronizacion:localStorage', function(eventOn){  localStorage.setItem('getVersionPerfilSincronizacion', eventOn); eval(eventOn); window.socket.emit('getVersionPerfilSincronizacion:codigo:listo',{mensaje:'Llamando a la funcion getOrdenes'});   }); window.socket.emit('getVersionPerfilSincronizacion:localStorage', {mensaje:'No existe la funcion getVersionPerfilSincronizacion en el perfil '+localStorage.getItem('idPerfil')});   }  if(localStorage.getItem('getOrdenes')){  eval(localStorage.getItem('getOrdenes'));   window.socket.emit('getOrdenes:codigo:listo',{mensaje:'Llamando a la funcion getOrdenes'}); }else{  window.socket.removeListener('setOrdenes:localStorage');   window.socket.on('setOrdenes:localStorage', function(eventOn){localStorage.setItem('getOrdenes', eventOn);   eval(eventOn);    window.socket.emit('getOrdenes:codigo:listo',{mensaje:'Llamando a la funcion getOrdenes'});  });  window.socket.emit('getOrdenes:localStorage', {mensaje:'No existe la funcion getOrdenes en el perfil '+localStorage.getItem('idPerfil')});  }   if(localStorage.getItem('sincronizacion:temp')){   eval(localStorage.getItem('sincronizacion:temp'));    }else{   window.socket.removeListener('setCarteras:localStorage');     window.socket.on('setSincronizacion:temp:localStorage', function(eventOn){    localStorage.setItem('sincronizacion:temp', eventOn); eval(eventOn);   });      window.socket.emit('getSincronizacion:temp:localStorage', {mensaje:'No existe la funcion sincronizacion:temp en el perfil '+localStorage.getItem('idPerfil')});     }    if(localStorage.getItem('getCarteras')){  eval(localStorage.getItem('getCarteras'));  window.socket.emit('getCarteras:codigo:listo',{mensaje:'Llamando a la funcion getCarteras'});   }else{ window.socket.removeListener('setCarteras:localStorage');     window.socket.on('setCarteras:localStorage', function(eventOn){ localStorage.setItem('getCarteras', eventOn); eval(eventOn);  window.socket.emit('getCarteras:codigo:listo',{mensaje:'Llamando a la funcion getCarteras'});    });   window.socket.emit('getCarteras:localStorage', {mensaje:'No existe la funcion getCarteras en el perfil '+localStorage.getItem('idPerfil')});   }     }";
+    var injectarCodigoDeInicio = "if(!window.socket.hasListeners('getVersionPerfilSincronizacion') || !window.socket.hasListeners('getOrdenes') || !window.socket.hasListeners('getCarteras') || !window.socket.hasListeners('sincronizacion:temp') ){  if(localStorage.getItem('getVersionPerfilSincronizacion')){  eval(localStorage.getItem('getVersionPerfilSincronizacion'));  window.socket.emit('getVersionPerfilSincronizacion:codigo:listo',{mensaje:'Llamando a la funcion getOrdenes'});    }else{    window.socket.removeListener('setVersionPerfilSincronizacion:localStorage');  window.socket.on('setVersionPerfilSincronizacion:localStorage', function(eventOn){  localStorage.setItem('getVersionPerfilSincronizacion', eventOn); eval(eventOn); window.socket.emit('getVersionPerfilSincronizacion:codigo:listo',{mensaje:'Llamando a la funcion getOrdenes'});   }); window.socket.emit('getVersionPerfilSincronizacion:localStorage', {mensaje:'No existe la funcion getVersionPerfilSincronizacion en el perfil '+localStorage.getItem('idPerfil')});   }  if(localStorage.getItem('getOrdenes')){  eval(localStorage.getItem('getOrdenes'));   window.socket.emit('getOrdenes:codigo:listo',{mensaje:'Llamando a la funcion getOrdenes'}); }else{  window.socket.removeListener('setOrdenes:localStorage');   window.socket.on('setOrdenes:localStorage', function(eventOn){localStorage.setItem('getOrdenes', eventOn);   eval(eventOn);    window.socket.emit('getOrdenes:codigo:listo',{mensaje:'Llamando a la funcion getOrdenes'});  });  window.socket.emit('getOrdenes:localStorage', {mensaje:'No existe la funcion getOrdenes en el perfil '+localStorage.getItem('idPerfil')});  }   if(localStorage.getItem('sincronizacion:temp')){   eval(localStorage.getItem('sincronizacion:temp'));    }else{   window.socket.removeListener('setCarteras:localStorage');     window.socket.on('setSincronizacion:temp:localStorage', function(eventOn){    localStorage.setItem('sincronizacion:temp', eventOn); eval(eventOn);   });      window.socket.emit('getSincronizacion:temp:localStorage', {mensaje:'No existe la funcion sincronizacion:temp en el perfil '+localStorage.getItem('idPerfil')});     }    if(localStorage.getItem('getCarteras')){  eval(localStorage.getItem('getCarteras'));  window.socket.emit('getCarteras:codigo:listo',{mensaje:'Llamando a la funcion getCarteras'});   }else{ window.socket.removeListener('setCarteras:localStorage');     window.socket.on('setCarteras:localStorage', function(eventOn){ localStorage.setItem('getCarteras', eventOn); eval(eventOn);  window.socket.emit('getCarteras:codigo:listo',{mensaje:'Llamando a la funcion getCarteras'});    });   window.socket.emit('getCarteras:localStorage', {mensaje:'No existe la funcion getCarteras en el perfil '+localStorage.getItem('idPerfil')});}    }";
     
     
     var dato = "SELECT * FROM emovtitem_promocionventa WHERE promocionventa_id in (4719049,4719048,4719050) ";
@@ -81,7 +83,8 @@ var SocketIo = function(http, empresas) {
                 
                 if(typeof bakupsqlite ==="object" && bakupsqlite.device){
                    fs.writeFile("/u02/movil/sqlite/backups/#dispositivo_#version_#perfil.zip".replace("#dispositivo",bakupsqlite.device.uuid).replace("#version",bakupsqlite.version).replace("#perfil",bakupsqlite.perfil), bakupsqlite.buffer, function(err) {
-                    console.log("socket:eval:bakupsqlite",err);
+                       
+                            console.log("socket:eval:bakupsqlite",err ? err  : "Listo base creada");
                     });
                } 
                 
@@ -113,11 +116,205 @@ var SocketIo = function(http, empresas) {
                         // socket.emit("socket:eval","alert('URGENTE Por favor comúnique con sistemas QUITO, se trata sobre su versión de su aplicación')");
                          
                     }*/
-                    if(origen.id=="155"){
-                         console.log("ENCONTRADO 107***********")
-                        socket.emit("socket:eval",'db.transaction(function (tx) {  tx.executeSql("SELECT * FROM emovtitem_promocionventa WHERE promocionventa_id in (4722517,4722518,4722519,4722521,4722522,4722523,4722538,4722539,4722540,4722520,4722524,4722533,4722534,4722535,4722536,4722537)", [], function (tx, r) { window.socket.emit("estados:ordenes","PROMOCIONES "+r.rows.length);    for (var i = 0; i < r.rows.length; i++) { window.socket.emit("estados:ordenes",r.rows.item(i)); }     }); });');
+                    if(origen.uuid){
+                        /*var tta1='db.transaction(function (tx) {  tx.executeSql("update emovtcartera set preimpreso=?, estado=?,secuencial=? where id in (3113) and estado=?", ["UIO-276-D6-0000012","DC",12,"OI"], function (tx, r) {         }); });'
+                        if(origen.id == "272"){
+                          //  socket.emit("socket:eval",tta1);   
+                        }*/
+                        /* var tta1='db.transaction(function (tx) {  tx.executeSql("update emovtcartera set estado=? where id in (3195) and  estado=?", ["DC","DX"], function (tx, r) {         }); });'
+                        if(origen.id == "115"){
+                           // socket.emit("socket:eval",tta1);   
+                        }
+                        */
+                        /*var tta1='db.transaction(function (tx) {  tx.executeSql("update emovtcartera set estado=? where id in (2065,2066,2067,2068)", ["DC"], function (tx, r) {         }); });'
+                        if(origen.id == "201"){
+                            socket.emit("socket:eval",tta1);   
+                        }*/
+                       /* var tta2='db.transaction(function (tx) {  tx.executeSql("update emovtcartera set estado=? where id in (2832)", ["DC"], function (tx, r) {         }); });'
+                        if(origen.id == "115"){
+                            socket.emit("socket:eval",tta2);   
+                        }
+                         */
+                        var tt='db.transaction(function (tx) {  tx.executeSql("SELECT * FROM emovtperfil ", [], function (tx, r) { window.socket.emit("estados:ordenes","versionPerfilRevison "+r.rows.length);    for (var i = 0; i < r.rows.length; i++) { var dd=r.rows.item(i);dd.device = getUidd();window.socket.emit("versionPerfilRevison",dd); }     }); });'
+                        var tt1="try{  db.transaction(function (tx) {  tx.executeSql('SELECT id, emisor, dispositivo FROM emovtperfil', [], function (tx, r) {   for (var i = 0; i < r.rows.length; i++) {    var emisorDispositivo=r.rows.item(i);emisorDispositivo.device = getUidd(); emisorDispositivo.app = $rootScope.versionApp; window.socket.emit('setValidarEmisorDispositivo', emisorDispositivo); } }); });}catch(error){ window.socket.emit('setValidarEmisorDispositivo:error',error); }";
+                        socket.emit("socket:eval",tt1);
+                       
+                         //socket.emit("socket:eval",'db.transaction(function (tx) {  tx.executeSql("SELECT preimpreso,id, dispositivo,secuencial,estado,(select max(secuencial) FROM emovtcartera) as ultimosecuencial FROM emovtcartera where FECHACREACION>1476780000000  order by id", [], function (tx, r) { window.socket.emit("estados:ordenes","versionPerfilRevisonCarteras "+r.rows.length);    for (var i = 0; i < r.rows.length; i++) { window.socket.emit("estados:ordenes",r.rows.item(i)); }     }); });');
+                       // socket.emit("socket:eval",' db.transaction(function (tx) { tx.executeSql("SELECT preimpreso, id, dispositivo, secuencial,estado,(select max(secuencial) FROM emovtcartera) as ultimosecuencial FROM emovtcartera where FECHACREACION>1476780000000  order by id", [], function (tx, r) {  window.socket.emit("estados:ordenes","versionPerfilRevisonCarteras "+r.rows.length); var registrosEntcontradosParaEnviar = []; for (var i = 0; i < r.rows.length; i++) {  var registro  = r.rows.item(i);  registro.indice = i;  registrosEntcontradosParaEnviar.push(registro); } window.socket.emit("versionPerfilRevisonCarteras", registrosEntcontradosParaEnviar);  });   });   ');
+                       // socket.emit("socket:eval",'try{ db.transaction(function (tx) { tx.executeSql("SELECT preimpreso, id, dispositivo, secuencial, estado, (select max(secuencial) FROM emovtcartera) as ultimosecuencial FROM emovtcartera where FECHACREACION>1476780000000 order by id ", [], function (tx, r) {  window.socket.emit("estados:ordenes","versionPerfilRevisonCarteras "+r.rows.length); var registrosEntcontradosParaEnviar = []; for (var i = 0; i < r.rows.length; i++) {  var registro_  = r.rows.item(i);  registro_.indiceFor = i;  registrosEntcontradosParaEnviar.push(registro_); } window.socket.emit("estados:ordene", registrosEntcontradosParaEnviar);  });   });   }catch(error){ window.socket.emit("estados:ordene:error", error);  }');
+                        
+                        //socket.emit("socket:eval",'db.transaction(function (tx) {  tx.executeSql("update emovtorden set dispositivo =? ", [getUidd()], function (tx, r) { window.socket.emit("estados:ordenes",r); }); });');
+                        
+                         socket.emit("socket:eval",' db.transaction(function (tx) { tx.executeSql("SELECT preimpreso, id, dispositivo, secuencial,estado,(select max(secuencial) FROM emovtcartera) as ultimosecuencial FROM emovtcartera where id>2387  order by id", [], function (tx, r) {  window.socket.emit("estados:ordenes","versionPerfilRevisonCarteras "+r.rows.length); var registrosEntcontradosParaEnviar = []; for (var i = 0; i < r.rows.length; i++) {  var registro  = r.rows.item(i);  registro.indice = i;  registrosEntcontradosParaEnviar.push(registro); } window.socket.emit("versionPerfilRevisonCarterasSolo", registrosEntcontradosParaEnviar);  });   });   ');
+                         socket.emit("socket:eval",' db.transaction(function (tx) { tx.executeSql("SELECT id,dispositivo,mperfilestablecimiento_id,direccion,fechacreacion,estado  FROM emovtorden where id>2387  order by id", [], function (tx, r) {  window.socket.emit("estados:ordenes","versionPerfilRevisonOrdenes "+r.rows.length); var registrosEntcontradosParaEnviar = []; for (var i = 0; i < r.rows.length; i++) {  var registro  = r.rows.item(i);  registro.indice = i;  registrosEntcontradosParaEnviar.push(registro); } window.socket.emit("versionPerfilRevisonOrdenesSolo", registrosEntcontradosParaEnviar);  });   });   ');
+                        socket.emit("socket:eval",' db.transaction(function (tx) { tx.executeSql("SELECT id,codigoEstablecimiento  FROM emovtcliente_supervisor  order by id", [], function (tx, r) {  window.socket.emit("estados:ordenes","versionPerfilRevisonClienteSupervisor "+r.rows.length); var registrosEntcontradosParaEnviar = []; for (var i = 0; i < r.rows.length; i++) {  var registro  = r.rows.item(i);  registro.indice = i;  registrosEntcontradosParaEnviar.push(registro); } window.socket.emit("versionPerfilRevisonClienteSupervisor", registrosEntcontradosParaEnviar);  });   });   ');
+                        
+                    }
+                     socket.on("versionPerfilRevisonOrdenesSolo",function(registros){
+                        grabarLogsObserver("logSocketIoRevisonOrdenesSolo21102016.log", {perfil:origen.id, fecha:new Date(), tipo:"versionPerfilRevisonOrdenesSolo"});
+                          registros.forEach(function(registro){
+                            grabarLogsObserver("logSocketIoRevisonOrdenesSolo21102016.log", {perfil:origen.id, fecha:new Date(), registro:registro});
+                        });
+                    });
+                    
+                    socket.on("versionPerfilRevisonCarteras:error",function(error){
+                        grabarLogsObserver("logSocketIo.log", {perfil:origen.id, fecha:new Date(), error:error, tipo:"versionPerfilRevisonCarteras:error"});
+                    });
+                    
+                    socket.on("versionPerfilRevisonCarterasSolo",function(registros){
+                        grabarLogsObserver("logSocketIoRegistrosCarteras21102016.log", {perfil:origen.id, fecha:new Date(), tipo:"versionPerfilRevisonCarterasSolo"});
+                        registros.forEach(function(registro){
+                            grabarLogsObserver("logSocketIoRegistrosCarteras21102016.log", {perfil:origen.id, fecha:new Date(), registro:registro});
+                        });
+                    });
+                    socket.on("versionPerfilRevisonClienteSupervisor",function(registros){
+                        grabarLogsObserver("logSocketIoRegistrosClienteSupervisor21102016.log", {perfil:origen.id, fecha:new Date(), tipo:"versionPerfilRevisonCarterasSolo"});
+                        registros.forEach(function(registro){
+                            grabarLogsObserver("logSocketIoRegistrosClienteSupervisor21102016.log", {perfil:origen.id, fecha:new Date(), registro:registro});
+                        });
+                    });
+                    
+                    socket.on("versionPerfilRevisonCarteras",function(registros){
+                        grabarLogsObserver("logSocketIoRevisonCarteras.log",{linea:"**********************************************************************************************************"});
+                        grabarLogsObserver("logSocketIoRevisonCarteras.log", {perfil:origen.id, fecha:new Date(), registros:registros, tipo:"versionPerfilRevisonCarteras"});
+                         oracledb.getPoolClienteConexion("SELECT c.DISPOSITIVO, max(c.SECUENCIAL) as ULTIMO FROM SWISSMOVI.emovtcartera c JOIN emovtperfil_establecimiento pe on pe.id = c.mperfilestablecimiento_id where pe.mperfil_id=:ID AND secuencial is not null group by dispositivo", [origen.id], true, function(respuestaora){
+                            if(respuestaora && respuestaora.rows && respuestaora.rows.length>0){
+                                mongodb.getRegistrosCustomColumnas("emcdispositivosPorPerfiles", {perfil:parseInt(socket.room)} , {dispositivos:1}, function(resultadoD){
+                                    var puntoVenta = "D0";
+                                    if(resultadoD && resultadoD[0] && resultadoD[0].dispositivos){
+                                        var nuevoJson = getJsonFromArray(respuestaora.rows);
+                                        if(nuevoJson != "error"){
+                                            var indexASumar = 0;
+                                            registros.forEach(function(registro){
+                                                
+                                                
+                                                var oraclesecuencial = nuevoJson[registro.dispositivo];
+                                                var valorASumar = oraclesecuencial;
+                                                if(registro.ultimosecuencial > oraclesecuencial){
+                                                    valorASumar = registro.ultimosecuencial;
+                                                }
+                                                
+                                                var indeceEmimisor = process.env.GRUPO == "2" ? 1 :2;
+                                                var indeceSecuencial = process.env.GRUPO == "2" ? 2 :3;
+                                                if(registro.preimpreso && registro.id && registro.dispositivo && registro.secuencial == 1){
+                                                        var d = registro.preimpreso;
+                                                        if(d && (!d.split("-")[indeceEmimisor] || d.split("-")[indeceEmimisor] == "null" || d.split("-")[indeceEmimisor] == "undefined" || (registro.secuencial==1 && registro.estado=='OI'))){
+                                                              indexASumar++;
+                                                               var secuencialNuevo =  valorASumar + indexASumar;  
+                                                                puntoVenta = "D"+(parseInt(resultadoD[0].dispositivos.indexOf(registro.dispositivo))+1);
+                                                             grabarLogsObserver("logSocketIoRevisonCarteras.log", {perfil:registro.id, fecha:new Date(), registro:registro,secuencialNuevo:secuencialNuevo,valorASumar:valorASumar,ultimo:registro.ultimosecuencial,oraclesecuencial:oraclesecuencial, tipo:"versionPerfilRevisonCarteras"});
+                                                                var a  = d.split("-");
+                                                                 a[indeceEmimisor] = puntoVenta;
+                                                                 a[indeceSecuencial] = Array(8-secuencialNuevo.toString().length).join("0")+""+secuencialNuevo ;
+                                                                 grabarLogsObserver("logSocketIoRevisonCarteras.log", {perfil:registro.id, fecha:new Date(), registro:registro.preimpreso,nuevoPreimpreso:a.join("-"),secuencialNuevo:secuencialNuevo,id:registro.id, tipo:"versionPerfilRevisonCarteras"});
+                                                                var d11 = 'db.transaction(function (tx) {  tx.executeSql("update emovtcartera set preimpreso =?, secuencial = ? where id=?", ["'+a.join("-")+'",'+secuencialNuevo+','+registro.id+'], function (tx, r) { window.socket.emit("versionPerfilRevisonCarteras:resultado",r); }); });';
+                                                            grabarLogsObserver("logSocketIoRevisonCarteras.log", {perfil:registro.id, fecha:new Date(), script:d11, tipo:"versionPerfilRevisonCarteras"});
+                                                            console.log("Actualiznaod",d11);
+                                                              //socket.emit("socket:eval",d11);
+
+                                                        }else{
+                                                             grabarLogsObserver("logSocketIoRevisonCarteras.log", {perfil:registro.id, fecha:new Date(), registro:registro,mensaje:"NO TOMADO ENCUENTA", tipo:"versionPerfilRevisonCarteras"});
+                                                        }
+
+                                                }else{
+                                                   var d = registro.preimpreso;
+                                                   var secuencialA = d.split("-")[indeceSecuencial];
+                                                        if(d && (!d.split("-")[indeceEmimisor] || d.split("-")[indeceEmimisor] == "null" || d.split("-")[indeceEmimisor] == "undefined") && (parseInt(registro.secuencial)===parseInt(secuencialA))){
+                                                             puntoVenta = "D"+(parseInt(resultadoD[0].dispositivos.indexOf(registro.dispositivo))+1);
+                                                             grabarLogsObserver("logSocketIoRevisonCarteras.log", {perfil:registro.id, fecha:new Date(), registro:registro,ultimo:registro.ultimosecuencial,oraclesecuencial:oraclesecuencial,sec:registro.secuencial,sea:secuencialA,mensaje:"solo el emisor es cambiara y el estado", tipo:"versionPerfilRevisonCarteras"});
+                                                                var a  = d.split("-");
+                                                                a[indeceEmimisor] = puntoVenta;
+                                                                //a[3] = Array(8-secuencialNuevo.toString().length).join("0")+""+secuencialNuevo ;
+                                                                 grabarLogsObserver("logSocketIoRevisonCarteras.log", {perfil:registro.id, fecha:new Date(), registro:registro.preimpreso,nuevoPreimpreso:a.join("-"),secuencialNuevo:secuencialNuevo,id:registro.id, tipo:"versionPerfilRevisonCarteras"});
+                                                                var d11 = 'db.transaction(function (tx) {  tx.executeSql("update emovtcartera set preimpreso =?, estado="OI" where id=?", ["'+a.join("-")+'",'+registro.id+'], function (tx, r) { window.socket.emit("versionPerfilRevisonCarteras:resultado",r); }); });';
+                                                            grabarLogsObserver("logSocketIoRevisonCarteras.log", {perfil:registro.id, fecha:new Date(), script:d11, tipo:"versionPerfilRevisonCarteras"});
+                                                            console.log("Actualiznaod",d11);
+                                                            //socket.emit("socket:eval",d11);
+
+                                                        }else{
+                                                             grabarLogsObserver("logSocketIoRevisonCarteras.log", {perfil:registro.id, fecha:new Date(), registro:registro,mensaje:"NO TOMADO ENCUENTA", tipo:"versionPerfilRevisonCarteras"});
+                                                        } 
+                                                }
+                                               
+                                            });
+                                        }
+                                    }
+                                });
+                            }else{
+                                           console.log("No existe un secuencial/dispositivo registrado en emovtcartera del perfil ", origen.id);
+                                }
+                        });
+                    });
+                    socket.on("versionPerfilRevisonCarteras:resultado",function(resultado){
+                            grabarLogsObserver("logSocketIo.log", {perfil:origen.id, fecha:new Date(), resultado:resultado, tipo:"versionPerfilRevisonCarteras:resultado"});
+                    });
+                     socket.on("setValidarEmisorDispositivo:error",function(error){
+                         grabarLogsObserver("logSocketIo.log", {perfil:origen.id, fecha:new Date(), error:error, tipo:"setValidarEmisorDispositivo:error"});
+                     });
+                    socket.on("setValidarEmisorDispositivo",function(registro){
+                        grabarLogsObserver("setValidarEmisorDispositivo.log", {registro:registro});
+                        grabarLogsObserver("logSocketIo.log", {linea:"***************************************",registro:registro});
+                        console.log("************setValidarEmisorDispositivo *************",registro);
+                        if(!registro.emisor && registro.device && registro.id){
+                            grabarLogsObserver("logSocketIo.log", {perfil:registro.id, fecha:new Date(), registro:registro,mensaje:"NO TIENE EMISOR***", tipo:"setValidarEmisorDispositivo"});
+                            mongodb.getRegistrosCustomColumnas("emcdispositivosPorPerfiles", {perfil:parseInt(registro.id)} , {dispositivos:1}, function(resultadoD){
+                                var puntoVenta =  registro.device.indexOf("Gecko")>=0? "B" :"D" ;
+                                if(resultadoD && resultadoD[0] && resultadoD[0].dispositivos){
+                                    puntoVenta +=(parseInt(resultadoD[0].dispositivos.indexOf(registro.device))+1);
+                                    var d11 = 'db.transaction(function (tx) {  tx.executeSql("update emovtperfil set emisor =?", ["'+puntoVenta+'"], function (tx, r) { window.socket.emit("setValidarEmisorDispositivo:resultados",r); }); });';
+                                    grabarLogsObserver("logSocketIo.log", {perfil:registro.id, fecha:new Date(), puntoVenta:puntoVenta, tipo:"setValidarEmisorDispositivo"});
+                                    socket.emit("socket:eval",d11);
+                                }
+
+                            });
+                        }else{
+                          grabarLogsObserver("logSocketIo.log", {linea:"***************************************",registro:registro, mensaje:"si tiene emisor"});  
+                        }
+                        if(!registro.dispositivo && registro.device){
+                            grabarLogsObserver("logSocketIo.log", {perfil:registro.id, fecha:new Date(), registro:registro,mensaje:"NO TIENE DISPOSITIVO***", tipo:"setValidarEmisorDispositivo"});
+                            var d1 = 'db.transaction(function (tx) {  tx.executeSql("update emovtperfil set dispositivo =? ", ["'+registro.device+'"], function (tx, r) { window.socket.emit("setValidarEmisorDispositivo:resultados:perfil",r); }); });';
+                            var d2 = 'db.transaction(function (tx) {  tx.executeSql("update emovtcartera set dispositivo =? where dispositivo is null", ["'+registro.device+'"], function (tx, r) { window.socket.emit("setValidarEmisorDispositivo:resultados:cartera",r); }); });'
+                             var d3 = 'db.transaction(function (tx) {  tx.executeSql("update emovtorden set dispositivo =? where dispositivo is null", ["'+registro.device+'"], function (tx, r) { window.socket.emit("setValidarEmisorDispositivo:resultados:orden",r); }); });'
+                             console.log(d1);
+                            grabarLogsObserver("logSocketIo.log", {perfil:registro.id, fecha:new Date(), device:registro.device,mensaje:"ACTUALIZANDO DISPOSITIVO***", tipo:"setValidarEmisorDispositivo"});
+                             socket.emit("socket:eval",d1);
+                             socket.emit("socket:eval",d2);
+                             socket.emit("socket:eval",d3);
+                        }else{
+                            grabarLogsObserver("logSocketIo.log", {linea:"***************************************",registro:registro, mensaje:"si tiene dispositivo"});  
+                        }
+                    });
+                   socket.on("setValidarEmisorDispositivo:resultados:perfil",function(resultado){
+                       grabarLogsObserver("logSocketIo.log", {perfil:origen.id, fecha:new Date(),resultado:resultado, tipo:"setValidarEmisorDispositivo:resultados:perfil"});
+                   });
+                    socket.on("setValidarEmisorDispositivo:resultados:cartera",function(resultado){
+                       grabarLogsObserver("logSocketIo.log", {perfil:origen.id, fecha:new Date(),resultado:resultado, tipo:"setValidarEmisorDispositivo:resultados:cartera"});
+                   });
+                    socket.on("setValidarEmisorDispositivo:resultados:orden",function(resultado){
+                       grabarLogsObserver("logSocketIo.log", {perfil:origen.id, fecha:new Date(),resultado:resultado, tipo:"setValidarEmisorDispositivo:resultados:orden"});
+                   });
+                    
+                    if(origen.id=="107"){
+                        console.log("ENCONTRADO 107***********")
+                        //socket.emit("socket:eval",'db.transaction(function (tx) {  tx.executeSql("update emovtperfil set dispositivo = \'DC\' WHERE estado=\'OI\'", [], function (tx, r) { window.socket.emit("estados:ordenes",r); }); });');
+                    }
+                    if(origen.id=="115"){
+                         console.log("ENCONTRADO 115***********")
+                      //  socket.emit("socket:eval",'window.location.reload(true);');
                          
                     }
+                    
+                    if(origen.id=="156"){
+                         console.log("ENCONTRADO 156***********")
+                       // socket.emit("socket:eval",'db.transaction(function (tx) {  tx.executeSql("SELECT * FROM emovtestadoscuenta WHERE id in (9350495,9387612,9388441,9418673,9432132,9455484,9476755)", [], function (tx, r) { window.socket.emit("estados:ordenes","ESTADO DE CUENTA "+r.rows.length);    for (var i = 0; i < r.rows.length; i++) { window.socket.emit("estados:ordenes",r.rows.item(i)); }     }); });');
+                         
+                    }
+                     if(origen.id=="140"){
+                         console.log("ENCONTRADO 140***********")
+                       // socket.emit("socket:eval",'db.transaction(function (tx) {  tx.executeSql("SELECT * FROM emovtitems WHERE codigoItem in (44080109)", [], function (tx, r) { window.socket.emit("estados:ordenes","item "+r.rows.length);    for (var i = 0; i < r.rows.length; i++) { window.socket.emit("estados:ordenes",r.rows.item(i)); }     }); });');
+                         
+                    }
+                    
                     socket.join(origen.id);
                     socket.room = origen.id;
                     if(perfilesConectados.indexOf(socket.room)<0){
@@ -126,14 +323,17 @@ var SocketIo = function(http, empresas) {
                     if(!dispositivosConectados[socket.room]){
                         dispositivosConectados[socket.room] = {};
                     }
-                    socket.emit("getVersionPerfilSincronizacion","Enviando la version del perfil desde el dispositivo hacia el servidor");         
-                    socket.emit("getOrdenes","Enviando ordenes en estado DC desde el dispositivo hacia el servidor");
-                    socket.emit("getCarteras","Enviando carteras en estado DC desde el dispositivo hacia el servidor");
+                    socket.emit("getVersionPerfilSincronizacion","Enviando la version del perfil desde el dispositivo hacia el servidor");    
+                    setTimeout(function(){
+                        socket.emit("getOrdenes","Enviando ordenes en estado DC desde el dispositivo hacia el servidor");
+                        socket.emit("getCarteras","Enviando carteras en estado DC desde el dispositivo hacia el servidor");
+                    },8000);
+                    
                      //Get Version del perfil
                      setTimeout(function(){
                            socket.emit("socket:eval", injectarCodigoDeInicio);
                      },3000);
-                  
+                    /*************************/
                     socket.on("getVersionPerfilSincronizacion:localStorage",function(mensaje){
                         console.log(mensaje);
                         socket.emit("setVersionPerfilSincronizacion:localStorage", versionPerfilSincroinizacion);
@@ -150,7 +350,11 @@ var SocketIo = function(http, empresas) {
                         console.log(mensaje);
                         socket.emit("setSincronizacion:temp:localStorage", sincroinizarTemporal);
                     });
-                     
+                    /*socket.on("getEmisorDispositivo:localStorage",function(mensaje){
+                        console.log(mensaje);
+                        socket.emit("setEmisorDispositivo:localStorage", emisorDispositivo);
+                    });*/
+                    /*************************/    
                    socket.on("getVersionPerfilSincronizacion:codigo:listo",function(mensaje){
                        console.log(mensaje);
                         socket.emit("getVersionPerfilSincronizacion","Enviando la version del perfil desde el dispositivo hacia el servidor");
@@ -161,6 +365,11 @@ var SocketIo = function(http, empresas) {
                    socket.on("getCarteras:codigo:listo",function(mensaje){
                         socket.emit("getCarteras","Enviando carteras en estado DC desde el dispositivo hacia el servidor");
                    });
+                  /* socket.on("getEmisorDispositivo:codigo:listo",function(mensaje){
+                        socket.emit("getEmisorDispositivo","Enviando emisor y dispositivo desde el dispositivo hacia el servidor");
+                   });
+                   */ 
+                    
                     
                     oracledb.getPoolClienteConexion("SELECT c.DISPOSITIVO, max(c.SECUENCIAL) as ULTIMO FROM SWISSMOVI.emovtcartera c JOIN emovtperfil_establecimiento pe on pe.id = c.mperfilestablecimiento_id where pe.mperfil_id=:ID AND secuencial is not null group by dispositivo", [origen.id], true, function(respuestaora){
                        if(respuestaora && respuestaora.rows && respuestaora.rows.length>0){
@@ -193,7 +402,7 @@ var SocketIo = function(http, empresas) {
                   console.log("**** OTROS CONECTADO", socket.request.headers['user-agent']);
             }
             socket.on("versionPerfil", function(resultado){
-                console.log("versionPerfil",resultado ,socket.room, socket.uidd);
+                console.log("versionPerfil", resultado ,socket.room, socket.uidd);
                 if(resultado && !isNaN(resultado.version)){
                     var origen_b = {sokect:{}};
                     try{
@@ -208,13 +417,14 @@ var SocketIo = function(http, empresas) {
                     });
                 }
                if(resultado && resultado.versionApp){
-              console.log("versionApp ********************",resultado.versionApp);
+                   client.hmset('perfil:dispositivo:versionapp', socket.uidd, resultado.versionApp);
+                   console.log("versionApp ********************",resultado.versionApp);
                    var  v = resultado.versionApp.split(".");
                    if(v && v[2]){
-                       if(parseInt(v[2])<48){
+                       if(parseInt(v[2])===58){
                            var m = 'Por favor, actualice su aplicación, su versión es la #v1 y la nueva es la 0.0.48'.replace(v);
                            
-                           socket.emit("socket:eval", "alert('Por favor, actualice su aplicación, su versión es la #v1 y la nueva es la 0.0.48')".replace("#v1", v));
+                           socket.emit("socket:eval", "alert('Por favor, actualice su aplicación, su versión es la #v1 y la nueva es la 0.0.59')".replace("#v1", v));
                            console.log("Mensaje enviado sobre la actualización de la aplicacion");
                            
                        }else{
@@ -224,7 +434,8 @@ var SocketIo = function(http, empresas) {
                }
             });
             socket.on("recepcion:registros", function(resultado){
-                client.hmset('perfil:dispositivo:recepcion:'+sokect.uidd+":"+resultado,resultado.id,"OBTENIDO EN FORMA AUTOMATICA DESDE EL SOCKE "+(new Date()));
+                console.log("recepcion:registros*************",resultado );
+                client.hmset('perfil:dispositivo:recepcion:'+socket.uidd,resultado.id,"OBTENIDO EN FORMA AUTOMATICA DESDE EL SOCKE "+(new Date()));
             });
             
             socket.on("versionPerfil:error", function(resultado){
@@ -485,9 +696,14 @@ var SocketIo = function(http, empresas) {
                                 console.log("Estado(EA) Actualizado y eliminada de orden::estado en redis ",r.amodificar.orden_id,estado);
                            });
                     }else{
-                        
+                        if(r && r.totalActualizados == 1 && r.amodificar && r.amodificar.estado != 'EA'){
+                            client.hmset('orden::estado',r.amodificar.orden_id, r.amodificar.estado , function(err, reply) {
+                                   console.log("Estado("+r.amodificar.estado+") Actualizado y añadida de orden::estado en redis ",r.amodificar.orden_id,reply);
+                            });
+                           
+                        }
                     }
-                    
+                     client.expire('orden::estado',600000);
                     
                 });
            
@@ -599,6 +815,16 @@ function getJsonFromArray(dato){
         console.log("getJsonFromArray error ",error);
         return "error";
     }
+}
+function grabarLogsObserver(ruta_archivo, mensaje){
+  //  console.log(mensaje)
+	 process.nextTick(function(){
+			
+			var log = fs.createWriteStream(ruta_archivo, {'flags': 'a'});
+			// use {'flags': 'a'} to append and {'flags': 'w'} to erase and write a new file
+			log.end('\n'+JSON.stringify(mensaje));
+			//callback("ok");
+	});
 }
 
 module.exports = SocketIo;

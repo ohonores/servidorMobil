@@ -6,15 +6,10 @@ var Q = require('q');
 //var sqlite3 = require('sqlite3').verbose();
 var mongodb = require('../conexiones-basededatos/conexion-mongodb.js');
 var lineReader = require('line-reader');
-//var sq = require('./sqliteCliente.js');
-/**
-Ejemplo:
-exec("cp -rf  /home/ecuaquimica/sqlite/bds/diccionarios.dbEEE /home/ecuaquimica/sqlite/bds/perfil101test011.db",function(error, stdout, stderr){
-    console.log(error);
-    console.log(stdout);
-    console.log(stderr);
-});
-*/
+
+
+
+
 var ComandosPorConsola = function () {
 
 };
@@ -22,7 +17,7 @@ var ComandosPorConsola = function () {
 
 
 
-var coleccion = {nombre:"emcversiones",datos:{tipo:"diccionarios",version:"",nombreBackupSql:"",ubicacion:"/u02/movil/sqlite/bds/", origen:"",resultado:{}}};
+var coleccion = {nombre:"emcversiones",datos:{tipo:"diccionarios",version:"",nombreBackupSql:"",ubicacion:process.env.BDS, origen:"",resultado:{}}};
 ComandosPorConsola.prototype.copiarDiccionarios = function(perfilDestino){
     var deferred = Q.defer();
     mongodb.getRegistrosCustomColumnasOrdenLimite(coleccion.nombre, {tipo:"diccionarios",estado:true}, {nombreBackupSql:1,ubicacion:1,version:1}, {version:-1}, 1, function(res){
@@ -68,7 +63,8 @@ ComandosPorConsola.prototype.removerArchivosAreaTrabajo = function(){
         }
     });
 }
-var ubicacionZips = "/u02/movil/zipsSqls/";
+
+var ubicacionZips = process.env.ZIPSSQLITE;
 ComandosPorConsola.prototype.copiarArchivosZips = function(perfil){
     var deferred = Q.defer();
     setTimeout(function(){
@@ -97,20 +93,20 @@ ComandosPorConsola.prototype.copiarArchivosZips = function(perfil){
     },5000);
     return deferred.promise;
 }
-
+/**
+    Esta funcion confirma que se le haya entregado un base comprimida al perfil segun el dispositivo.
+    
+*/
 function getDispositivosSincronizados(parametros){
     var deferred = Q.defer();
     var parametrosBusqueda = {tipo:"zip", perfil:parametros.perfilDestino.toString(),"dispositivos.origen":{$exists:true},"dispositivos":{$elemMatch:{ip:{$exists:true},uidd:parametros.dispositivo}}};
     console.log(parametrosBusqueda);
     mongodb.getRegistrosCustomColumnasOrdenLimite(coleccion.nombre, parametrosBusqueda, {versionPerfil:1,dispositivos:1}, {versionPerfil:-1}, 1, function(dispositivosEncontrados){
-        if(dispositivosEncontrados && dispositivosEncontrados[0] && Array.isArray(dispositivosEncontrados[0].dispositivos) && dispositivosEncontrados[0].dispositivos.length>0){
-             
-             parametros.dispositivos = dispositivosEncontrados[0].dispositivos.reduce(function(nuevo,disp){if(nuevo.indexOf(disp.uidd)<0){nuevo.push(disp.uidd)}return nuevo;},[]);
+        if(dispositivosEncontrados && dispositivosEncontrados[0] && Array.isArray(dispositivosEncontrados[0].dispositivos) && dispositivosEncontrados[0].dispositivos.length>0 ){
+            parametros.dispositivos = dispositivosEncontrados[0].dispositivos.reduce(function(nuevo,disp){if(nuevo.indexOf(disp.uidd)<0){nuevo.push(disp.uidd)}return nuevo;},[]);
              var nuevoDispositivo = parametros.dispositivos.filter(function(dispositivo){
-                 
-                     return (dispositivo == parametros.dispositivo);
-                 
-              });
+                    return (dispositivo == parametros.dispositivo);
+            });
             if(Array.isArray(nuevoDispositivo) && nuevoDispositivo.length>0){
                 parametros.dispositivos = nuevoDispositivo;
                 parametros.listaPerfilVersion = [parseInt(parametros.versionEncontrada)];
@@ -118,9 +114,8 @@ function getDispositivosSincronizados(parametros){
             }else{
                 deferred.reject({mensaje:"Se encontraron dispositivos sincronizados para el perfil pero no hacen referencia al dispositivo entregado", parametros:parametros, metodo:"getDispositivosSincronizados"});
             }
-             
         }else{
-             console.log("No se encontraron dispositivos sincronizados para el perfil",parametros);
+             console.log("No se encontraron dispositivos sincronizados para el perfil",parametros,dispositivosEncontrados);
             deferred.reject({mensaje:"No se encontraron dispositivos sincronizados para el perfil ", parametros:parametros, metodo:"getDispositivosSincronizados"});
         }
         
@@ -131,7 +126,12 @@ function getDispositivosSincronizados(parametros){
 function crearSqliteDiffPorPerfilyDispositivoRecursive(index, versionesPorPerfil, parametros, resultados, errores, callback){
     if(index<versionesPorPerfil.length){
         var resultado = versionesPorPerfil[index];
-        var ubicacionArchivoSqliteActual = resultado.ubicacion + resultado.nombreBackupSql;
+        
+        /* borrame mas tarde
+        SE comento por que se esta obteniendo el zip
+        //nombreBackupZip:1, ubicacionZip:1,
+        var ubicacionArchivoSqliteActual = resultado.ubicacion + resultado.nombreBackupSql;*/
+        var ubicacionArchivoSqliteActual = resultado.ubicacionZip + resultado.nombreBackupZip;//Es la base que tiene el dispositivo en formato zip
         crearArchivoSqlParaActualizacion(ubicacionArchivoSqliteActual, parametros.ubicacionArchivoSqlite, parametros.versionPerfil, parametros.perfilDestino, parametros.origen, resultado.dispositivos, resultado.versionPerfil).then(function(success){
             resultados.push(success);
             index +=1;
@@ -148,11 +148,41 @@ function crearSqliteDiffPorPerfilyDispositivoRecursive(index, versionesPorPerfil
 
 function crearSqliteDiffPorPerfilyDispositivo(parametros){
     var deferred = Q.defer();
+    /*Borrame antes perfiles ahora zip
     parametrosBusqueda = {tipo:"perfiles",estado:true, perfil:parametros.perfilDestino.toString(), versionPerfil:{ $in: parametros.listaPerfilVersion }}; 
-    mongodb.getRegistrosCustomColumnas(coleccion.nombre, parametrosBusqueda, {nombreBackupSql:1,ubicacion:1,version:1,versionPerfil:1,dispositivos:1}, function(resultadoVersionesEntregadas){
+    mongodb.getRegistrosCustomColumnas(coleccion.nombre, parametrosBusqueda, {nombreBackupSql:1,ubicacion:1,version:1,versionPerfil:1,dispositivos:1}, function(resultadoVersionesEntregadas){*/
+    parametrosBusqueda = {tipo:"zip",estado:true, perfil:parametros.perfilDestino.toString(), versionPerfil:{ $in: parametros.listaPerfilVersion }}; 
+    mongodb.getRegistrosCustomColumnas(coleccion.nombre, parametrosBusqueda, {nombreBackupZip:1, ubicacionZip:1, version:1, versionPerfil:1, dispositivos:1}, function(resultadoVersionesEntregadas){
         if(resultadoVersionesEntregadas && Array.isArray(resultadoVersionesEntregadas) && resultadoVersionesEntregadas.length>0){
             crearSqliteDiffPorPerfilyDispositivoRecursive(0, resultadoVersionesEntregadas, parametros, [], [], function(resultados, errores){
-                deferred.resolve({success:resultados,error:errores});
+                deferred.resolve({success:resultados, error:errores});
+            });
+        }else{
+           deferred.reject({mensaje:"No existen versiones entregadas a los disposivivos con el perfil "+parametros.perfilDestino, parametros:parametrosBusqueda});
+        }
+    });//fin getRegistrosCustomColumnasOrdenLimite
+   return deferred.promise;
+}
+/**
+    function crearSqliteDiffPorPerfilyDispositivoZip, obtiene la ubicacion fisica del archivo zip segun la version
+    La coleccion en donde se buscara es de la siguiente forma
+     "_id" : ObjectId("5808d301484ec61916280e7d"),
+    "tipo" : "zip",
+    "version" : 1476972389210.0,
+    "versionPerfil" : 1476973264741.0,
+    "nombreBackupZip" : "1476972389210_1476973264741_137.zip",
+    "ubicacionZip" : "/u02/movil/zipsSqls/",
+    "estado":true,
+    "dispositivos":[]
+*/
+function crearSqliteDiffPorPerfilyDispositivoZip(parametros){
+    var deferred = Q.defer();
+    
+    parametrosBusqueda = {tipo:"zip",estado:true, perfil:parametros.perfilDestino.toString(), versionPerfil:{ $in: parametros.listaPerfilVersion }}; 
+    mongodb.getRegistrosCustomColumnas(coleccion.nombre, parametrosBusqueda, {nombreBackupZip:1,ubicacionZip:1,version:1,versionPerfil:1,dispositivos:1}, function(resultadoVersionesEntregadas){
+        if(resultadoVersionesEntregadas && Array.isArray(resultadoVersionesEntregadas) && resultadoVersionesEntregadas.length>0){
+            crearSqliteDiffPorPerfilyDispositivoRecursive(0, resultadoVersionesEntregadas, parametros, [], [], function(resultados, errores){
+                deferred.resolve({success:resultados, error:errores});
             });
         }else{
            deferred.reject({mensaje:"No existen versiones entregadas a los disposivivos con el perfil "+parametros.perfilDestino, parametros:parametrosBusqueda});
@@ -209,7 +239,7 @@ function getUltimaSincronizacion(perfilDestino, dispositivo, versionEncontrada){
                 //db.emcversiones.find({tipo:"zip", perfil:"156","dispositivos":{$elemMatch:{ip:{$exists:true},uidd:"d73609213b6a643"}},"dispositivos.origen":{$exists:true}},{versionPerfil:1, dispositivos:{$elemMatch:{ip:{$exists:true},uidd:"d73609213b6a643"}}}).sort({versionPerfil:-1}).limit(1)
                  parametrosBusqueda = {tipo:"zip", perfil:perfilDestino.toString(),"dispositivos":{$elemMatch:{ip:{$exists:true},uidd:dispositivo}},"dispositivos.origen":{$exists:true}};
                    mongodb.getRegistrosCustomColumnasOrdenLimite(coleccion.nombre, parametrosBusqueda, {versionPerfil:1, dispositivos:{$elemMatch:{ip:{$exists:true},uidd:dispositivo}}}, {versionPerfil:-1}, 1, function(res){
-                       console.log("getUltimaSincronizacion Obteniendo la primera version -->",res[0])
+                        console.log("getUltimaSincronizacion Obteniendo la primera version -->",res[0])
                         if(res && res[0] && res[0].versionPerfil && res[0].dispositivos && res[0].dispositivos[0].uidd == dispositivo){
                            deferred.resolve(parseInt(res[0].versionPerfil));
                           }else{
@@ -227,14 +257,18 @@ function getUltimaSincronizacion(perfilDestino, dispositivo, versionEncontrada){
  
 function getUltimaBaseSqlitePorPerfilServidor(perfilDestino, origen, versionEncontrada, dispositivo){
      var deferred = Q.defer();
-     mongodb.getRegistrosCustomColumnasOrdenLimite(coleccion.nombre, {tipo:"perfiles",estado:true, perfil:perfilDestino.toString()}, {nombreBackupSql:1, ubicacion:1,version:1,versionPerfil:1}, {versionPerfil:-1}, 1, function(res){
-              if(res && res[0] &&  res[0].ubicacion && res[0].nombreBackupSql && res[0].versionPerfil){
+     /*
+      por favor borrame luego por que se estaba buscando en perfiles, pero se cambio a zip
+     mongodb.getRegistrosCustomColumnasOrdenLimite(coleccion.nombre, {tipo:"perfiles", estado:true, perfil:perfilDestino.toString()}, {nombreBackupSql:1, ubicacion:1,version:1,versionPerfil:1}, {versionPerfil:-1}, 1, function(res){
+     */
+     mongodb.getRegistrosCustomColumnasOrdenLimite(coleccion.nombre, {tipo:"zip", estado:true, perfil:perfilDestino.toString()}, {nombreBackupZip:1, ubicacionZip:1,version:1,versionPerfil:1}, {versionPerfil:-1}, 1, function(res){
+              if(res && res[0] &&  res[0].ubicacionZip && res[0].nombreBackupZip && res[0].versionPerfil){
                   var difference = parseInt(res[0].versionPerfil) - parseInt(versionEncontrada); 
                   var resultInMinutes = Math.round(difference / 60000);
                     
                   if(res[0].versionPerfil != versionEncontrada){
                     console.log("getUltimaBaseSqlitePorPerfilServidor version servidor-->",res[0].versionPerfil, " version dispositivo ", versionEncontrada, "tiempo transcurrido en minutos ",resultInMinutes, "dispositivo", dispositivo);
-                    deferred.resolve({ubicacionArchivoSqlite:res[0].ubicacion + res[0].nombreBackupSql, versionPerfil:res[0].versionPerfil,perfilDestino:perfilDestino,origen:origen,versionEncontrada:versionEncontrada, dispositivo:dispositivo});
+                    deferred.resolve({ubicacionArchivoSqlite:res[0].ubicacionZip + res[0].nombreBackupZip, versionPerfil:res[0].versionPerfil,perfilDestino:perfilDestino,origen:origen,versionEncontrada:versionEncontrada, dispositivo:dispositivo, nombreBackupZip:res[0].nombreBackupZip});
             
                   }else{
                     deferred.reject({mensaje:"No se encontraron nuevas versiones",perfil:perfilDestino,origen:origen, minutos:resultInMinutes});
@@ -257,7 +291,7 @@ ComandosPorConsola.prototype.crearScriptsPorPerfil = function(perfilDestino, ori
         then(getDispositivosSincronizados).
         then(crearSqliteDiffPorPerfilyDispositivo).
         then(function(success){
-            deferred.resolve(success);
+           deferred.resolve(success);
         },function(error){
              deferred.reject(error);
         });
@@ -271,10 +305,10 @@ function crearArchivoSqlParaActualizacion(actual, nuevo, versionPerfil, perfil, 
     var deferred = Q.defer();
     //Primero se copia la db actual al area de trabajo
     var versionActualizacion = new Date().getTime();
-    var areaTrabajo = "/u02/movil/sqlite/areatrabajo/";
+    var areaTrabajo = process.env.AREATRABAJO;
     var sqliteA = "swissA"+versionActualizacion + ".db";
     var sqliteB = "swissB"+versionActualizacion + ".db";
-    var copiar = "cp -rf  #actual #areaTrabajo#sqliteA;cp -rf  #nuevo #areaTrabajo#sqliteB";
+    var copiar = "cp -rf  #actual #areaTrabajo#sqliteA;cp -rf  #nuevo #areaTrabajo#sqliteB"; //No usado luego borrame
     var nombreScript = "srcript_"+versionActualizacion+"_"+perfil+".sql";
     var sqldiff;
     if(process.env.GRUPO == "1"){
@@ -282,21 +316,57 @@ function crearArchivoSqlParaActualizacion(actual, nuevo, versionPerfil, perfil, 
     }else{
         sqldiff = "sqldiff #areaTrabajo#sqliteA #areaTrabajo#sqliteB > #areaTrabajo#nombreScript";
     }
+    
+    //Ejemplo  unzip -p /u02/movil/sqlite/backups/1475690217765_1475690999106_101.zip  swiss.db > /u02/movil/sqlite/backups/test/bt.db
+    var destinoArchivoExtradoA = "#areaTrabajo#sqliteA".replace(/#areaTrabajo/g,areaTrabajo).replace("#sqliteA",sqliteA);
+    var destinoArchivoExtradoB = "#areaTrabajo#sqliteB".replace(/#areaTrabajo/g,areaTrabajo).replace("#sqliteB",sqliteB);
+    unzipArchivosQall([{archivoZip:actual, archivoAExtraer:"swiss.db", destinoArchivoExtrado:destinoArchivoExtradoA},{archivoZip:nuevo, archivoAExtraer:"swiss.db", destinoArchivoExtrado:destinoArchivoExtradoB}]).then(function(success){
+        console.log("archivos descomprimidos para obtener la diferencia entre bases sqlites ",versionPerfil);
+        sqldiff = sqldiff.replace(/#areaTrabajo/g,areaTrabajo).replace("#sqliteA",sqliteA).replace("#sqliteB",sqliteB).replace("#nombreScript",nombreScript);
+            console.log(sqldiff);
+            exec(sqldiff, function(error1, stdout1, stderr1){
+                if(error1 || stderr1){
+                     console.log("SQLDIFF ERRORES*****************  ",error1,"stdout1",stdout1,"stderr1",stderr1);
+                     deferred.reject(error1 || stderr1);
+                }else{
+                    setTimeout(function(){
+                        leerArchivoSqlParaInsertarloEnMongo(
+                            areaTrabajo+nombreScript,
+                            {versionPerfil:versionPerfil,
+                             versionActualizacion:versionActualizacion,
+                             ubicacionScripTemp:areaTrabajo,
+                             nombreScriptTemp:nombreScript,
+                             versionPerfilReferencia:referencia
+                            }, origen, perfil,dispositivos
+                        ).then(function(success){
+                            deferred.resolve(success);
+                        },function(error){
+                            deferred.reject(error);
+                        });
+
+                    },2000);
+                }
+
+        });
+    })
+    
+    /**
+    
+    No usado luego borrame
     var 
     copiar = copiar.replace("#actual",actual).replace("#nuevo",nuevo).replace(/#areaTrabajo/g,areaTrabajo).replace("#sqliteB",sqliteB).replace("#sqliteA",sqliteA);
-    console.log(copiar);
-    exec(copiar,function(error, stdout, stderr){
+    
+    exec(copiar, function(error, stdout, stderr){
         console.log("error",error,"stdout",stdout,"stderr",stderr);
         if(error || stderr){
-            deferred.reject(error || stderr)
+            deferred.reject(error || stderr);
         }else {
             sqldiff = sqldiff.replace(/#areaTrabajo/g,areaTrabajo).replace("#sqliteA",sqliteA).replace("#sqliteB",sqliteB).replace("#nombreScript",nombreScript);
             console.log(sqldiff);
             exec(sqldiff, function(error1, stdout1, stderr1){
-                
                 if(error1 || stderr1){
-                    console.log("SQLDIFF *****************  error1",error1,"stdout1",stdout1,"stderr1",stderr1);
-                     deferred.reject(error1 || stderr1)
+                     console.log("SQLDIFF *****************  error1",error1,"stdout1",stdout1,"stderr1",stderr1);
+                     deferred.reject(error1 || stderr1);
                 }else{
                     setTimeout(function(){
                         leerArchivoSqlParaInsertarloEnMongo(
@@ -320,10 +390,10 @@ function crearArchivoSqlParaActualizacion(actual, nuevo, versionPerfil, perfil, 
 
         }
 
-    });
+    });*/
     return deferred.promise;
 }
-var coleccion = {nombre:"emcversiones",datos:{tipo:"diccionarios",version:"",nombreBackupSql:"",ubicacion:"/u02/movil/sqlite/bds/", origen:"",resultado:{}}};
+var coleccion = {nombre:"emcversiones",datos:{tipo:"diccionarios",version:"",nombreBackupSql:"",ubicacion:process.env.BDS, origen:"",resultado:{}}};
 
 function leerArchivoSqlParaInsertarloEnMongo(t, consoleSuccess, origen, perfil, dispositivos){
     var deferred = Q.defer();
@@ -463,6 +533,14 @@ function eliminarAlgunosDatosEnElUpdate(index, line, campos){
     }
      
 }
+
+/*
+DROP TABLE emovtperfil; -- due to schema mismatch
+CREATE TABLE emovtperfil (id integer primary key autoincrement, hash TEXT, identificacion TEXT,infoEmpresa TEXT,emisor TEXT,infoPerfil TEXT,version TEXT,dispositivo TEXT,token TEXT,sincronizaciones TEXT,estado TEXT,fecha TEXT,bodegas TEXT,cambiaprecio TEXT,url TEXT,supervisor TEXT,vendedor TEXT,cobrador TEXT,recibo TEXT,secuencial TEXT);
+INSERT INTO emovtperfil(id,hash,identificacion,infoEmpresa,emisor,infoPerfil,version,dispositivo,token,sincronizaciones,estado,fecha,bodegas,cambiaprecio,url,supervisor,vendedor,cobrador,recibo,secuencial) VALUES(112,'a493a336477e3e9763204b0c92679b555362d2dc','0102725181','{"empresa_id":500,"empresa_descripcion":"CONAUTO"}',NULL,'{"vendedor_id":104,"usuario_id":180,"nombres":"ARIAS RICAURTE DIEGO OSWALDO","codigo":"6350050","mbodega_id":1239,"division_id":null,"avanceventa":null,"avancecobro":null,"avanceventadivision":null,"avancecobrodivision":null,"impresora":"AC:3F:A4:11:B4:5A"}','1476813900968.1476816619614',NULL,NULL,NULL,NULL,'NaN','[{"id":11,"codigo":"50","descripcion":"ALMACEN QUITO"},{"id":12,"codigo":"51","descripcion":"BODEGA SUR QUITO"},{"id":13,"codigo":"53","descripcion":"TIRE CITY QUITO"},{"id":14,"codigo":"60","descripcion":"ALMACEN AMBATO"},{"id":1230,"codigo":"50DT","descripcion":"DPTO. TECNICO REPUESTOS (QUITO)"},{"id":1239,"codigo":"50CB1","descripcion":"CAMION BATERIAS PBT-1427"},{"id":1240,"codigo":"50CB2","descripcion":"CAMION BATERIAS PDA-1828"}]',NULL,NULL,'N','N','N','A','{"c8923a143c7924b4":65}');
+
+*/
+
 function leerArchivoEnMemoria(archivo, nuevoArchivo, callback ){
     fs.readFile(archivo, function(err, data) { // read file to memory
         if (!err) {
@@ -488,7 +566,7 @@ function leerArchivoEnMemoria(archivo, nuevoArchivo, callback ){
                         }
                     }
                     if(line && line.indexOf("UPDATE emovtperfil")>=0){
-                        var nuevalinea_url = eliminarAlgunosDatosEnElUpdate(0, line, ["url","version"]);
+                        var nuevalinea_url = eliminarAlgunosDatosEnElUpdate(0, line, ["url","version","dispositivo","emisor"]);
                         if(nuevalinea_url){
                             dataAux.push(nuevalinea_url);
                             if(i % 500 === 0 && i !== 0){
@@ -523,6 +601,66 @@ function grabarEnArchivoTexto(logStream, line, callback){
     }
    callback(true);     
 }
+/**
+    Funcion que borra los archivos del disco duro, esta en estado temporarl, importante la variable del disco duro /u02/movil/sqlite/bds debe estar quemada
+*/
+function borarrArchivos(perfil, exceptoEstosArchivos){
+    if(perfil && (perfil == "101" || perfil == 101) && Array.isArray(exceptoEstosArchivos) && exceptoEstosArchivos.length>0){
+        
+        var archivos = exceptoEstosArchivos;
+        var borrar = "*_#perfil.db".replace("#perfil", perfil);
+        var noborrarlos = archivos.reduce(function(a,b){if(b){a += " ! -name "+b;}return a; },"");
+        var comandoBorrarArchivos = "cd /u02/movil/sqlite/bds; find #borrar #noborrarlos -type f -exec rm -rf {} +;".replace("#noborrarlos",noborrarlos).replace("#borrar", borrar);
+        console.log(comandoBorrarArchivos);
+        exec(comandoBorrarArchivos, function(error, stdout, stderr){
+          console.log(error, stdout, stderr);
+          if(error || stderr ){
+           console.log("error");
+          }else{
+           console.log("borrados");
+
+          }
+        });
+    }
+}
+function unzipArchivosQall(datos){
+    var deferred = Q.defer();
+    if(Array.isArray(datos) && datos.length>0){
+        var datosArchivosADescomprimir = [];
+        datos.forEach(function(dato){
+            datosArchivosADescomprimir.push(unzipArchivos(dato));
+        });
+        Q.all(datosArchivosADescomprimir).then(function(success){
+            setTimeout(function(){
+                 deferred.resolve(true);
+            },3000); //Espero tres segundos
+		     
+        },function(x){
+            deferred.reject(x);
+        });
+    }else{
+        deferred.reject({mensaje:"El parametro datos debe ser un array en la funcion unzipArchivosQall",parametroRecibido:datos});
+    }
+    var arrayArchivosADescomprimir = [];
+    
+    return deferred.promise;
+}
+function unzipArchivos(datos){
+    var deferred = Q.defer();
+    //Ejemplo  unzip -p /u02/movil/sqlite/backups/1475690217765_1475690999106_101.zip  swiss.db > /u02/movil/sqlite/backups/test/bt.db
+    var comandoBorrarArchivos = "unzip -p #archivoZip #archivoAExtraer > #destinoArchivoExtrado".replace("#archivoZip",datos.archivoZip).replace("#archivoAExtraer", datos.archivoAExtraer).replace("#destinoArchivoExtrado", datos.destinoArchivoExtrado);
+    exec(comandoBorrarArchivos, function(error, stdout, stderr){
+        if(error || stderr ){
+            console.log("error en unzipArchivos", error, stderr);
+            deferred.reject(error || stderr);
+        }else{
+            deferred.resolve(true);
+        }
+    });
+   return deferred.promise;
+}
+
+//unzip -p 1475690217765_1475690999106_101.zip swiss.db >test/a.db
 /*console.log('renamed complete');
             fs.readFile('/home/ecuaquimica/sqlite/areatrabajo/srcript_1470938772709_101.sql' , function(err, buf){
                 var d = buf.toString().split("iniciodenuevogrupoparagrabarsqlite");

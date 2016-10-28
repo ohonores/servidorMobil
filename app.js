@@ -173,6 +173,7 @@ console.log("app.get('port'",app.get('port'));
  if(app.get('port') == "8092"){ //
     console.log("entro...a scheduleJob");
     var cronOrdenes = schedule.scheduleJob('10 * * * * *', function(){
+        
         if(app.dispositivosConectados  && app.empresas[0] && app.empresas[0].ruc && app.conexiones[app.empresas[0].ruc]){
             oracleMongo.revisarEstadosDeOrdenesEnviadasDesdeMovil(app.conexiones[app.empresas[0].ruc], app.dispositivosConectados);
         }
