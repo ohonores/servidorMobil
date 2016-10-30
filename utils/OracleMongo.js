@@ -2819,7 +2819,7 @@ OracleMongo.prototype.procesarCartera  = function(perfil){
 function compararParametros(jsonA, jsonB, keysPorComparar){
     for(key in keysPorComparar){
         if(jsonA[key] != jsonB[keysPorComparar[key]]){
-            return {keyA:key,keyB:keysPorComparar[key], error:true,valores, valorA:jsonA[key], valoreB:jsonB[keysPorComparar[key]], mensaje:"No coinciden los valores"};
+            return {keyA:key,keyB:keysPorComparar[key], error:true, valorA:jsonA[key], valoreB:jsonB[keysPorComparar[key]], mensaje:"No coinciden los valores"};
         }
     }
     return true;
