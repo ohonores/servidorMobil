@@ -43,7 +43,7 @@ var client;
 var redisStore;
 log.info("Entro a redis");
 /***********
-    	CONFIGURACION DE REDIS
+    CONFIGURACION DE REDIS
 *************/
 
 client = require("ioredis").createClient();
@@ -97,6 +97,7 @@ app.use(function(req, res, next) {
     }
 
 });
+
 log.info("NODE_ENV: "+ process.env.NODE_ENV);
 var oracledb = require('./conexiones-basededatos/conexion-oracle.js');
 var mongodb = require('./conexiones-basededatos/conexion-mongodb.js');
@@ -125,7 +126,6 @@ setTimeout(function(){
             if(app.dispositivosConectados  && app.empresas[0] && app.empresas[0].ruc && app.conexiones[app.empresas[0].ruc]){
                 oracleMongo.sincronizarPerfilesNuevosDatos(app.conexiones[app.empresas[0].ruc], app.dispositivosConectados);
                 //sincronizar:perfiles
-
             }
 
         });
@@ -152,7 +152,18 @@ if(process.env.GRUPO == "2"){
     var pingOracle = schedule.scheduleJob('*/15 * * * * *', function(){
        oracleMongo.pingOracle();
      });
+    
+    var rule3 = new schedule.RecurrenceRule();
+    rule3.dayOfWeek = [1,2,3,4,5]; //Corre todos los dias
+    rule3.minute = 15;//Con 15 minutos
+    var removerArchivosAreaTrabajo = schedule.scheduleJob(rule3, function(){
+        oracleMongo.removerArchivosAreaTrabajo();
+
+    });
+
 }
+
+
 
 
 
@@ -164,7 +175,6 @@ rutasPrivadas.log = log;
 rutasPrivadas.oracleMongo = oracleMongo;
 
 rutasPublicas.use('/movil/sincronizacion', rutasPrivadas);
-
 app.use('/', rutasPublicas);
 app.oracleMongo = oracleMongo;
 //The 404 Route (ALWAYS Keep this as the last route)

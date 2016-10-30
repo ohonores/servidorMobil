@@ -52,6 +52,7 @@ EntidadesMongoOracle.prototype.getJsonPerfiles = function(){
                                                 avanceventadivision:"AVANCEVENTADIVISION",
                                                 avancecobrodivision:"AVANCECOBRODIVISION",
                                                 impresora:"IMPRESORA",
+                                                
                                             },
                                     version:"",
                                     dispositivo:"",
@@ -67,7 +68,7 @@ EntidadesMongoOracle.prototype.getJsonPerfiles = function(){
                                     cobrador:"COBRADOR",
                                     recibo:"RECIBO",
                                     arrayJson1:{
-                                        sqlOrigen:"SELECT B.* FROM SWISSMOVI.EMOVTPERFIL_BODEGA PB JOIN  SWISSMOVI.EMOVVBODEGA B ON B.ID=PB.MBODEGA_ID WHERE PB.MPERFIL_ID=:ID ORDER BY B.ID ASC",
+                                        sqlOrigen:"SELECT B.* FROM SWISSMOVI.EMOVTPERFIL_BODEGA PB JOIN  SWISSMOVI.EMOVVBODEGA B ON B.ID=PB.MBODEGA_ID WHERE PB.MPERFIL_ID=:ID  ORDER BY B.ID ASC",
                                         parametrosBusqueda:["registroInterno.perfil"],
                                         parametrosBusquedaValores:[],//Este array indica que se utilizaran paraemtros como el A que es id de donde empezara a leer y B que es la cantidad de registros a traer
                                         etiqueta:"bodegas",
@@ -620,10 +621,10 @@ EntidadesMongoOracle.prototype.getJsonCartera = function(){
                     diccionario:false,
                     sincronizar:true,
                     iteracionPorPerfil:true,
-                    trasaccion:true,
+                    transaccion:true,
                     agregarEnFormaActumatica:true,
                     movil:{tabla:"emovtcartera", crear:true, espejo:true, sql:"SELECT * FROM SWISSMOVI.EMOVTCARTERA where rownum = 1", secuencia:"SWISSMOVI.emovscartera"},
-                    referencias:[{tabla:"emovtcartera_detalle",campofk:"MCARTERA_ID"},{tabla:"emovtafecta",campofk:"MCARTERA_ID"}],
+                    referencias:[{tabla:"emovtcartera_detalle",campofk:"MCARTERA_ID"}],
                     sqlOrigen:"SELECT * FROM (SELECT C.* FROM SWISSMOVI.EMOVTCARTERA C JOIN SWISSMOVI.EMOVTPERFIL_ESTABLECIMIENTO PE ON PE.ID = C.MPERFILESTABLECIMIENTO_ID  WHERE C.ESTADO != 'CR' AND PE.MPERFIL_ID=:ID AND ROWNUM<=200 ORDER BY C.ID DESC)",
                     parametrosBusqueda:["registroInterno.perfil"],
                     parametrosBusquedaValores:[],
@@ -643,7 +644,8 @@ EntidadesMongoOracle.prototype.getJsonCartera = function(){
                             precartera_id:"PRECARTERA_ID",
                             estado:"ESTADO",
                             comentario:"COMENTARIO",
-                            referencia:"REFERENCIA"
+                            referencia:"REFERENCIA",
+                            
                         }
                     }
                 };//FIN DEL JSON
@@ -654,7 +656,7 @@ EntidadesMongoOracle.prototype.getJsonCarteraDetalle = function(){
                     diccionario:false,
                     sincronizar:true,
                     iteracionPorPerfil:true,
-                    trasaccion:true,
+                    transaccion:true,
                     agregarEnFormaActumatica:true,
                     movil:{tabla:"emovtcartera_detalle", crear:true, espejo:true, sql:"SELECT * FROM SWISSMOVI.EMOVTCARTERA_DETALLE where rownum = 1", secuencia:"SWISSMOVI.emovscartera_detalle"},
                     sqlOrigen:"SELECT * FROM (SELECT CD.* FROM SWISSMOVI.EMOVTCARTERA_DETALLE CD JOIN SWISSMOVI.EMOVTCARTERA C ON CD.MCARTERA_ID = C.ID JOIN SWISSMOVI.EMOVTPERFIL_ESTABLECIMIENTO PE ON PE.ID = C.MPERFILESTABLECIMIENTO_ID  WHERE  CD.MCARTERA_ID IN (SELECT C.ID FROM SWISSMOVI.EMOVTCARTERA C JOIN SWISSMOVI.EMOVTPERFIL_ESTABLECIMIENTO PE ON PE.ID = C.MPERFILESTABLECIMIENTO_ID  WHERE  PE.MPERFIL_ID=:ID AND ROWNUM<=1000)  ORDER BY CD.ID DESC)",
@@ -707,7 +709,7 @@ EntidadesMongoOracle.prototype.getJsonAfecta = function(){
                     coleccion:"emcafecta",
                     diccionario:false,
                     sincronizar:true,
-                    trasaccion:true,
+                    transaccion:true,
                     iteracionPorPerfil:true,
                     agregarEnFormaActumatica:true,
                     movil:{tabla:"emovtafecta", crear:true, espejo:true, sql:"SELECT * FROM SWISSMOVI.EMOVTAFECTA where rownum = 1",secuencia:"SWISSMOVI.emovsafecta"},
@@ -737,7 +739,7 @@ EntidadesMongoOracle.prototype.getJsonOrden = function(){
                     coleccion:"emcorden",
                     diccionario:false,
                     sincronizar:true,
-                    trasaccion:true,
+                    transaccion:true,
                     iteracionPorPerfil:true,
                     movil:{tabla:"emovtorden", crear:true, espejo:true, sql:"SELECT * FROM SWISSMOVI.EMOVTORDEN where rownum = 1",secuencia:"SWISSMOVI.emovsorden"},
                     referencias:[{tabla:"emovtorden_detalle",campofk:"MORDEN_ID"},{tabla:"emovtorden_condicion",campofk:"MORDEN_ID"}],
@@ -779,7 +781,7 @@ EntidadesMongoOracle.prototype.getJsonOrdenDetalle = function(){
                     coleccion:"emcordenDetalle",
                     diccionario:false,
                     sincronizar:true,
-                    trasaccion:true,
+                    transaccion:true,
                     iteracionPorPerfil:true,
                     agregarEnFormaActumatica:true,
                     movil:{tabla:"emovtorden_detalle", crear:true, espejo:true, sql:"SELECT * FROM SWISSMOVI.EMOVTORDEN_DETALLE where rownum = 1",secuencia:"SWISSMOVI.emovsorden_detalle"},
@@ -828,7 +830,7 @@ EntidadesMongoOracle.prototype.getJsonOrdenCondicion = function(){
                     coleccion:"emcordencondicion",
                     diccionario:false,
                     sincronizar:true,
-                    trasaccion:true,
+                    transaccion:true,
                     iteracionPorPerfil:true,
                     agregarEnFormaActumatica:true,
                     movil:{tabla:"emovtorden_condicion", crear:true, espejo:true, sql:"SELECT * FROM SWISSMOVI.EMOVTORDEN_CONDICION where rownum = 1",secuencia:"SWISSMOVI.emovsorden_condicion"},
@@ -866,7 +868,7 @@ EntidadesMongoOracle.prototype.getJsonEvaluacion = function(){
                     coleccion:"emovcevaluacion",
                     diccionario:false,
                     sincronizar:true,
-                    trasaccion:true,
+                    transaccion:true,
                     iteracionPorPerfil:true,
                     agregarEnFormaActumatica:true,
                     movil:{tabla:"emovtevaluacion", crear:true, espejo:true, sql:"SELECT * FROM SWISSMOVI.EMOVTEVALUACION where rownum = 1",secuencia:"SWISSMOVI.EMOVSEVALUACION"},
@@ -912,7 +914,7 @@ EntidadesMongoOracle.prototype.getJsonTest = function(){
                     coleccion:"emovctest",
                     diccionario:false,
                     sincronizar:true,
-                    trasaccion:true,
+                    transaccion:true,
                     iteracionPorPerfil:true,
                     agregarEnFormaActumatica:true,
                     movil:{tabla:"emovttest", crear:true, espejo:true, sql:"SELECT * FROM SWISSMOVI.EMOVTTEST where rownum = 1",secuencia:"SWISSMOVI.EMOVSTEST"},
@@ -959,7 +961,7 @@ EntidadesMongoOracle.prototype.getJsonTestRespuesta = function(){
                     coleccion:"emovctest_respuesta",
                     diccionario:false,
                     sincronizar:true,
-                    trasaccion:true,
+                    transaccion:true,
                     iteracionPorPerfil:true,
                     agregarEnFormaActumatica:true,
                     movil:{tabla:"emovttest_respuesta", crear:true, espejo:true, sql:"SELECT * FROM SWISSMOVI.EMOVTTEST_RESPUESTA where rownum = 1",secuencia:"SWISSMOVI.EMOVSTEST_RESPUESTA"},
@@ -1410,6 +1412,7 @@ EntidadesMongoOracle.prototype.getScriptsDropTables = function(json){
      * @param {number}  index -  Índice del hash.
 */
 EntidadesMongoOracle.prototype.getScriptsUniqueKeys = function(json, index){
+        console.log(json.movil.tabla, index, "UNIQUEHASH"+index)
         return scritpUniqueKeys.replace(/#TABLA/g, json.movil.tabla).replace("#NOMBRE", "UNIQUEHASH"+index);
 };
 

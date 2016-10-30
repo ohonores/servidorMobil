@@ -11,8 +11,6 @@ for( key in networkInterfaces){
         break;
     }else{
         console.log("LA IP DEL SERVIDOR ACTUAL ", ip, "NO**************** COINCIDE CON LA IP CONFIGURADA EN EL ARCHIVO bin/variablesProduccion");
-        
-       
     }
 }
 if(ipEncontrada){

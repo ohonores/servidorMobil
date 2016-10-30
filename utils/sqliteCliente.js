@@ -29,7 +29,7 @@ SqliteCliente.prototype.crearTablas = function(nombreBaseDatos, scriptsTablas){
             db.serialize(function() {
                 db.exec('BEGIN IMMEDIATE');
                 scriptsTablas.forEach(function(scriptTabla){
-                      console.log("crearTablas BEGIN IMMEDIATE")
+                      console.log("crearTablas BEGIN IMMEDIATE", scriptTabla)
                         db.run(scriptTabla);
                 });
                  db.exec("COMMIT")

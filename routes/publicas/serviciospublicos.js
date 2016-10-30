@@ -22,11 +22,13 @@ var urlDiccionario = "/movil/sincronizacion/inicio/diccionarios/:coleccion/:inde
 var urlRecpcion = urlMatriz+"/movil/sincronizacion/recepcion/:tabla/";
 var urlSincronizarPerifil = urlMatriz+"/movil/sincronizacion/actualizar/perfil-sinc/:coleccion/:index";
 var parser = new UAParser();
-/* PAGINA DE INICIO. */
+/* PAGINA DE INICIO . */
 router.get('/', function(req, res, next) {
      res.send('MOVILE*************');
 });
-
+router.get('/test/:id/otros/:nombre',function(req, res, next){
+    res.send(req.params.id);
+});
 router.get('/geolocalizacion',function(req, res, next){
      res.render('home/index.html');
 });
@@ -97,7 +99,7 @@ router.get('/movil/autentificacion/:tipo/:identificacion/:empresa/:uidd/:x/:y/:t
                     respuesta.emisor = respuesta.registroMovil.emisor;
                     router.client.hmset(getDiaActual(), respuesta.registroInterno.perfil,"Perfil econtrado y esperando su base, fecha:"+new Date());
                     router.client.expire(respuesta.registroInterno.perfil,259200);
-                    urlMatriz,JSON.stringify(process.env.GRUPO),JSON.stringify(process.env.DOMINIO), JSON.stringify(urlsProduccion[process.env.GRUPO]));
+                   
                     //Buscano la url del archivo zip
                     switch(req.params.tipo){
                         case "device":
@@ -129,7 +131,7 @@ router.get('/movil/autentificacion/:tipo/:identificacion/:empresa/:uidd/:x/:y/:t
                             });
                             break;
                         default :
-                            respuesta.registroInterno.perfil)
+                          
                             oracleMongo.getUrlsPorPefil(respuesta.registroMovil.identificacion, respuesta.registroInterno.perfil, urlMatriz+urlPefil, urlMatriz+urlDiccionario, urlRecpcion, function(total){
                                 oracleMongo.getTablasScript(function(script){
                                         respuesta.scripts = [];
@@ -195,7 +197,6 @@ router.get('/movil/iniciar/sensor/sincronizador/get-datos', function(req, res) {
 router.get('/movil/iniciar/sensor/sincronizador/actualizar-datos/:tablas', function(req, res) {
     oracleMongo.crearBackupsSqliteAutomatica(parser.setUA(req.headers['user-agent']).getResult(), req.app.conexiones[req.app.empresas[0].ruc]);
 	res.json("Actualizando Colecciones..");
-   
 });
 
 //No usada

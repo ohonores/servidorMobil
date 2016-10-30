@@ -203,7 +203,7 @@ function crearSqliteDiffPorPerfilyDispositivo(parametros){
 function getUltimaBaseSqlitePorPerfilServidor(perfilDestino, origen, versionEncontrada, dispositivo){
      var deferred = Q.defer();
      mongodb.getRegistrosCustomColumnasOrdenLimite(coleccion.nombre, {tipo:"zip", estado:true, perfil:perfilDestino.toString()}, {nombreBackupZip:1, ubicacionZip:1,version:1,versionPerfil:1}, {versionPerfil:-1}, 1, function(res){
-            f(res && res[0] &&  res[0].ubicacionZip && res[0].nombreBackupZip && res[0].versionPerfil){
+            if(res && res[0] &&  res[0].ubicacionZip && res[0].nombreBackupZip && res[0].versionPerfil){
                   if(res[0].versionPerfil != versionEncontrada){
                     deferred.resolve({ubicacionArchivoSqlite:res[0].ubicacionZip + res[0].nombreBackupZip, versionPerfil:res[0].versionPerfil,perfilDestino:perfilDestino,origen:origen,versionEncontrada:versionEncontrada, dispositivo:dispositivo, nombreBackupZip:res[0].nombreBackupZip});
                   }else{
