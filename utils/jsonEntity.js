@@ -919,7 +919,7 @@ EntidadesMongoOracle.prototype.getJsonTest = function(){
                     agregarEnFormaActumatica:true,
                     movil:{tabla:"emovttest", crear:true, espejo:true, sql:"SELECT * FROM SWISSMOVI.EMOVTTEST where rownum = 1",secuencia:"SWISSMOVI.EMOVSTEST"},
                     referencias:[{tabla:"emovttest_respuesta",campofk:"TEST_ID"}],
-                    sqlOrigen:"SELECT * FROM (SELECT T.* FROM SWISSMOVI.EMOVTTEST CD JOIN SWISSMOVI.EMOVTEVALUACION C ON CD.EVALUACION_ID = C.ID JOIN SWISSMOVI.EMOVTPERFIL PE ON PE.ID = C.EVALUADOR_ID  WHERE  CD.EVALUACION_ID IN (SELECT C.ID FROM SWISSMOVI.EMOVTEVALUACION C JOIN SWISSMOVI.EMOVTPERFIL PE ON PE.ID = C.MPERFILESTABLECIMIENTO_ID  WHERE  PE.EVALUADOR_ID=:ID AND ROWNUM<=1500)  ORDER BY CD.ID ASC)  PEA WHERE  PEA.ID>=:A AND ROWNUM<=:B",
+                    sqlOrigen:"SELECT * FROM (SELECT CD.* FROM SWISSMOVI.EMOVTTEST CD JOIN SWISSMOVI.EMOVTEVALUACION C ON CD.EVALUACION_ID = C.ID JOIN SWISSMOVI.EMOVTPERFIL PE ON PE.ID = C.EVALUADOR_ID  WHERE  CD.EVALUACION_ID IN (SELECT C.ID FROM SWISSMOVI.EMOVTEVALUACION C JOIN SWISSMOVI.EMOVTPERFIL PE ON PE.ID = C.MPERFILESTABLECIMIENTO_ID  WHERE  PE.EVALUADOR_ID=:ID AND ROWNUM<=1500)  ORDER BY CD.ID ASC)  PEA WHERE  PEA.ID>=:A AND ROWNUM<=:B",
                     parametrosBusqueda:["registroInterno.perfil"],
                     parametrosBusquedaValores:[],
                     registroTipoCamposNumericos:{
