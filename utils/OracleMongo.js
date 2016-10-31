@@ -1859,8 +1859,9 @@ OracleMongo.prototype.grabarPerfilVersionado = function(perfil, jsonEntity, nomb
 OracleMongo.prototype.crearColeccionesMongoRecursive = function(index, entidades, perfil, bdPorPerfil, resultado, callback){
     var padre = this;
     if(index<entidades.length){
+        console.log("getEntityPorParametros o index k", index, index>=8?entidades[index]:"");
          padre.crearColeccionesMongo(perfil, bdPorPerfil, [entidades[index]]).then(function(success){
-             console.log("getEntityPorParametros o index k",success, index, index>=8?entidades[index]:"");
+            // console.log("getEntityPorParametros o index k",success, index, index>=8?entidades[index]:"");
             // deferred.resolve(success);
              index++;
              resultado.push(true);
