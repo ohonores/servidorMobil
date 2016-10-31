@@ -919,7 +919,7 @@ EntidadesMongoOracle.prototype.getJsonTest = function(){
                     agregarEnFormaActumatica:true,
                     movil:{tabla:"emovttest", crear:true, espejo:true, sql:"SELECT * FROM SWISSMOVI.EMOVTTEST where rownum = 1",secuencia:"SWISSMOVI.EMOVSTEST"},
                     referencias:[{tabla:"emovttest_respuesta",campofk:"TEST_ID"}],
-                    sqlOrigen:"SELECT * FROM (SELECT CD.* FROM SWISSMOVI.EMOVTTEST CD JOIN SWISSMOVI.EMOVTEVALUACION C ON CD.EVALUACION_ID = C.ID JOIN SWISSMOVI.EMOVTPERFIL PE ON PE.ID = C.EVALUADOR_ID  WHERE  CD.EVALUACION_ID IN (SELECT C.ID FROM SWISSMOVI.EMOVTEVALUACION C JOIN SWISSMOVI.EMOVTPERFIL PE ON PE.ID = C.MPERFILESTABLECIMIENTO_ID  WHERE  PE.EVALUADOR_ID=:ID AND ROWNUM<=1500)  ORDER BY CD.ID ASC)  PEA WHERE  PEA.ID>=:A AND ROWNUM<=:B",
+                    sqlOrigen:"SELECT * FROM (SELECT CD.* FROM SWISSMOVI.EMOVTTEST CD JOIN SWISSMOVI.EMOVTEVALUACION C ON CD.EVALUACION_ID = C.ID JOIN SWISSMOVI.EMOVTPERFIL PE ON PE.ID = C.EVALUADOR_ID  WHERE  CD.EVALUACION_ID IN (SELECT C.ID FROM SWISSMOVI.EMOVTEVALUACION C JOIN SWISSMOVI.EMOVTPERFIL PE ON PE.ID = C.EVALUADOR_ID  WHERE  PE.ID=(SELECT ID FROM EMOVTPERFIL WHERE ID=:ID AND SUPERVISOR='S' AND ESTADO='A' AND ROWNUM=1) AND ROWNUM<=1500)  ORDER BY CD.ID ASC)  PEA WHERE  PEA.ID>=:A AND ROWNUM<=:B",
                     parametrosBusqueda:["registroInterno.perfil"],
                     parametrosBusquedaValores:[],
                     registroTipoCamposNumericos:{
@@ -965,7 +965,7 @@ EntidadesMongoOracle.prototype.getJsonTestRespuesta = function(){
                     iteracionPorPerfil:true,
                     agregarEnFormaActumatica:true,
                     movil:{tabla:"emovttest_respuesta", crear:true, espejo:true, sql:"SELECT * FROM SWISSMOVI.EMOVTTEST_RESPUESTA where rownum = 1",secuencia:"SWISSMOVI.EMOVSTEST_RESPUESTA"},
-                    sqlOrigen:"SELECT * FROM (SELECT T.* FROM SWISSMOVI.EMOVTTEST_RESPUESTA T JOIN SWISSMOVI.EMOVTPERFIL P ON P.ID = T.EVALUADOR_ID  WHERE T.ESTADO != 'CR' AND   P.MPERFIL_ID=:ID AND ROWNUM<=200 ORDER BY T.ID ASC) PEA WHERE PEA.ID>=:A AND ROWNUM<=:B",
+                    sqlOrigen:"SELECT * FROM (SELECT T.*, C.EVALUADOR_ID FROM SWISSMOVI.EMOVTTEST_RESPUESTA T JOIN SWISSMOVI.EMOVTTEST CD ON CD.ID= T.TEST_ID JOIN SWISSMOVI.EMOVTEVALUACION C ON CD.EVALUACION_ID = C.ID JOIN SWISSMOVI.EMOVTPERFIL PE ON PE.ID = C.EVALUADOR_ID  WHERE  CD.EVALUACION_ID IN (SELECT C.ID FROM SWISSMOVI.EMOVTEVALUACION C JOIN SWISSMOVI.EMOVTPERFIL PE ON PE.ID = C.EVALUADOR_ID  WHERE  PE.ID=(SELECT ID FROM EMOVTPERFIL WHERE ID=:ID AND SUPERVISOR='S' AND ESTADO='A' AND ROWNUM=1) AND ROWNUM<=1500)  ORDER BY CD.ID ASC)  PEA WHERE  PEA.ID>=:A AND ROWNUM<=:B",
                     parametrosBusqueda:["registroInterno.perfil"],
                     parametrosBusquedaValores:[],
                     registroTipoCamposNumericos:{
