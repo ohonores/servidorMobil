@@ -832,7 +832,7 @@ EntidadesMongoOracle.prototype.getJsonOrdenCondicion = function(){
                     sincronizar:true,
                     transaccion:true,
                     iteracionPorPerfil:true,
-                    agregarEnFormaActumatica:true,
+                    agregarEnFormaActumatica:false,
                     movil:{tabla:"emovtorden_condicion", crear:true, espejo:true, sql:"SELECT * FROM SWISSMOVI.EMOVTORDEN_CONDICION where rownum = 1",secuencia:"SWISSMOVI.emovsorden_condicion"},
                     registroTipoCamposNumericos:{
                         "MORDEN_ID":"INTEGER",
