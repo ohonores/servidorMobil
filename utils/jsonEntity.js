@@ -873,7 +873,7 @@ EntidadesMongoOracle.prototype.getJsonEvaluacion = function(){
                     agregarEnFormaActumatica:true,
                     movil:{tabla:"emovtevaluacion", crear:true, espejo:true, sql:"SELECT * FROM SWISSMOVI.EMOVTEVALUACION where rownum = 1",secuencia:"SWISSMOVI.EMOVSEVALUACION"},
                     referencias:[{tabla:"emovttest",campofk:"EVALUACION_ID"}],
-                    sqlOrigen:"SELECT * FROM (SELECT T.* FROM SWISSMOVI.EMOVTEVALUACION T JOIN SWISSMOVI.EMOVTPERFIL P ON P.ID = T.EVALUADOR_ID  WHERE T.ESTADO != 'CR' AND   P.MPERFIL_ID=:ID AND ROWNUM<=200 ORDER BY T.ID ASC) PEA WHERE PEA.ID>=:A AND ROWNUM<=:B",
+                    sqlOrigen:"SELECT * FROM (SELECT T.* FROM SWISSMOVI.EMOVTEVALUACION T JOIN SWISSMOVI.EMOVTPERFIL P ON P.ID = T.EVALUADOR_ID  WHERE T.ESTADO != 'CR' AND   P.ID=:ID AND ROWNUM<=200 ORDER BY T.ID ASC) PEA WHERE PEA.ID>=:A AND ROWNUM<=:B",
                     parametrosBusqueda:["registroInterno.perfil"],
                     parametrosBusquedaValores:[],
                     registroTipoCamposNumericos:{
