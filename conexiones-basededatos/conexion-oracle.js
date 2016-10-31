@@ -144,7 +144,11 @@ ClienteOracle.prototype.getPoolClienteConexion = function (sql, parametros, grab
                                     
                                     return;
                                 }
-                                
+                                console.log("********getPoolClienteConexion*****************");
+                                console.log(sql);
+                                console.log(parametros);
+                                console.log(grabar);
+                                console.log("********getPoolClienteConexion*****************");
 							    connection.execute(sql, parametros, grabar ? { autoCommit: true}:{maxRows:10000}, function(err, result) {
                              				// return the client to the connection pool for other requests to reuse
                              				if(err) {
