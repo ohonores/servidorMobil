@@ -1860,7 +1860,7 @@ OracleMongo.prototype.crearColeccionesMongoRecursive = function(index, entidades
     var padre = this;
     if(index<entidades.length){
          padre.crearColeccionesMongo(perfil, bdPorPerfil, [entidades[index]]).then(function(success){
-             console.log("getEntityPorParametros o index k",success, index);
+             console.log("getEntityPorParametros o index k",success, index, index>=8?entidades[index]:"");
             // deferred.resolve(success);
              index++;
              resultado.push(true);
